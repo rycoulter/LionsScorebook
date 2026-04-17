@@ -21,8 +21,10 @@
           </div>
         </div>
         <nav class="tabs" aria-label="Scorebook sections">
-          <button class="tab is-active" data-view="score">Score Game</button>
+          <button class="tab is-active" data-view="home">Home</button>
+          <button class="tab" data-view="score">Score Game</button>
           <button class="tab" data-view="games">Games</button>
+          <button class="tab" data-view="scorebook">Scorebook</button>
           <button class="tab" data-view="lineup">Lineup Lab</button>
           <button class="tab" data-view="roster">Roster</button>
           <button class="tab" data-view="stats">Stats</button>
@@ -33,18 +35,69 @@
       </header>
 
       <main>
-        <section class="scoreboard-band">
-          <img
-            src="https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=1800&q=80"
-            alt="Baseball field at game time"
-            class="field-image">
-          <div class="game-glass">
+        <section class="view is-visible" id="homeView" data-panel="home">
+          <div class="section-head">
             <div>
-              <p class="eyebrow">Live Card</p>
-              <h2 id="gameTitle">Lions vs Wildcats</h2>
-              <p id="gameContext">Top 1, 0 outs</p>
+              <p class="eyebrow">Oakmont Lions</p>
+              <h2>Season command center</h2>
             </div>
-            <div class="scoreline" aria-label="Current score">
+            <button type="button" class="primary-action" id="homeScoreGameBtn">Score Active Game</button>
+          </div>
+          <div class="home-grid">
+            <section class="home-panel home-hero-panel">
+              <img
+                src="https://images.unsplash.com/photo-1508344928928-7165b67de128?auto=format&fit=crop&w=1200&q=80"
+                alt="Baseball diamond before first pitch"
+                class="home-field-image">
+              <div class="mini-head">
+                <div>
+                  <h3 id="homeRecord">0-0</h3>
+                  <span class="player-meta">Overall record</span>
+                </div>
+                <span class="player-meta" id="homeRunSummary">0 RF | 0 RA</span>
+              </div>
+              <div class="home-next-game">
+                <span class="scout-kicker">Next Game</span>
+                <h3 id="homeNextGame">No upcoming game scheduled</h3>
+                <p class="player-meta" id="homeNextGameMeta">Create a game from the Games tab.</p>
+                <div class="button-row">
+                  <button type="button" class="secondary-action" id="homeScoutingBtn">View Scouting Report</button>
+                  <button type="button" class="secondary-action" id="homeGamesBtn">Manage Games</button>
+                </div>
+              </div>
+            </section>
+            <section class="home-panel">
+              <div class="mini-head">
+                <h3>Batting Leaders</h3>
+                <span>AVG | RBI | OPS</span>
+              </div>
+              <div class="leader-grid compact-leaders" id="homeBattingLeaders"></div>
+            </section>
+            <section class="home-panel">
+              <div class="mini-head">
+                <h3>Pitching Leaders</h3>
+                <span>K | WHIP | Strike %</span>
+              </div>
+              <div class="leader-grid compact-leaders" id="homePitchingLeaders"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="scoreView" data-panel="score">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Score Game</p>
+              <h2>Pitch-by-pitch scorekeeping</h2>
+            </div>
+            <button class="secondary-action" id="newGameBtn">Games</button>
+          </div>
+          <section class="score-status-card" aria-label="Current game status">
+            <div>
+              <p class="eyebrow">Game State</p>
+              <h3 id="gameTitle">Lions vs Wildcats</h3>
+              <p class="player-meta" id="gameContext">Top 1, 0 outs</p>
+            </div>
+            <div class="scoreline clean-scoreline" aria-label="Current score">
               <div>
                 <span>Oakmont</span>
                 <strong id="lionsScore">0</strong>
@@ -54,23 +107,13 @@
                 <strong id="opponentScore">0</strong>
               </div>
             </div>
-            <div class="diamond" aria-label="Base state">
+            <div class="diamond clean-diamond" aria-label="Base state">
               <span class="base second" data-base="2"></span>
               <span class="base third" data-base="3"></span>
               <span class="base first" data-base="1"></span>
               <span class="plate"></span>
             </div>
-          </div>
-        </section>
-
-        <section class="view is-visible" id="scoreView" data-panel="score">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Score Game</p>
-              <h2>Pitch-by-pitch scorekeeping</h2>
-            </div>
-            <button class="secondary-action" id="newGameBtn">Games</button>
-          </div>
+          </section>
 
           <div class="score-grid">
             <div class="scorer-stack" id="scorerStack">
@@ -347,6 +390,42 @@
               </div>
               <div class="play-feed" id="playFeed"></div>
             </aside>
+          </div>
+        </section>
+
+        <section class="view" id="scorebookView" data-panel="scorebook">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Scorebook</p>
+              <h2>Traditional game sheet</h2>
+            </div>
+            <span class="player-meta" id="scorebookGameMeta">Active game</span>
+          </div>
+          <div class="scorebook-layout">
+            <section class="scorebook-panel">
+              <div class="mini-head">
+                <h3>Oakmont Batting</h3>
+                <span>Inning boxes from scored ABs</span>
+              </div>
+              <div class="scorebook-table-wrap">
+                <table class="scorebook-table">
+                  <thead id="scorebookHead"></thead>
+                  <tbody id="scorebookBody"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="scorebook-panel">
+              <div class="mini-head">
+                <h3>Opponent Batting</h3>
+                <span>Simple opponent scoring log</span>
+              </div>
+              <div class="scorebook-table-wrap">
+                <table class="scorebook-table">
+                  <thead id="opponentScorebookHead"></thead>
+                  <tbody id="opponentScorebookBody"></tbody>
+                </table>
+              </div>
+            </section>
           </div>
         </section>
 
@@ -700,6 +779,7 @@
       </article>
     </template>
 
+    <script src="storage.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
