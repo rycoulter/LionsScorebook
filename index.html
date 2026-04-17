@@ -137,6 +137,7 @@
                     <button type="button" class="pitch-btn strike" data-pitch="swinging_strike">Swinging Strike</button>
                     <button type="button" class="pitch-btn foul" data-pitch="foul">Foul</button>
                     <button type="button" class="pitch-btn in-play" data-pitch="in_play">Ball In Play</button>
+                    <button type="button" class="pitch-btn hbp" data-auto-result="HBP">HBP</button>
                   </div>
                   <div class="batter-summary" id="batterSummary"></div>
                   <div class="pitch-trail" id="pitchTrail"></div>
@@ -153,6 +154,14 @@
                     </div>
                     <button type="button" class="secondary-action compact-action" id="clearBipBtn">Back</button>
                   </div>
+                  <div class="button-group compact-group" aria-label="Select contact quality">
+                    <span>Contact</span>
+                    <button type="button" class="choice-btn is-selected" data-choice-group="contact" data-choice-value="none">No Contact</button>
+                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="weak">Weak</button>
+                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="solid">Solid</button>
+                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="hard">Hard Hit</button>
+                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="barrel">Barrel</button>
+                  </div>
                   <div class="button-group" aria-label="Select batted ball result">
                     <span>Outcome</span>
                     <button type="button" class="choice-btn is-selected" data-choice-group="result" data-choice-value="1B">Single</button>
@@ -167,15 +176,7 @@
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="LO">Lineout</button>
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="SAC">Sacrifice</button>
                   </div>
-                  <div class="button-group compact-group" aria-label="Select contact quality">
-                    <span>Contact</span>
-                    <button type="button" class="choice-btn is-selected" data-choice-group="contact" data-choice-value="none">No Contact</button>
-                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="weak">Weak</button>
-                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="solid">Solid</button>
-                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="hard">Hard Hit</button>
-                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="barrel">Barrel</button>
-                  </div>
-                  <div class="button-group compact-group" aria-label="Select launch band">
+                  <div class="button-group compact-group launch-detail-group" aria-label="Select launch band">
                     <span>Launch</span>
                     <button type="button" class="choice-btn is-selected" data-choice-group="launch" data-choice-value="none">No Contact</button>
                     <button type="button" class="choice-btn" data-choice-group="launch" data-choice-value="gb">Ground Ball</button>
@@ -348,8 +349,7 @@
                   Coach note
                   <input id="noteInput" name="note" autocomplete="off" placeholder="Two-strike approach, hit-and-run, baserunning read...">
                 </label>
-                <div class="button-row wide">
-                  <button type="submit" class="primary-action">Complete AB</button>
+                  <div class="button-row wide">
                   <button type="button" class="secondary-action" id="undoBtn">Undo Last Play</button>
                   <button type="button" class="secondary-action" id="endHalfBtn">End Half</button>
                   <button type="button" class="secondary-action" id="finishGameBtn">Finish Game</button>

@@ -391,6 +391,10 @@ main {
   align-items: start;
 }
 
+#scoreView .score-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.32fr);
+}
+
 .score-form,
 .pitch-panel,
 .spray-panel,
@@ -471,11 +475,11 @@ main {
 
 .scorer-stack {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  position: relative;
+  grid-template-columns: 1fr;
   grid-template-areas:
-    "pitch pitch"
-    "form form"
-    "spray runners";
+    "field"
+    "form";
   gap: 12px;
 }
 
@@ -488,25 +492,23 @@ main {
 }
 
 .pitch-panel {
-  grid-area: pitch;
+  grid-area: field;
   position: relative;
-  min-height: 216px;
+  z-index: 4;
+  align-self: start;
+  justify-self: center;
+  width: min(1040px, calc(100% - 24px));
+  min-height: auto;
+  margin-top: 12px;
   overflow: hidden;
-  background:
-    linear-gradient(45deg, transparent 47%, rgba(255, 255, 255, 0.7) 47.6% 48.4%, transparent 49%),
-    linear-gradient(-45deg, transparent 47%, rgba(255, 255, 255, 0.7) 47.6% 48.4%, transparent 49%),
-    radial-gradient(circle at 50% 84%, rgba(201, 144, 69, 0.95) 0 13%, transparent 13.4%),
-    linear-gradient(180deg, #edf8f0 0%, #f8faf8 100%);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(14px);
   transition: background-color 180ms ease, border-color 180ms ease;
 }
 
 .pitch-panel.is-outcome {
   border-color: var(--grass);
-  background:
-    linear-gradient(45deg, transparent 47%, rgba(255, 255, 255, 0.72) 47.6% 48.4%, transparent 49%),
-    linear-gradient(-45deg, transparent 47%, rgba(255, 255, 255, 0.72) 47.6% 48.4%, transparent 49%),
-    radial-gradient(circle at 50% 84%, rgba(201, 144, 69, 0.92) 0 13%, transparent 13.4%),
-    #f7fbf8;
+  background: rgba(247, 251, 248, 0.94);
 }
 
 .ab-face {
@@ -545,26 +547,32 @@ main {
 
 .pitch-panel.is-opponent {
   border-color: var(--red);
-  background:
-    linear-gradient(45deg, transparent 47%, rgba(255, 255, 255, 0.7) 47.6% 48.4%, transparent 49%),
-    linear-gradient(-45deg, transparent 47%, rgba(255, 255, 255, 0.7) 47.6% 48.4%, transparent 49%),
-    radial-gradient(circle at 50% 84%, rgba(201, 144, 69, 0.88) 0 13%, transparent 13.4%),
-    #fff7f7;
+  background: rgba(255, 247, 247, 0.94);
 }
 
 .spray-panel {
-  grid-area: spray;
+  grid-area: field;
+  position: relative;
+  min-height: 690px;
+  padding: 0;
+  overflow: hidden;
 }
 
 .runner-panel {
-  grid-area: runners;
+  grid-area: field;
+  z-index: 3;
+  align-self: end;
+  justify-self: center;
+  width: min(920px, calc(100% - 24px));
+  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
 }
 
 .scorer-stack.is-defense {
   grid-template-areas:
-    "pitch pitch"
-    "form form"
-    "runners runners";
+    "field"
+    "form";
 }
 
 .count-display {
@@ -643,38 +651,44 @@ main {
 
 .pitch-buttons {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
 }
 
 .pitch-btn {
   min-height: 56px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 8px;
   padding: 9px 8px;
-  background: var(--white);
+  background: #f2f5f2;
   color: var(--ink);
   font-weight: 900;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.08), 0 10px 22px rgba(14, 27, 19, 0.12);
 }
 
 .pitch-btn.ball {
-  border-color: #2f8d59;
-  background: #edf8f0;
+  background: linear-gradient(180deg, #eef9f1, #ccebd7);
+  color: #115a37;
 }
 
 .pitch-btn.strike {
-  border-color: #be494b;
-  background: #fff1f1;
+  background: linear-gradient(180deg, #fff2f2, #f3c5c6);
+  color: #8e2225;
 }
 
 .pitch-btn.foul {
-  border-color: #d49c2d;
-  background: #fff7df;
+  background: linear-gradient(180deg, #fff8df, #f5dc91);
+  color: #715014;
 }
 
 .pitch-btn.in-play {
-  border-color: #2c6f91;
-  background: #edf7fb;
+  background: linear-gradient(180deg, #eef8fb, #c5e4ee);
+  color: #1b6078;
+}
+
+.pitch-btn.hbp {
+  background: linear-gradient(180deg, #f7f3ff, #d9d0f0);
+  color: #413467;
 }
 
 .opponent-outcomes {
@@ -714,7 +728,7 @@ main {
 }
 
 .spray-panel.is-defense {
-  display: none;
+  opacity: 0.4;
 }
 
 .button-group {
@@ -755,6 +769,12 @@ main {
   display: grid;
   gap: 8px;
   padding: 0;
+}
+
+.launch-detail-group,
+.score-form label:first-child,
+.score-form .quick-outcomes {
+  display: none;
 }
 
 .compact-action {
@@ -942,7 +962,23 @@ button:focus-visible {
 }
 
 .spray-panel .mini-head {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 12px;
+  z-index: 2;
   align-items: start;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(12, 45, 28, 0.78);
+  color: var(--white);
+  backdrop-filter: blur(12px);
+}
+
+.spray-panel .mini-head .player-meta,
+.spray-panel .mini-head h3 {
+  color: var(--white);
 }
 
 .spray-panel select {
@@ -951,7 +987,7 @@ button:focus-visible {
 
 .spray-chart {
   position: relative;
-  min-height: 306px;
+  min-height: 690px;
   overflow: hidden;
   border: 2px solid #2f734d;
   border-radius: 8px;
@@ -959,6 +995,10 @@ button:focus-visible {
     radial-gradient(circle at 50% 96%, #c99045 0 6%, transparent 6.2%),
     radial-gradient(circle at 50% 74%, rgba(201, 144, 69, 0.95) 0 11%, transparent 11.3%),
     radial-gradient(circle at 50% 100%, #3e9c61 0 42%, #2f8d59 42.4% 66%, #28784d 66.4% 100%);
+}
+
+#scoreView .spray-chart {
+  border-width: 0;
 }
 
 .fence-line {
@@ -1212,6 +1252,48 @@ button:focus-visible {
     linear-gradient(45deg, transparent 48%, rgba(255, 255, 255, 0.6) 48.4% 49%, transparent 49.4%),
     radial-gradient(circle at 50% 78%, #c99045 0 14%, transparent 14.4%),
     #2f8d59;
+}
+
+#scoreView .base-tracker {
+  min-height: 132px;
+  aspect-ratio: auto;
+  border: 0;
+  background:
+    linear-gradient(135deg, transparent 48%, rgba(47, 115, 77, 0.18) 48.4% 49%, transparent 49.4%),
+    linear-gradient(45deg, transparent 48%, rgba(47, 115, 77, 0.18) 48.4% 49%, transparent 49.4%),
+    rgba(251, 253, 251, 0.72);
+}
+
+#scoreView .runner-panel .mini-head {
+  margin-bottom: 6px;
+}
+
+#scoreView .steal-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+#scoreView .runner-play-grid {
+  margin-top: 8px;
+}
+
+#scoreView .runner-first {
+  right: 22%;
+  bottom: 24%;
+}
+
+#scoreView .runner-second {
+  left: calc(50% - 37px);
+  top: 5%;
+}
+
+#scoreView .runner-third {
+  left: 22%;
+  bottom: 24%;
+}
+
+#scoreView .runner-plate {
+  left: calc(50% - 37px);
+  bottom: 3%;
 }
 
 .runner-base,
@@ -2019,18 +2101,16 @@ button:focus-visible {
   }
 
   .scorer-stack {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     grid-template-areas:
-      "pitch pitch"
-      "form form"
-      "spray runners";
+      "field"
+      "form";
   }
 
   .scorer-stack.is-defense {
     grid-template-areas:
-      "pitch pitch"
-      "form form"
-      "runners runners";
+      "field"
+      "form";
   }
 
   .play-panel {
@@ -2043,7 +2123,6 @@ button:focus-visible {
   }
 
   .score-form,
-  .pitch-buttons,
   .game-form,
   .lineup-builder-row,
   .scouting-controls,
@@ -2055,6 +2134,14 @@ button:focus-visible {
   .archive-grid,
   .metrics-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .pitch-buttons {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #scoreView .steal-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .button-group {
@@ -2105,24 +2192,20 @@ button:focus-visible {
   .scorer-stack {
     grid-template-columns: 1fr;
     grid-template-areas:
-      "pitch"
-      "form"
-      "runners"
-      "spray";
+      "field"
+      "form";
   }
 
   .scorer-stack.is-defense {
     grid-template-areas:
-      "pitch"
-      "form"
-      "runners";
+      "field"
+      "form";
   }
 
   .scoreline,
   .score-form,
   .home-grid,
   .score-status-card,
-  .pitch-buttons,
   .game-form,
   .lineup-builder-row,
   .scouting-actions,
@@ -2137,6 +2220,14 @@ button:focus-visible {
   .archive-grid,
   .metrics-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pitch-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #scoreView .steal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .button-group {
@@ -2169,10 +2260,10 @@ button:focus-visible {
   }
 
   .spray-chart {
-    min-height: 300px;
+    min-height: 560px;
   }
 
-  .base-tracker {
-    min-height: 238px;
+  #scoreView .base-tracker {
+    min-height: 132px;
   }
 }

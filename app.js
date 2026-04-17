@@ -504,6 +504,8 @@ let selectedScoutingTeamId = "";
 let scoutingRefreshState = "snapshot";
 let scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
 let scorebookGameId = "";
+let bipContactChosen = false;
+let bipOutcomeChosen = false;
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
@@ -531,6 +533,7 @@ const els = {
   countDisplay: document.getElementById("countDisplay"),
   currentOutsDisplay: document.getElementById("currentOutsDisplay"),
   pitchButtons: [...document.querySelectorAll("[data-pitch]")],
+  autoResultButtons: [...document.querySelectorAll("[data-auto-result]")],
   pitchTrail: document.getElementById("pitchTrail"),
   resetCountBtn: document.getElementById("resetCountBtn"),
   undoPitchBtn: document.getElementById("undoPitchBtn"),
@@ -1193,7 +1196,6 @@ function bindEvents() {
 
   els.scoreForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    logPlay();
   });
 
   els.gameForm.addEventListener("submit", (event) => {
@@ -1316,6 +1318,9 @@ function bindEvents() {
 
   els.pitchButtons.forEach((button) => {
     button.addEventListener("click", () => logPitch(button.dataset.pitch));
+  });
+  els.autoResultButtons.forEach((button) => {
+    button.addEventListener("click", () => autoCompleteResult(button.dataset.autoResult));
   });
 
   els.resetCountBtn.addEventListener("click", () => {
@@ -1931,15 +1936,23 @@ function selectChoice(group, value, silent = false) {
     .forEach((button) => button.classList.toggle("is-selected", button.dataset.choiceValue === value));
   if (silent) return;
   if (group === "result") {
+    if (battedBallResults.has(value) && !silent) bipOutcomeChosen = true;
     suggestRunValues();
-    if (value === "BB" || value === "K") autoCompleteResult(value);
+    if (value === "BB" || value === "K" || value === "HBP") autoCompleteResult(value);
+    if (battedBallResults.has(value)) maybeAutoCompleteBattedBall();
   }
   if ((group === "contact" || group === "launch") && value !== "none") {
+    if (group === "contact" && !silent) bipContactChosen = true;
     const game = activeGame();
     if (game.atBat) game.atBat.pendingInPlay = true;
     renderAtBat();
+    maybeAutoCompleteBattedBall();
   }
-  if (group === "error" && value) selectChoice("result", "ROE", true);
+  if (group === "error" && value) {
+    bipOutcomeChosen = true;
+    selectChoice("result", "ROE", true);
+    maybeAutoCompleteBattedBall();
+  }
 }
 
 function resetBipChoices() {
@@ -1948,6 +1961,8 @@ function resetBipChoices() {
   selectChoice("launch", "none", true);
   selectChoice("error", "", true);
   pendingRunnerOutBases = [];
+  bipContactChosen = false;
+  bipOutcomeChosen = false;
   renderRunnerTracker();
 }
 
@@ -1980,10 +1995,10 @@ function logPitch(type) {
     return;
   }
   if (type === "in_play") {
-    if (els.contactSelect.value === "none") selectChoice("contact", "solid");
-    if (els.launchSelect.value === "none") selectChoice("launch", "ld");
+    bipContactChosen = false;
+    bipOutcomeChosen = false;
     if (!battedBallResults.has(els.resultSelect.value)) selectChoice("result", "1B", true);
-    els.sprayHint.textContent = "Tap where the ball landed or was fielded.";
+    els.sprayHint.textContent = "Choose contact, choose outcome, then tap the field.";
   }
 
   saveState();
@@ -1999,6 +2014,25 @@ function autoCompleteResult(result) {
   selectChoice("launch", "none", true);
   pendingSpray = null;
   pendingRunnerOutBases = [];
+  bipContactChosen = false;
+  bipOutcomeChosen = false;
+  logPlay();
+}
+
+function maybeAutoCompleteBattedBall() {
+  const game = activeGame();
+  const result = els.resultSelect.value;
+  if (game.half !== "top") return;
+  if (!game.atBat?.pendingInPlay) return;
+  if (!battedBallResults.has(result)) return;
+  if (!bipContactChosen || !bipOutcomeChosen) {
+    els.sprayHint.textContent = "Choose contact and outcome before the field tap saves the AB.";
+    return;
+  }
+  if (!pendingSpray) {
+    els.sprayHint.textContent = "Now tap the field where the ball landed or was fielded.";
+    return;
+  }
   logPlay();
 }
 
@@ -2125,7 +2159,6 @@ function suggestRunValues() {
     const runs = occupied + 1;
     els.runsInput.value = String(runs);
     els.rbiInput.value = String(runs);
-    selectChoice("contact", "barrel", true);
     selectChoice("launch", "fb", true);
   } else if (["K", "BB", "HBP", "SB", "CS"].includes(els.resultSelect.value)) {
     game.atBat.pendingInPlay = false;
@@ -2140,7 +2173,6 @@ function suggestRunValues() {
     renderSprayChart();
   } else if (battedBallResults.has(els.resultSelect.value)) {
     if (game.atBat) game.atBat.pendingInPlay = true;
-    if (els.contactSelect.value === "none") selectChoice("contact", "solid", true);
     if (els.launchSelect.value === "none") selectChoice("launch", "ld", true);
     renderAtBat();
   }
@@ -2763,13 +2795,13 @@ function setPendingSpray(x, y) {
     y: Math.max(4, Math.min(96, Math.round(y))),
     zone: sprayZone(x, y)
   };
-  if (els.contactSelect.value === "none") selectChoice("contact", "solid", true);
   if (els.launchSelect.value === "none") selectChoice("launch", "ld", true);
   const game = activeGame();
   if (game.atBat) game.atBat.pendingInPlay = true;
-  els.sprayHint.textContent = `Marked ${pendingSpray.zone}. Complete the AB to save it.`;
+  els.sprayHint.textContent = `Marked ${pendingSpray.zone}. The AB saves once contact and outcome are selected.`;
   renderAtBat();
   renderSprayChart();
+  maybeAutoCompleteBattedBall();
 }
 
 function sprayZone(x, y) {
