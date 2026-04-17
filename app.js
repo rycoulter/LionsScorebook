@@ -1383,7 +1383,7 @@ function bindEvents() {
     renderAtBat();
     renderSprayChart();
   });
-  els.sprayChart.addEventListener("click", setSprayFromPointer);
+  els.scorerStack.addEventListener("pointerdown", setSprayFromPointer);
   els.sprayChart.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -2061,8 +2061,12 @@ function applyEvent(game = activeGame(), event = {}) {
     const result = els.resultSelect.value;
     if (bipOutcomeChosen && battedBallResults.has(result)) {
       awaitingSprayLocation = false;
-      awaitingRunnerDecision = true;
       if (game.atBat) game.atBat.pendingInPlay = false;
+      if (!needsRunnerDecision(game, result)) {
+        els.sprayHint.textContent = `Marked ${pendingSpray.zone}. Resolving the play.`;
+        return applyEvent(game, { type: "resolve_play", result });
+      }
+      awaitingRunnerDecision = true;
       els.sprayHint.textContent = "Review runner outs, then tap Resolve Play.";
     } else {
       if (game.atBat) game.atBat.pendingInPlay = true;
@@ -2149,6 +2153,12 @@ function normalizeBallInPlayOutcome(value) {
     hbp: "HBP"
   };
   return map[key] || String(value || "GO").toUpperCase();
+}
+
+function needsRunnerDecision(game = activeGame(), result = els.resultSelect.value) {
+  if (result === "HR") return false;
+  const bases = game.current?.runners || game.bases || emptyBases(false);
+  return ["first", "second", "third"].some((base) => isOccupied(bases[base]));
 }
 
 function logPitch(type) {
@@ -2942,11 +2952,16 @@ function batterSummaryMarkup(events, emptyLabel) {
 }
 
 function setSprayFromPointer(event) {
-  if (activeGame().half === "bottom") return;
+  const game = activeGame();
+  if (game.half === "bottom") return;
+  if (!awaitingSprayLocation && !game.atBat?.pendingInPlay) return;
+  if (event.target.closest?.("button, input, select, textarea, [contenteditable='true']")) return;
   const rect = els.sprayChart.getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return;
+  event.preventDefault();
   const x = ((event.clientX - rect.left) / rect.width) * 100;
   const y = ((event.clientY - rect.top) / rect.height) * 100;
-  applyEvent(activeGame(), { type: "spray", x, y });
+  applyEvent(game, { type: "spray", x, y });
 }
 
 function setPendingSprayState(x, y) {

@@ -4179,10 +4179,16 @@ label {
 
 #scoreView .spray-chart {
   min-height: clamp(540px, 62vh, 680px);
+  touch-action: manipulation;
   background:
     radial-gradient(ellipse at 50% 21%, rgba(36, 148, 72, 0.5) 0 35%, transparent 36%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.045) 25%, transparent 25% 50%, rgba(255, 255, 255, 0.045) 50% 75%, transparent 75%) 0 0 / 42px 42px,
     linear-gradient(180deg, var(--score-field-light), var(--score-field-mid) 64%, var(--score-field-dark));
+}
+
+#scoreView .spray-markers,
+#scoreView .spray-dot {
+  pointer-events: none;
 }
 
 #scoreView .spray-chart::after {
@@ -4346,26 +4352,37 @@ label {
 #scoreView .button-group[aria-label="Select batted ball result"] .choice-btn,
 #scoreView .outcome-face .choice-btn {
   border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08)),
+    rgba(255, 255, 255, 0.1);
   color: var(--white);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 10px 22px rgba(0, 0, 0, 0.2);
 }
 
 #scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="1B"],
 #scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="2B"],
 #scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="3B"],
-#scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="HR"] {
-  background: rgba(72, 199, 116, 0.18);
-}
-
+#scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="HR"],
+#scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="GO"],
+#scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="DP"],
+#scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="SAC"],
 #scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="ROE"] {
-  background: rgba(245, 189, 33, 0.2);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08)),
+    rgba(255, 255, 255, 0.1);
 }
 
 #scoreView .button-group[aria-label="Select batted ball result"] .choice-btn.is-selected,
 #scoreView .outcome-face .choice-btn.is-selected {
   border-color: var(--lion-gold);
-  background: var(--lion-gold);
+  background:
+    linear-gradient(180deg, #ffd867, var(--lion-gold));
   color: var(--lion-navy);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 12px 24px rgba(245, 189, 33, 0.22);
 }
 
 #scoreView .score-form {
