@@ -3616,13 +3616,22 @@ button:focus-visible {
   color: var(--white);
   content: "";
   place-items: center;
-  font-size: 2rem;
-  font-weight: 900;
-  line-height: 1;
 }
 
-.player-card .active-toggle:has(input:checked)::after {
-  content: "✓";
+.player-card .active-toggle::before {
+  position: absolute;
+  z-index: 1;
+  width: 18px;
+  height: 10px;
+  content: "";
+  transform: rotate(-45deg) scale(0);
+  border-left: 5px solid var(--white);
+  border-bottom: 5px solid var(--white);
+  transition: transform 140ms ease;
+}
+
+.player-card .active-toggle:has(input:checked)::before {
+  transform: rotate(-45deg) scale(1);
 }
 
 .player-card .player-edit-row {
@@ -3745,5 +3754,392 @@ button:focus-visible {
 
   .player-card .stat-strip span {
     min-height: 96px;
+  }
+}
+
+/* Premium dark sports-app skin */
+:root {
+  --app-bg: #060918;
+  --app-bg-2: #0d1328;
+  --panel-dark: rgba(20, 25, 43, 0.82);
+  --panel-dark-solid: #151a2d;
+  --panel-line: rgba(255, 255, 255, 0.12);
+  --text-soft: rgba(255, 255, 255, 0.72);
+  --text-muted-dark: rgba(255, 255, 255, 0.56);
+  --shadow-dark: 0 24px 70px rgba(0, 0, 0, 0.34);
+}
+
+html {
+  min-height: 100%;
+  background: var(--app-bg);
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(245, 189, 33, 0.1), transparent 28%),
+    radial-gradient(circle at 84% 18%, rgba(91, 75, 180, 0.16), transparent 30%),
+    radial-gradient(circle at 52% 92%, rgba(35, 71, 135, 0.18), transparent 34%),
+    linear-gradient(180deg, #0e1326 0%, #070a18 48%, #030611 100%);
+  color: var(--white);
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035) 25%, transparent 25% 50%, rgba(255, 255, 255, 0.025) 50% 75%, transparent 75%) 0 0 / 56px 56px,
+    radial-gradient(ellipse at center, transparent 36%, rgba(0, 0, 0, 0.48) 100%);
+  opacity: 0.9;
+}
+
+.topbar {
+  background: rgba(7, 10, 24, 0.86);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+}
+
+.brand-block h1,
+.section-head h2,
+.mini-head h3,
+.home-next-game h3 {
+  color: var(--white);
+}
+
+.mark {
+  border-color: var(--lion-gold);
+  background: linear-gradient(180deg, #151b33, #080c1d);
+  color: var(--lion-gold);
+}
+
+.eyebrow,
+.scout-kicker {
+  color: var(--lion-gold);
+}
+
+.player-meta,
+.play-meta,
+.archive-meta,
+.small-copy,
+.tracking-list p,
+.scorebook-meta,
+.game-state-context {
+  color: var(--text-soft);
+}
+
+.tab,
+.secondary-action,
+.primary-action,
+input,
+select,
+textarea {
+  border-color: var(--panel-line);
+}
+
+.tab,
+.secondary-action {
+  background: rgba(255, 255, 255, 0.075);
+  color: var(--white);
+}
+
+.tab.is-active,
+.primary-action {
+  border-color: rgba(245, 189, 33, 0.72);
+  background: linear-gradient(180deg, var(--lion-gold), #c98b13);
+  color: var(--lion-navy);
+}
+
+.secondary-action:hover,
+.tab:hover {
+  border-color: rgba(245, 189, 33, 0.72);
+}
+
+input,
+select,
+textarea {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(255, 255, 255, 0.46);
+}
+
+label {
+  color: var(--text-soft);
+}
+
+.home-panel,
+.score-status-card,
+.scorebook-panel,
+.score-form,
+.pitch-panel,
+.spray-panel,
+.runner-panel,
+.play-panel,
+.optimizer-board,
+.coach-card,
+.player-form,
+.game-form,
+.game-card,
+.archive-card,
+.metric-card,
+.tracking-list,
+.value-board,
+.lineup-builder,
+.sub-panel,
+.stats-table-wrap,
+.leader-card,
+.scouting-card,
+.breakdown-card {
+  border-color: var(--panel-line);
+  background: var(--panel-dark);
+  box-shadow: var(--shadow-dark);
+  color: var(--white);
+}
+
+.home-hero-panel,
+.scouting-hero-card {
+  background:
+    radial-gradient(circle at 80% 0%, rgba(245, 189, 33, 0.16), transparent 36%),
+    linear-gradient(145deg, rgba(24, 30, 51, 0.92), rgba(12, 16, 31, 0.94));
+}
+
+.score-status-card,
+.game-card,
+.archive-card,
+.lineup-builder,
+.stats-table-wrap,
+.play-panel {
+  backdrop-filter: blur(18px);
+}
+
+.game-state-focus,
+.clean-scoreline div,
+.auto-score,
+.summary-chip,
+.lineup-list li,
+.optimized-list li,
+.value-row,
+.stat-strip span,
+.metric-card,
+.pitcher-stat-strip span,
+.scorebook-cell,
+.scout-row,
+.record-summary .metric-card {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-soft);
+}
+
+.game-state-focus strong,
+.clean-scoreline strong,
+.stat-strip strong,
+.metric-card strong,
+.pitcher-stat-strip strong,
+.leader-row strong,
+.value-row span,
+.scout-value {
+  color: var(--white);
+}
+
+.clean-scoreline span,
+.game-state-focus span,
+.stats-table th,
+.scorebook-table thead th,
+.scout-row span,
+.scout-metric span {
+  color: var(--text-muted-dark);
+}
+
+.stats-table th,
+.scorebook-table thead th,
+.scorebook-table tbody th {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-soft);
+}
+
+.stats-table td,
+.scorebook-table td,
+.scorebook-table th {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.stats-table tbody tr:hover {
+  background: rgba(245, 189, 33, 0.06);
+}
+
+.scorebook-table tbody th {
+  background: #12182b;
+}
+
+.choice-btn {
+  border-color: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+}
+
+.choice-btn.is-selected {
+  border-color: var(--lion-gold);
+  background: var(--lion-gold);
+  color: var(--lion-navy);
+}
+
+.leader-card,
+.scout-metric {
+  background: rgba(255, 255, 255, 0.065);
+}
+
+.play-item {
+  border-left-color: var(--lion-gold);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bar-track {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.bar-fill {
+  background: linear-gradient(90deg, #b63b36, var(--lion-gold));
+}
+
+/* Mockup-matched roster cards */
+.roster-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 760px), 1fr));
+  gap: 24px;
+}
+
+.player-card {
+  width: 100%;
+  max-width: 940px;
+  min-height: 560px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 78% 6%, rgba(245, 189, 33, 0.14), transparent 34%),
+    linear-gradient(145deg, #252a3f 0%, #161b2d 42%, #080b17 100%);
+  box-shadow: 0 30px 78px rgba(0, 0, 0, 0.46);
+}
+
+.player-card-logo {
+  left: 50%;
+  top: 42px;
+  bottom: auto;
+  width: min(58%, 510px);
+  background-image: url("./lions-watermark.png");
+  opacity: 0.1;
+  transform: translateX(-2%);
+}
+
+.player-card-overlay {
+  background:
+    linear-gradient(90deg, rgba(22, 27, 45, 0.97), rgba(22, 27, 45, 0.74) 52%, rgba(12, 15, 27, 0.94)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.42));
+}
+
+.player-card-content {
+  gap: 24px;
+  padding: 32px 34px 28px;
+}
+
+.player-card .player-topline > div {
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 22px;
+}
+
+.player-card .number-pill {
+  min-width: 68px;
+  min-height: 56px;
+  border: 0;
+  background: linear-gradient(180deg, #be4039, #9d302d);
+  color: var(--white);
+  font-size: 2rem;
+}
+
+.player-card h3 {
+  color: var(--white);
+  font-size: clamp(2rem, 4vw, 2.45rem);
+  line-height: 1;
+}
+
+.player-card .player-topline p {
+  grid-column: 2;
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: clamp(1rem, 2vw, 1.28rem);
+}
+
+.player-card .active-toggle::after {
+  background: #4f39a7;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.26);
+}
+
+.player-card .player-edit-row {
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.26fr);
+  padding-top: 14px;
+}
+
+.player-card .player-edit-row label {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1.14rem;
+}
+
+.player-card .stat-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.player-card .stat-strip span {
+  min-height: 118px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 20px 22px;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 1.14rem;
+}
+
+.player-card .stat-strip strong {
+  margin-top: 12px;
+  color: var(--white);
+  font-size: clamp(1.72rem, 3.2vw, 2.2rem);
+}
+
+.player-card .grade-row {
+  gap: 23px;
+  padding-top: 8px;
+}
+
+.player-card .grade-row label {
+  gap: 14px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1.18rem;
+}
+
+.player-card input[type="range"]::-webkit-slider-runnable-track {
+  height: 9px;
+  background: linear-gradient(90deg, var(--lion-gold) 0 var(--grade-fill), rgba(255, 255, 255, 0.78) var(--grade-fill) 100%);
+}
+
+.player-card input[type="range"]::-moz-range-track {
+  height: 9px;
+  background: linear-gradient(90deg, var(--lion-gold) 0 var(--grade-fill), rgba(255, 255, 255, 0.78) var(--grade-fill) 100%);
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    position: static;
+  }
+
+  .player-card-content {
+    padding: 22px;
+  }
+
+  .player-card .stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
