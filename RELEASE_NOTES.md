@@ -16,6 +16,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 - Added scorebook notation generation for common outs, including groundouts like `6-3`, flyouts like `F8`, and lineouts like `L6`.
 
 ### Changed
+- Refactored scoring-field positioning to use a shared percentage coordinate system for bases, runners, pitcher, fielders, foul lines, and the infield diamond.
 - Updated the homepage Next Game card to choose its matchup graphic dynamically from the upcoming opponent.
 - Improved scouting report opponent matching from the homepage with a fuzzy name lookup for partial team names.
 - Cleaned up the scoring field with a darker stadium-style look, brighter bases, and occupied-base gold highlights.

@@ -5256,20 +5256,20 @@ label {
 @keyframes runnerSettle {
   from {
     opacity: 0.72;
-    transform: translateY(6px) scale(0.96);
+    transform: translate(-50%, calc(-50% + 6px)) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
 @keyframes runnerOut {
   from {
-    transform: scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
   to {
-    transform: scale(0.96);
+    transform: translate(-50%, -50%) scale(0.96);
   }
 }
 
@@ -5280,6 +5280,204 @@ label {
   to {
     transform: translateY(-3px);
   }
+}
+
+/* Field coordinate system: all scoring-field anchors use left/top percentages. */
+#scoreView {
+  --field-home-x: 50%;
+  --field-home-y: 88%;
+  --field-pitcher-x: 50%;
+  --field-pitcher-y: 58%;
+  --field-second-x: 50%;
+  --field-second-y: 28%;
+  --field-first-x: 72%;
+  --field-first-y: 60%;
+  --field-third-x: 28%;
+  --field-third-y: 60%;
+  --runner-first-x: 77%;
+  --runner-first-y: 64%;
+  --runner-second-x: 55%;
+  --runner-second-y: 32%;
+  --runner-third-x: 23%;
+  --runner-third-y: 64%;
+}
+
+#scoreView .spray-chart {
+  position: relative;
+}
+
+#scoreView .spray-chart::after {
+  inset: 0;
+  z-index: 0;
+  width: auto;
+  aspect-ratio: auto;
+  transform: none;
+  clip-path: polygon(
+    var(--field-second-x) var(--field-second-y),
+    var(--field-first-x) var(--field-first-y),
+    var(--field-home-x) var(--field-home-y),
+    var(--field-third-x) var(--field-third-y)
+  );
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 45%),
+    #5a4a30;
+}
+
+#scoreView .spray-chart::before {
+  left: var(--field-home-x);
+  top: var(--field-home-y);
+  bottom: auto;
+  z-index: 6;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+#scoreView .spray-base,
+#scoreView .fielder-icon,
+#scoreView .spray-label,
+#scoreView .runner-base,
+#scoreView .runner-plate {
+  right: auto;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+}
+
+#scoreView .spray-base {
+  z-index: 7;
+  color: transparent;
+}
+
+#scoreView .spray-first-base {
+  left: var(--field-first-x);
+  top: var(--field-first-y);
+}
+
+#scoreView .spray-second-base {
+  left: var(--field-second-x);
+  top: var(--field-second-y);
+}
+
+#scoreView .spray-third-base {
+  left: var(--field-third-x);
+  top: var(--field-third-y);
+}
+
+#scoreView .spray-base.is-occupied {
+  transform: translate(-50%, -50%) scale(1.04);
+}
+
+#scoreView .fielder-icon {
+  display: grid;
+  z-index: 4;
+  min-width: 34px;
+  min-height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background: rgba(3, 10, 36, 0.28);
+  color: rgba(255, 255, 255, 0.58);
+  opacity: 0.72;
+}
+
+#scoreView .fielder-p {
+  left: var(--field-pitcher-x);
+  top: var(--field-pitcher-y);
+}
+
+#scoreView .fielder-c {
+  display: none;
+}
+
+#scoreView .fielder-1b {
+  left: 77%;
+  top: 55%;
+}
+
+#scoreView .fielder-2b {
+  left: 60%;
+  top: 42%;
+}
+
+#scoreView .fielder-ss {
+  left: 40%;
+  top: 42%;
+}
+
+#scoreView .fielder-3b {
+  left: 23%;
+  top: 55%;
+}
+
+#scoreView .fielder-lf {
+  left: 22%;
+  top: 30%;
+}
+
+#scoreView .fielder-cf {
+  left: 50%;
+  top: 18%;
+}
+
+#scoreView .fielder-rf {
+  left: 78%;
+  top: 30%;
+}
+
+#scoreView .runner-panel,
+#scoreView .base-tracker {
+  pointer-events: none;
+}
+
+#scoreView .runner-base {
+  z-index: 8;
+  width: 78px;
+  min-height: 46px;
+}
+
+#scoreView .runner-base.is-occupied {
+  width: 86px;
+  min-height: 50px;
+}
+
+#scoreView .runner-first {
+  left: var(--runner-first-x);
+  top: var(--runner-first-y);
+}
+
+#scoreView .runner-second {
+  left: var(--runner-second-x);
+  top: var(--runner-second-y);
+}
+
+#scoreView .runner-third {
+  left: var(--runner-third-x);
+  top: var(--runner-third-y);
+}
+
+#scoreView .runner-plate {
+  left: var(--field-home-x);
+  top: 92%;
+  display: none;
+}
+
+#scoreView .foul-line {
+  bottom: auto;
+  left: var(--field-home-x);
+  top: var(--field-home-y);
+  height: 92%;
+  transform-origin: top center;
+}
+
+#scoreView .left-line {
+  transform: rotate(135deg);
+}
+
+#scoreView .right-line {
+  transform: rotate(-135deg);
+}
+
+#scoreView .fence-line {
+  left: 4%;
+  top: 5%;
+  width: 92%;
+  height: 72%;
 }
 
 .stats-table td,
