@@ -198,7 +198,8 @@ const eventRules = {
   LO: { label: "Lineout", pa: true, ab: true, out: true, bip: true, launch: "ld" },
   SAC: { label: "Sacrifice", pa: true, ab: false, out: true, sac: true, bip: true },
   SB: { label: "Stolen base", pa: false, sb: true },
-  CS: { label: "Caught stealing", pa: false, cs: true, out: true }
+  CS: { label: "Caught stealing", pa: false, cs: true, out: true },
+  TAG: { label: "Tag up", pa: false }
 };
 
 const launchLabels = {
@@ -1831,50 +1832,107 @@ function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
 }
 
 function defaultRunnerAdvancements(game, result, batterId) {
-  const bases = deepClone(game.current?.runners || game.bases || emptyBases(false));
-  const advancements = [];
+  return getDefaultRunnerAdvances(result, {
+    ...(game.current?.runners || game.bases || emptyBases(false)),
+    batter: batterId
+  }).advancements;
+}
+
+function getDefaultRunnerAdvances(outcome, currentBaseState = {}) {
+  const bases = deepClone({
+    first: currentBaseState.first || false,
+    second: currentBaseState.second || false,
+    third: currentBaseState.third || false
+  });
+  const batterId = currentBaseState.batter || "batter";
+  const normalized = normalizeBallInPlayOutcome(outcome);
+  const baseNumber = { first: 1, second: 2, third: 3 };
+  const baseName = { 1: "first", 2: "second", 3: "third" };
   const occupied = [
     ["third", bases.third],
     ["second", bases.second],
     ["first", bases.first]
   ].filter(([, runner]) => isOccupied(runner));
-  const baseNumber = { first: 1, second: 2, third: 3 };
-  const baseName = { 1: "first", 2: "second", 3: "third" };
+  const decisions = {};
 
-  if (result === "HR") {
-    occupied.forEach(([from, runner]) => advancements.push({ runnerId: runner, from, to: "home" }));
-    advancements.push({ runnerId: batterId, from: "batter", to: "home" });
-    return advancements;
-  }
+  const setDecision = (from, runnerId, to, automatic = true) => {
+    decisions[from] = {
+      runnerId,
+      from,
+      to,
+      automatic,
+      out: to === "out",
+      scored: to === "home"
+    };
+  };
 
-  if (["1B", "2B", "3B"].includes(result)) {
-    const move = Number(result.slice(0, 1));
+  if (normalized === "HR") {
+    occupied.forEach(([from, runner]) => setDecision(from, runner, "home"));
+    setDecision("batter", batterId, "home");
+  } else if (["1B", "2B", "3B"].includes(normalized)) {
+    const move = Number(normalized.slice(0, 1));
     occupied.forEach(([from, runner]) => {
       const destination = baseNumber[from] + move;
-      advancements.push({ runnerId: runner, from, to: destination > 3 ? "home" : baseName[destination] });
+      setDecision(from, runner, destination > 3 ? "home" : baseName[destination]);
     });
-    advancements.push({ runnerId: batterId, from: "batter", to: baseName[move] });
-    return advancements;
+    setDecision("batter", batterId, baseName[move]);
+  } else if (normalized === "ROE") {
+    occupied.forEach(([from, runner]) => {
+      const destination = baseNumber[from] + 1;
+      setDecision(from, runner, destination > 3 ? "home" : baseName[destination]);
+    });
+    setDecision("batter", batterId, "first");
+  } else if (["BB", "HBP"].includes(normalized)) {
+    if (isOccupied(bases.third) && isOccupied(bases.second) && isOccupied(bases.first)) setDecision("third", bases.third, "home");
+    else if (isOccupied(bases.third)) setDecision("third", bases.third, "hold");
+    if (isOccupied(bases.second) && isOccupied(bases.first)) setDecision("second", bases.second, "third");
+    else if (isOccupied(bases.second)) setDecision("second", bases.second, "hold");
+    if (isOccupied(bases.first)) setDecision("first", bases.first, "second");
+    setDecision("batter", batterId, "first");
+  } else if (normalized === "FC") {
+    if (isOccupied(bases.first)) setDecision("first", bases.first, "out");
+    occupied.forEach(([from, runner]) => {
+      if (!decisions[from]) setDecision(from, runner, "hold");
+    });
+    setDecision("batter", batterId, "first");
+  } else if (normalized === "DP") {
+    const outBase = isOccupied(bases.first) ? "first" : isOccupied(bases.second) ? "second" : isOccupied(bases.third) ? "third" : null;
+    occupied.forEach(([from, runner]) => setDecision(from, runner, from === outBase ? "out" : "hold"));
+    setDecision("batter", batterId, "out");
+  } else {
+    occupied.forEach(([from, runner]) => setDecision(from, runner, "hold"));
+    setDecision("batter", batterId, "out");
   }
 
-  if (["BB", "HBP", "ROE"].includes(result)) {
-    if (isOccupied(bases.third) && isOccupied(bases.second) && isOccupied(bases.first)) advancements.push({ runnerId: bases.third, from: "third", to: "home" });
-    if (isOccupied(bases.second) && isOccupied(bases.first)) advancements.push({ runnerId: bases.second, from: "second", to: "third" });
-    if (isOccupied(bases.first)) advancements.push({ runnerId: bases.first, from: "first", to: "second" });
-    advancements.push({ runnerId: batterId, from: "batter", to: "first" });
-    return advancements;
-  }
+  const basesAfter = emptyBases(false);
+  let runsScored = 0;
+  let outsRecorded = 0;
+  const advancements = Object.values(decisions).flatMap((decision) => {
+    if (decision.to === "hold") {
+      if (decision.from !== "batter" && Object.prototype.hasOwnProperty.call(basesAfter, decision.from)) basesAfter[decision.from] = decision.runnerId;
+      return [];
+    }
+    if (decision.to === "out") {
+      outsRecorded += 1;
+      if (decision.from === "batter" && eventRules[normalized]?.out) return [];
+      return [{ runnerId: decision.runnerId, from: decision.from, out: true }];
+    }
+    if (decision.to === "home") {
+      runsScored += 1;
+      return [{ runnerId: decision.runnerId, from: decision.from, to: "home" }];
+    }
+    if (Object.prototype.hasOwnProperty.call(basesAfter, decision.to)) basesAfter[decision.to] = decision.runnerId;
+    return [{ runnerId: decision.runnerId, from: decision.from, to: decision.to }];
+  });
 
-  if (result === "FC") {
-    if (isOccupied(bases.first)) advancements.push({ runnerId: bases.first, from: "first", remove: true });
-    advancements.push({ runnerId: batterId, from: "batter", to: "first" });
-  }
-  if (result === "DP") {
-    if (isOccupied(bases.first)) advancements.push({ runnerId: bases.first, from: "first", out: true });
-    else if (isOccupied(bases.second)) advancements.push({ runnerId: bases.second, from: "second", out: true });
-    else if (isOccupied(bases.third)) advancements.push({ runnerId: bases.third, from: "third", out: true });
-  }
-  return advancements;
+  return {
+    outcome: normalized,
+    decisions,
+    basesAfter,
+    runsScored,
+    outsRecorded,
+    advancements
+  };
 }
 
 function advanceHalfInning(game = activeGame()) {
@@ -2132,6 +2190,15 @@ function applyEvent(game = activeGame(), event = {}) {
     return null;
   }
 
+  if (event.type === "special_action") {
+    if (event.action === "steal") recordSteal(event.target, "safe");
+    if (event.action === "caught_stealing") recordSteal(event.target, "out");
+    if (event.action === "tag_up") recordTagUp(event.target);
+    scoringStep = "pitch";
+    renderScoringStepPanel();
+    return null;
+  }
+
   if (event.type === "resolve_play") {
     const result = normalizeBallInPlayOutcome(event.result || event.outcome || els.resultSelect.value || "GO");
     selectChoice("result", result, true);
@@ -2196,7 +2263,17 @@ function needsRunnerDecision(game = activeGame(), result = els.resultSelect.valu
 }
 
 function setRunnerChoice(base, to) {
-  pendingRunnerChoices = { ...pendingRunnerChoices, [base]: to };
+  const current = pendingRunnerChoices[base] && typeof pendingRunnerChoices[base] === "object"
+    ? pendingRunnerChoices[base]
+    : { to: pendingRunnerChoices[base] || "hold", automaticTo: pendingRunnerChoices[base] || "hold" };
+  pendingRunnerChoices = {
+    ...pendingRunnerChoices,
+    [base]: {
+      ...current,
+      to,
+      adjusted: to !== current.automaticTo
+    }
+  };
   if (base !== "batter") {
     pendingRunnerOutBases = to === "out"
       ? [...new Set([...pendingRunnerOutBases, base])]
@@ -2207,17 +2284,29 @@ function setRunnerChoice(base, to) {
 function initializeRunnerDecisionChoices(game = activeGame(), result = els.resultSelect.value) {
   const batterId = currentBatterId(game);
   const bases = deepClone(game.current?.runners || game.bases || emptyBases(false));
-  const defaults = {};
-  defaultRunnerAdvancements(game, result, batterId).forEach((advancement) => {
-    if (advancement.from) defaults[advancement.from] = advancement.out || advancement.remove ? "out" : advancement.to;
-  });
+  const defaults = getDefaultRunnerAdvances(result, { ...bases, batter: batterId });
   pendingRunnerChoices = {};
   ["third", "second", "first"].forEach((base) => {
-    if (isOccupied(bases[base])) pendingRunnerChoices[base] = defaults[base] || "hold";
+    if (!isOccupied(bases[base])) return;
+    const decision = defaults.decisions[base] || { runnerId: bases[base], to: "hold" };
+    pendingRunnerChoices[base] = {
+      runnerId: bases[base],
+      from: base,
+      to: decision.to || "hold",
+      automaticTo: decision.to || "hold",
+      adjusted: false
+    };
   });
-  pendingRunnerChoices.batter = defaults.batter || defaultBatterDestination(result);
+  const batterDecision = defaults.decisions.batter || { runnerId: batterId, to: defaultBatterDestination(result) };
+  pendingRunnerChoices.batter = {
+    runnerId: batterId,
+    from: "batter",
+    to: batterDecision.to || defaultBatterDestination(result),
+    automaticTo: batterDecision.to || defaultBatterDestination(result),
+    adjusted: false
+  };
   pendingRunnerOutBases = Object.entries(pendingRunnerChoices)
-    .filter(([base, to]) => base !== "batter" && to === "out")
+    .filter(([base, choice]) => base !== "batter" && choice.to === "out")
     .map(([base]) => base);
 }
 
@@ -2252,6 +2341,10 @@ function runnerDecisionCards(game = activeGame(), result = els.resultSelect.valu
     if (!pendingRunnerChoices[card.base]) {
       setRunnerChoice(card.base, card.base === "batter" ? defaultBatterDestination(result) : "hold");
     }
+    const choice = pendingRunnerChoices[card.base];
+    card.to = choice.to;
+    card.automaticTo = choice.automaticTo;
+    card.adjusted = Boolean(choice.adjusted);
   });
   return cards;
 }
@@ -2430,19 +2523,25 @@ function runnerAdvancementsFromChoices(game, batterId, result) {
   ["third", "second", "first"].forEach((base) => {
     const runnerId = bases[base];
     if (!isOccupied(runnerId)) return;
-    const choice = pendingRunnerChoices[base] || "hold";
+    const choice = runnerChoiceDestination(base);
     if (choice === "hold") return;
     advancements.push(choice === "out"
       ? { runnerId, from: base, out: true }
       : { runnerId, from: base, to: choice });
   });
-  const batterChoice = pendingRunnerChoices.batter || "out";
+  const batterChoice = runnerChoiceDestination("batter") || "out";
   if (batterChoice === "out") {
     if (!eventRules[result]?.out) advancements.push({ runnerId: batterId, from: "batter", out: true });
   } else {
     advancements.push({ runnerId: batterId, from: "batter", to: batterChoice });
   }
   return advancements;
+}
+
+function runnerChoiceDestination(base) {
+  const choice = pendingRunnerChoices[base];
+  if (!choice) return "";
+  return typeof choice === "object" ? choice.to : choice;
 }
 
 function clampNumber(value, min, max) {
@@ -2614,6 +2713,72 @@ function recordSteal(target, outcome) {
   if (game.outs >= 3) advanceHalfInning(game);
   saveState();
   render();
+}
+
+function recordTagUp(target) {
+  const game = activeGame();
+  if (game.status !== "completed") game.status = "active";
+  const tag = tagUpMovement(target);
+  if (!tag) return;
+  const runner = game.bases[tag.from];
+  if (!isOccupied(runner)) return;
+  if (tag.to !== "home" && isOccupied(game.bases[tag.to])) return;
+
+  const snapshotBefore = {
+    inning: game.inning,
+    half: game.half,
+    outs: game.outs,
+    bases: { ...game.bases },
+    batterIndex: game.batterIndex,
+    score: { ...game.score },
+    atBat: game.atBat ? cloneAtBat(game.atBat) : makeAtBat()
+  };
+  const movement = applyRunnerAdvancements(game, [{ runnerId: runner, from: tag.from, to: tag.to }]);
+  if (movement.runsScored) {
+    if (game.half === "top") {
+      game.score.lions += movement.runsScored;
+      game.score.away = game.score.lions;
+    } else {
+      game.score.opponent += movement.runsScored;
+      game.score.home = game.score.opponent;
+    }
+  }
+  const createdAt = new Date().toISOString();
+  game.events.push({
+    id: createId("event"),
+    gameId: game.id,
+    playerId: game.half === "top" ? runner : undefined,
+    opponentBatter: game.half === "bottom" ? currentOpponentBatter(game) : undefined,
+    result: "TAG",
+    runs: movement.runsScored,
+    rbi: 0,
+    contact: "none",
+    launch: "none",
+    leverage: "neutral",
+    inning: game.inning,
+    half: game.half,
+    outsBefore: snapshotBefore.outs,
+    outsAfter: game.outs,
+    basesBefore: snapshotBefore.bases,
+    basesAfter: deepClone(game.bases),
+    note: `${runnerName(runner) || "Runner"} tagged up to ${baseLabel(tag.to)}`,
+    pitches: [],
+    count: `${game.atBat?.balls || 0}-${game.atBat?.strikes || 0}`,
+    spray: null,
+    runnerAdvancements: [{ runnerId: runner, from: tag.from, to: tag.to }],
+    createdAt,
+    snapshotBefore
+  });
+  commitCurrentToLegacy(game);
+  saveState();
+  render();
+}
+
+function tagUpMovement(target) {
+  if (target === "second") return { from: "first", to: "second" };
+  if (target === "third") return { from: "second", to: "third" };
+  if (target === "home") return { from: "third", to: "home" };
+  return null;
 }
 
 function logOpponentOutcome(result) {
@@ -2986,6 +3151,14 @@ function handleScoringPanelClick(event) {
     setScoringStep("more");
     return;
   }
+  if (button.dataset.specialAction) {
+    applyEvent(activeGame(), {
+      type: "special_action",
+      action: button.dataset.specialAction,
+      target: button.dataset.specialTarget
+    });
+    return;
+  }
   if (button.dataset.stepOutcome) {
     applyEvent(activeGame(), { type: "ball_in_play", outcome: button.dataset.stepOutcome });
     return;
@@ -3060,12 +3233,13 @@ function scoringStepConfig(game) {
     return {
       eyebrow: "More",
       title: "Quick Result",
-      hint: "Use when the plate appearance ends without a ball in play.",
+      hint: "Use quick results or separate runner actions outside ball-in-play flow.",
       body: `<div class="step-grid step-grid-three">
         ${stepButton("Walk", "step-auto-result", "BB", "neutral")}
         ${stepButton("Strikeout", "step-auto-result", "K", "out")}
         ${stepButton("HBP", "step-auto-result", "HBP", "hbp")}
-      </div>`
+      </div>
+      ${renderSpecialActionGrid(game)}`
     };
   }
   if (scoringStep === "outcome") {
@@ -3152,17 +3326,74 @@ function stepButton(label, dataName, value, tone) {
   return `<button type="button" class="step-button step-${tone}" data-${dataName}="${escapeHtml(value)}">${escapeHtml(label)}</button>`;
 }
 
+function renderSpecialActionGrid(game = activeGame()) {
+  const buttons = [];
+  const add = (label, action, target, tone = "neutral") => {
+    buttons.push(`<button type="button" class="step-button step-${tone}" data-special-action="${action}" data-special-target="${target}">${escapeHtml(label)}</button>`);
+  };
+  if (isOccupied(game.bases.first) && !isOccupied(game.bases.second)) {
+    add("Steal 2B", "steal", "second", "hit");
+    add("Caught 2B", "caught_stealing", "second", "out");
+    add("Tag 1B to 2B", "tag_up", "second", "neutral");
+  }
+  if (isOccupied(game.bases.second) && !isOccupied(game.bases.third)) {
+    add("Steal 3B", "steal", "third", "hit");
+    add("Caught 3B", "caught_stealing", "third", "out");
+    add("Tag 2B to 3B", "tag_up", "third", "neutral");
+  }
+  if (isOccupied(game.bases.third)) {
+    add("Steal Home", "steal", "home", "hit");
+    add("Caught Home", "caught_stealing", "home", "out");
+    add("Tag 3B Home", "tag_up", "home", "neutral");
+  }
+  if (!buttons.length) {
+    return `<div class="special-action-empty">No runners are available for steal, caught stealing, or tag up.</div>`;
+  }
+  return `<div class="special-action-group">
+    <span>Runner Actions</span>
+    <div class="step-grid step-grid-special">${buttons.join("")}</div>
+  </div>`;
+}
+
 function renderRunnerDecisionCard(card) {
-  const selected = pendingRunnerChoices[card.base] || "hold";
+  const selected = runnerChoiceDestination(card.base) || "hold";
   return `<article class="runner-decision-card">
     <div>
       <strong>${escapeHtml(card.label)}</strong>
-      <span>${escapeHtml(card.start)}</span>
+      <span>${escapeHtml(card.start)} -> ${escapeHtml(baseLabel(card.to || "hold"))}</span>
+      <em>${card.adjusted ? "User adjusted" : `Auto: ${baseLabel(card.automaticTo || card.to || "hold")}`}</em>
     </div>
     <div class="runner-choice-group">
-      ${card.options.map((option) => `<button type="button" class="runner-choice ${selected === option ? "is-selected" : ""} ${option === "out" ? "is-out" : ""}" data-runner-choice-base="${card.base}" data-runner-choice="${option}">${escapeHtml(baseLabel(option))}</button>`).join("")}
+      ${runnerOverrideOptions(card).map((option) => `<button type="button" class="runner-choice ${selected === option ? "is-selected" : ""} ${option === "out" ? "is-out" : ""}" data-runner-choice-base="${card.base}" data-runner-choice="${option}">${escapeHtml(runnerOverrideLabel(card, option))}</button>`).join("")}
     </div>
   </article>`;
+}
+
+function runnerOverrideOptions(card) {
+  const auto = card.to || card.automaticTo || "hold";
+  const options = [auto];
+  if (card.base !== "batter" && !options.includes("hold")) options.push("hold");
+  const next = nextBaseFrom(card.start);
+  if (next && !options.includes(next)) options.push(next);
+  if (!options.includes("home")) options.push("home");
+  if (!options.includes("out")) options.push("out");
+  return options.filter((option) => card.options.includes(option));
+}
+
+function runnerOverrideLabel(card, option) {
+  if (option === (card.to || card.automaticTo)) return `${card.adjusted ? "Keep" : "Auto"} ${baseLabel(option)}`;
+  if (option === "home") return "Send Home";
+  if (option === "out") return card.to === "home" || card.automaticTo === "home" ? "Out at Home" : "Out";
+  if (option === "hold") return "Hold";
+  return `Advance ${baseLabel(option)}`;
+}
+
+function nextBaseFrom(start) {
+  if (start === "Batter") return "first";
+  if (start === "1B") return "second";
+  if (start === "2B") return "third";
+  if (start === "3B") return "home";
+  return "";
 }
 
 function resultLabel(result) {

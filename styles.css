@@ -4574,9 +4574,23 @@ label {
 }
 
 #scoreView .runner-decision-card span {
+  display: block;
   color: rgba(255, 255, 255, 0.62);
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+#scoreView .runner-decision-card em {
+  display: inline-block;
+  margin-top: 5px;
+  border: 1px solid rgba(245, 189, 33, 0.22);
+  border-radius: 8px;
+  padding: 3px 7px;
+  background: rgba(245, 189, 33, 0.1);
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 900;
 }
 
 #scoreView .runner-choice-group {
@@ -4617,6 +4631,23 @@ label {
 #scoreView .confirm-play-button {
   min-width: 180px;
   min-height: 46px;
+}
+
+#scoreView .special-action-group {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+#scoreView .special-action-group > span,
+#scoreView .special-action-empty {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+#scoreView .step-grid-special {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 #scoreView .score-form .auto-score {
