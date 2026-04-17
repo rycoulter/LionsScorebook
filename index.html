@@ -119,6 +119,13 @@
                 <strong id="opponentScore">0</strong>
               </div>
             </div>
+            <div class="pitcher-row game-pitcher-card">
+              <label>
+                Lions pitcher
+                <select id="pitcherSelect"></select>
+              </label>
+              <div class="pitcher-stat-strip" id="pitcherStatStrip"></div>
+            </div>
             <p class="player-meta game-state-context" id="gameContext">Top 1, 0 outs</p>
           </section>
 
@@ -204,13 +211,6 @@
                       <div class="count-display" id="opponentCountDisplay">0-0</div>
                       <div class="count-display opponent-outs" id="opponentOutsDisplay">0 out</div>
                     </div>
-                  </div>
-                  <div class="pitcher-row">
-                    <label>
-                      Lions pitcher
-                      <select id="pitcherSelect"></select>
-                    </label>
-                    <div class="pitcher-stat-strip" id="pitcherStatStrip"></div>
                   </div>
                   <div class="batter-summary" id="opponentBatterSummary"></div>
                   <div class="pitch-buttons" aria-label="Opponent pitch result buttons">

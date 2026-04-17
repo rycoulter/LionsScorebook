@@ -2828,22 +2828,11 @@ button:focus-visible {
 }
 
 #scoreView .pitch-panel.is-opponent .opponent-face .mini-head,
-#scoreView .pitch-panel.is-opponent .opponent-face .pitcher-row,
 #scoreView .pitch-panel.is-opponent .opponent-face .pitch-buttons,
 #scoreView .pitch-panel.is-opponent .opponent-face .pitch-trail,
 #scoreView .pitch-panel.is-opponent .opponent-face .button-row,
 #scoreView .pitch-panel.is-opponent .opponent-face .opponent-outcomes {
   pointer-events: auto;
-}
-
-#scoreView .opponent-face .pitcher-row {
-  position: absolute;
-  top: 96px;
-  left: 12px;
-  width: min(520px, calc(100% - 24px));
-  padding: 8px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
 }
 
 #scoreView .opponent-face .opponent-outcomes {
@@ -3130,12 +3119,6 @@ button:focus-visible {
 
   #scoreView .score-form .button-row.wide {
     justify-content: flex-start;
-  }
-
-  #scoreView .opponent-face .pitcher-row {
-    top: 150px;
-    left: 8px;
-    width: calc(100% - 16px);
   }
 
   #scoreView .opponent-face .opponent-outcomes {
@@ -4174,7 +4157,7 @@ label {
   position: sticky;
   top: 72px;
   z-index: 12;
-  grid-template-columns: minmax(240px, 1fr) repeat(3, minmax(92px, auto)) auto;
+  grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(92px, auto)) auto minmax(300px, 0.8fr);
   border: 1px solid rgba(245, 189, 33, 0.24);
   background: linear-gradient(135deg, rgba(7, 20, 55, 0.98), rgba(3, 10, 36, 0.96));
   color: var(--white);
@@ -4188,6 +4171,62 @@ label {
 
 #scoreView .game-state-batter {
   margin: 4px 0 0;
+}
+
+#scoreView .game-pitcher-card {
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(180px, 1.2fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 300px;
+  border: 1px solid rgba(245, 189, 33, 0.24);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(245, 189, 33, 0.12), transparent 42%),
+    rgba(3, 10, 36, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 12px 26px rgba(0, 0, 0, 0.24);
+}
+
+#scoreView .game-pitcher-card label {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+#scoreView .game-pitcher-card select {
+  min-height: 34px;
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(7, 15, 38, 0.96);
+  color: var(--white);
+  font-weight: 900;
+}
+
+#scoreView .game-pitcher-card .pitcher-stat-strip {
+  grid-template-columns: repeat(4, minmax(48px, 1fr));
+  gap: 5px;
+}
+
+#scoreView .game-pitcher-card .pitcher-stat-strip span {
+  min-height: 38px;
+  padding: 6px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.66rem;
+}
+
+#scoreView .game-pitcher-card .pitcher-stat-strip strong {
+  color: var(--white);
+  font-size: 0.9rem;
 }
 
 #scoreView .spray-panel,
@@ -4844,6 +4883,11 @@ label {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  #scoreView .game-pitcher-card,
+  #scoreView .game-state-context {
+    grid-column: 1 / -1;
+  }
+
   #scoreView .spray-panel,
   #scoreView .spray-chart,
   #scoreView .pitch-panel {
@@ -4862,6 +4906,11 @@ label {
   #scoreView .outcome-face {
     bottom: 20px;
     width: calc(100% - 22px);
+  }
+
+  #scoreView .game-pitcher-card {
+    min-width: 0;
+    grid-template-columns: 1fr;
   }
 
   #scoreView .pitch-trail {
