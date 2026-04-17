@@ -1217,6 +1217,11 @@ function bindEvents() {
   els.homeScoreGameBtn.addEventListener("click", openCurrentGameForScoring);
   els.homeGamesBtn.addEventListener("click", () => switchView("games"));
   els.homeScoutingBtn.addEventListener("click", openNextGameScouting);
+  els.homeUpcomingGames?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-home-scout-opponent]");
+    if (!button) return;
+    openScoutingForOpponent(button.dataset.homeScoutOpponent);
+  });
   els.scorebookGameSelect.addEventListener("change", () => {
     scorebookGameId = els.scorebookGameSelect.value;
     renderTraditionalScorebook();
@@ -3119,6 +3124,7 @@ function renderUpcomingGameCard(game) {
       <span class="scout-kicker">Upcoming</span>
       <h4>vs ${escapeHtml(game.opponent)}</h4>
       <p class="player-meta">${escapeHtml(gameScheduleMeta(game))}</p>
+      <button type="button" class="secondary-action upcoming-scout-button" data-home-scout-opponent="${escapeHtml(game.opponent)}">View Scouting Report</button>
     </div>
   </article>`;
 }
@@ -3138,10 +3144,12 @@ function openCurrentGameForScoring() {
 
 function openNextGameScouting() {
   const next = nextScheduledGame();
-  if (next) {
-    const match = matchScoutingTeam(next.opponent);
-    if (match) selectedScoutingTeamId = match.id;
-  }
+  openScoutingForOpponent(next?.opponent || "");
+}
+
+function openScoutingForOpponent(opponent) {
+  const match = matchScoutingTeam(opponent);
+  if (match) selectedScoutingTeamId = match.id;
   renderScoutingReport();
   switchView("scouting");
 }
@@ -3149,10 +3157,33 @@ function openNextGameScouting() {
 function matchScoutingTeam(opponent) {
   const key = normalizeScoutName(opponent);
   if (!key || !scoutingData?.teams) return null;
-  return scoutingData.teams.find((team) => {
-    const teamKey = normalizeScoutName(team.name);
-    return teamKey.includes(key) || key.includes(teamKey) || normalizeScoutName(team.code) === key;
-  }) || null;
+  return scoutingData.teams
+    .map((team) => ({ team, score: scoutingMatchScore(opponent, team) }))
+    .filter((match) => match.score > 0)
+    .sort((a, b) => b.score - a.score)[0]?.team || null;
+}
+
+function scoutingMatchScore(opponent, team) {
+  const opponentKey = normalizeScoutName(opponent);
+  const teamKeys = [team.name, team.code, team.id, ...(team.aliases || [])].map(normalizeScoutName).filter(Boolean);
+  if (teamKeys.includes(opponentKey)) return 100;
+  if (teamKeys.some((teamKey) => teamKey.includes(opponentKey) || opponentKey.includes(teamKey))) return 80;
+
+  const opponentTokens = scoutNameTokens(opponent);
+  const teamTokens = new Set([team.name, team.code, team.id, ...(team.aliases || [])].flatMap(scoutNameTokens));
+  const matches = opponentTokens.filter((token) => teamTokens.has(token));
+  if (!matches.length) return 0;
+  return Math.round((matches.length / Math.max(opponentTokens.length, 1)) * 60);
+}
+
+function scoutNameTokens(value) {
+  return String(value || "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter((token) => token.length > 1);
 }
 
 function renderScoreboard() {

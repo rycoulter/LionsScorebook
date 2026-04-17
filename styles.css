@@ -344,6 +344,11 @@ main {
   font-size: 1.05rem;
 }
 
+.upcoming-scout-button {
+  width: fit-content;
+  margin-top: 8px;
+}
+
 .upcoming-empty {
   border: 1px dashed var(--line);
   border-radius: 8px;
@@ -4000,6 +4005,75 @@ label {
   color: var(--text-soft);
 }
 
+#gamesView .game-card {
+  border-color: rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at 88% 0%, rgba(245, 189, 33, 0.08), transparent 34%),
+    linear-gradient(145deg, rgba(20, 25, 43, 0.92), rgba(9, 13, 28, 0.94));
+  color: var(--white);
+}
+
+#gamesView .game-card.is-active {
+  border-color: rgba(245, 189, 33, 0.72);
+  background:
+    radial-gradient(circle at 88% 0%, rgba(245, 189, 33, 0.18), transparent 34%),
+    linear-gradient(145deg, rgba(24, 30, 51, 0.96), rgba(10, 16, 33, 0.96));
+  box-shadow:
+    0 0 0 1px rgba(245, 189, 33, 0.18),
+    0 24px 70px rgba(0, 0, 0, 0.36);
+}
+
+#gamesView .game-card h3,
+#gamesView .game-card.is-active h3 {
+  color: var(--white);
+}
+
+#gamesView .game-card .player-meta,
+#gamesView .game-card .archive-meta {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+#gamesView .lineup-builder {
+  border-color: rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at 88% 0%, rgba(245, 189, 33, 0.08), transparent 34%),
+    linear-gradient(145deg, rgba(20, 25, 43, 0.92), rgba(9, 13, 28, 0.94));
+}
+
+#gamesView .lineup-builder .mini-head h3,
+#gamesView .lineup-builder label {
+  color: var(--white);
+}
+
+#gamesView .lineup-builder .player-meta {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+#gamesView .lineup-builder-row {
+  border-color: rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  color: var(--white);
+}
+
+#gamesView .lineup-order {
+  background: linear-gradient(180deg, #0f6a3e, #07522d);
+  color: var(--white);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+}
+
+#gamesView .lineup-builder-row select,
+#gamesView .game-edit-grid input {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+}
+
+#gamesView .lineup-builder-row select option {
+  background: #151a2d;
+  color: var(--white);
+}
+
 .game-state-focus strong,
 .clean-scoreline strong,
 .stat-strip strong,
@@ -5306,6 +5380,10 @@ label {
 
   .upcoming-game-card {
     grid-template-columns: 1fr;
+  }
+
+  .upcoming-scout-button {
+    width: 100%;
   }
 
   #scoreView .runner-choice-group,

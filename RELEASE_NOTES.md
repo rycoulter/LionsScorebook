@@ -10,12 +10,14 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 - Added reusable matchup-image lookup for homepage opponent graphics.
 - Added Lions matchup graphics for Bandidos, D2, Devils, Ducks, Eagles, and Turtles.
 - Added a homepage Upcoming Games section showing the next two scheduled games after the main Next Game card.
+- Added scouting report buttons to homepage upcoming-game cards that auto-select the matching opponent report.
 - Added structured opponent lineup editing in the scoring sidebar.
 - Added in-play out detail flow: choose out type, then choose the fielder.
 - Added scorebook notation generation for common outs, including groundouts like `6-3`, flyouts like `F8`, and lineouts like `L6`.
 
 ### Changed
 - Updated the homepage Next Game card to choose its matchup graphic dynamically from the upcoming opponent.
+- Improved scouting report opponent matching from the homepage with a fuzzy name lookup for partial team names.
 - Cleaned up the scoring field with a darker stadium-style look, brighter bases, and occupied-base gold highlights.
 - Refined the bottom scoring panel into a cleaner pitch/outcome/spray/runner flow with a secondary More Results action.
 - Improved runner decision cards with clearer auto/adjusted movement labels and segmented action buttons.
@@ -31,6 +33,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 - Refreshed the PWA cache version to load the latest app assets.
 
 ### Fixed
+- Fixed Games tab readability for the selected game card and lineup builder rows under the dark theme.
 - Fixed a risk where creating a new game could overwrite or mutate an existing active game.
 - Fixed Next Game showing past final games.
 - Fixed in-play outs defaulting all outs to groundout notation.
