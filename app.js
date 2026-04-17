@@ -479,18 +479,28 @@ const AA_SCOUTING_SNAPSHOT = {
   ]
 };
 
-const defaultRoster = [
-  makePlayer("p1", "Cam Miller", 2, "SS, P", "R", { contact: 68, power: 55, speed: 72, defense: 70 }),
-  makePlayer("p2", "Eli Parker", 5, "C, 3B", "R", { contact: 61, power: 70, speed: 48, defense: 73 }),
-  makePlayer("p3", "Noah Brooks", 7, "CF, P", "L", { contact: 64, power: 58, speed: 76, defense: 66 }),
-  makePlayer("p4", "Mason Reed", 9, "1B, LF", "L", { contact: 57, power: 74, speed: 44, defense: 55 }),
-  makePlayer("p5", "Luca Stone", 11, "2B, SS", "R", { contact: 72, power: 43, speed: 68, defense: 69 }),
-  makePlayer("p6", "Owen Hayes", 13, "RF, 1B", "R", { contact: 54, power: 64, speed: 50, defense: 57 }),
-  makePlayer("p7", "Jack Bennett", 15, "LF, CF", "S", { contact: 59, power: 49, speed: 74, defense: 61 }),
-  makePlayer("p8", "Ryan Cole", 18, "3B, P", "R", { contact: 51, power: 62, speed: 52, defense: 64 }),
-  makePlayer("p9", "Tyler Quinn", 21, "2B, RF", "R", { contact: 63, power: 46, speed: 66, defense: 60 }),
-  makePlayer("p10", "Ben Carter", 24, "C, 1B", "L", { contact: 56, power: 67, speed: 42, defense: 68 })
-];
+const ROSTER_VERSION = "oakmont-real-roster-2026-04-17";
+
+const defaultRoster = parseRosterCsv(`
+12,Arch,Ray,UTL
+66,Butko,Roy,P|1B|OF
+27,Coulter,Ryan,C|3B
+16,Draxinger,Aidan,C|OF
+28,Kysor,Sam,SS|3B|2B
+7,Patsey,John,P|CF
+10,Ranegar,Devin,P|1B
+69,Reilly,Brady,OF
+4,Reilly,Cory,UTL
+11,Smittle,Kolton,P|2B|C
+44,Turacy-Shurtz,Ryan,1B
+22,Willochell,Brady,SS|2B
+2, Pace,Matt,UTL
+19,Kilgore,Caleb,P|1B
+15,W.,Zach,P|OF
+1,Kurtik,Matt,UTL
+25,Kennedy,Ray,UTL
+33,Rodella,Goat,UTL
+`);
 
 let state = loadState();
 let optimizedIds = [];
@@ -678,8 +688,53 @@ bindEvents();
 initializeScoutingReport();
 render();
 
-function makePlayer(id, name, number, positions, bats, grades) {
-  return { id, name, number, positions, bats, active: true, grades };
+function makePlayer(id, name, number, positions, bats = "R", grades = defaultPlayerGrades()) {
+  return {
+    id,
+    name,
+    number: String(number).trim(),
+    positions: normalizePositions(positions),
+    bats,
+    active: true,
+    grades: { ...defaultPlayerGrades(), ...(grades || {}) }
+  };
+}
+
+function defaultPlayerGrades() {
+  return { contact: 50, power: 50, speed: 50, defense: 50 };
+}
+
+function normalizePositions(positions) {
+  if (Array.isArray(positions)) return positions.map((position) => String(position).trim()).filter(Boolean);
+  return String(positions || "UTL")
+    .split(/[|,]/)
+    .map((position) => position.trim())
+    .filter(Boolean);
+}
+
+function formatPositions(positions) {
+  const normalized = normalizePositions(positions);
+  return normalized.length ? normalized.join(", ") : "UTL";
+}
+
+function playerHasPosition(player, position) {
+  return normalizePositions(player?.positions).includes(position);
+}
+
+function parseRosterCsv(csvText) {
+  return String(csvText || "")
+    .trim()
+    .split(/\r?\n/)
+    .map((row) => row.trim())
+    .filter(Boolean)
+    .map((row) => {
+      const [number, lastName, firstName, positions] = row.split(",");
+      const cleanNumber = String(number || "").trim();
+      const cleanLast = String(lastName || "").trim();
+      const cleanFirst = String(firstName || "").trim();
+      const playerId = `player-${cleanNumber}`;
+      return makePlayer(playerId, `${cleanFirst} ${cleanLast}`.trim(), cleanNumber, String(positions || "UTL").trim(), "R", defaultPlayerGrades());
+    });
 }
 
 function todayValue() {
@@ -826,24 +881,26 @@ function makeUniqueGame(options = {}) {
 }
 
 function seedState() {
+  const seededIds = defaultRoster.map((player) => player.id);
   const sampleGame = makeGame("Riverside Hawks");
   sampleGame.status = "completed";
   sampleGame.date = "2026-04-10";
   sampleGame.score = { lions: 7, opponent: 4 };
   sampleGame.events = [
-    seedEvent(sampleGame, "p1", "BB", 1, 0, "none", "none", "high", "Opened with a disciplined walk."),
-    seedEvent(sampleGame, "p2", "2B", 1, 2, "hard", "ld", "high", "Drove the outer-half pitch into the gap.", { x: 38, y: 36, zone: "LCF" }),
-    seedEvent(sampleGame, "p3", "1B", 0, 1, "solid", "gb", "neutral", "Beat the throw with speed pressure.", { x: 54, y: 67, zone: "MIF" }),
-    seedEvent(sampleGame, "p4", "HR", 1, 2, "barrel", "fb", "high", "Pulled a mistake with runners on.", { x: 27, y: 18, zone: "LF" }),
-    seedEvent(sampleGame, "p5", "1B", 0, 0, "solid", "ld", "neutral", "Short swing with two strikes.", { x: 62, y: 48, zone: "RCF" }),
-    seedEvent(sampleGame, "p6", "K", 0, 0, "none", "none", "low", "Chased above the zone."),
-    seedEvent(sampleGame, "p7", "SB", 0, 0, "none", "none", "neutral", "Good jump on first move."),
-    seedEvent(sampleGame, "p8", "FO", 0, 0, "weak", "fb", "low", "Got under it.", { x: 73, y: 29, zone: "RF" }),
-    seedEvent(sampleGame, "p9", "1B", 1, 1, "hard", "ld", "high", "Line drive through the middle.", { x: 50, y: 42, zone: "CF" })
+    seedEvent(sampleGame, seededIds[0], "BB", 1, 0, "none", "none", "high", "Opened with a disciplined walk."),
+    seedEvent(sampleGame, seededIds[1], "2B", 1, 2, "hard", "ld", "high", "Drove the outer-half pitch into the gap.", { x: 38, y: 36, zone: "LCF" }),
+    seedEvent(sampleGame, seededIds[2], "1B", 0, 1, "solid", "gb", "neutral", "Beat the throw with speed pressure.", { x: 54, y: 67, zone: "MIF" }),
+    seedEvent(sampleGame, seededIds[3], "HR", 1, 2, "barrel", "fb", "high", "Pulled a mistake with runners on.", { x: 27, y: 18, zone: "LF" }),
+    seedEvent(sampleGame, seededIds[4], "1B", 0, 0, "solid", "ld", "neutral", "Short swing with two strikes.", { x: 62, y: 48, zone: "RCF" }),
+    seedEvent(sampleGame, seededIds[5], "K", 0, 0, "none", "none", "low", "Chased above the zone."),
+    seedEvent(sampleGame, seededIds[6], "SB", 0, 0, "none", "none", "neutral", "Good jump on first move."),
+    seedEvent(sampleGame, seededIds[7], "FO", 0, 0, "weak", "fb", "low", "Got under it.", { x: 73, y: 29, zone: "RF" }),
+    seedEvent(sampleGame, seededIds[8], "1B", 1, 1, "hard", "ld", "high", "Line drive through the middle.", { x: 50, y: 42, zone: "CF" })
   ];
   const activeGame = makeGame("Wildcats");
   return {
     roster: defaultRoster,
+    rosterVersion: ROSTER_VERSION,
     lineup: defaultRoster.filter((player) => player.active).map((player) => player.id),
     games: [sampleGame, activeGame],
     activeGameId: activeGame.id
@@ -906,8 +963,46 @@ function loadState() {
 }
 
 function normalizeState(nextState) {
+  nextState.roster = normalizeRoster(nextState.roster);
+  const rosterWasReplaced = nextState.rosterVersion !== ROSTER_VERSION;
+  if (nextState.rosterVersion !== ROSTER_VERSION) {
+    nextState.roster = deepClone(defaultRoster);
+    nextState.lineup = defaultRoster.filter((player) => player.active).map((player) => player.id);
+    nextState.rosterVersion = ROSTER_VERSION;
+  } else {
+    nextState.lineup = Array.isArray(nextState.lineup) && nextState.lineup.length
+      ? nextState.lineup.filter((playerId) => nextState.roster.some((player) => player.id === playerId))
+      : nextState.roster.filter((player) => player.active).map((player) => player.id);
+  }
   nextState.games = nextState.games.map((game) => normalizeGame(game, nextState));
+  if (rosterWasReplaced) {
+    nextState.games.forEach((game) => resetGameAwayLineupToRoster(game, nextState));
+  }
   return nextState;
+}
+
+function normalizeRoster(roster = []) {
+  return roster.map((player) => ({
+    ...player,
+    number: String(player.number ?? "").trim(),
+    positions: normalizePositions(player.positions),
+    bats: player.bats || "R",
+    active: player.active !== false,
+    grades: { ...defaultPlayerGrades(), ...(player.grades || {}) }
+  }));
+}
+
+function resetGameAwayLineupToRoster(game, nextState = state) {
+  const lineupEntries = makeLineupEntries(nextState.lineup || []);
+  game.lineupEntries = lineupEntries;
+  if (!game.lineups) game.lineups = { away: [], home: opponentLineupEntries(game.opponentLineup || []) };
+  game.lineups.away = deepClone(lineupEntries);
+  game.batterIndex = Math.min(game.batterIndex || 0, Math.max(lineupEntries.length - 1, 0));
+  const currentBatter = lineupEntries[game.batterIndex]?.playerId || lineupEntries[0]?.playerId || "";
+  const pitcher = nextState.roster.find((player) => playerHasPosition(player, "P"))?.id || currentBatter;
+  game.pitcherId = pitcher;
+  if (game.current) game.current.batterId = currentBatter;
+  if (game.current) game.current.pitcherId = pitcher;
 }
 
 function normalizeGame(game, nextState = state) {
@@ -2992,7 +3087,7 @@ function addPlayer() {
     els.playerNumber.value.trim() || "--",
     els.playerPositions.value.trim() || "UTIL",
     els.playerBats.value,
-    { contact: 50, power: 50, speed: 50, defense: 50 }
+    defaultPlayerGrades()
   );
   state.roster.push(player);
   state.lineup.push(player.id);
@@ -3661,7 +3756,7 @@ function renderAtBat() {
   const currentPlayer = state.roster.find((player) => player.id === currentBatterId(game));
   els.currentBatterName.textContent = currentPlayer ? `#${currentPlayer.number} ${currentPlayer.name}` : "Current batter";
   els.currentBatterMeta.textContent = currentPlayer
-    ? `${currentPlayer.positions} | ${game.half === "top" ? "Oakmont hitting" : "Opponent half"}`
+    ? `${formatPositions(currentPlayer.positions)} | ${game.half === "top" ? "Oakmont hitting" : "Opponent half"}`
     : "Set an active lineup to begin.";
   renderCurrentBatterSummary(game, currentPlayer);
   els.countDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
@@ -3907,7 +4002,7 @@ function renderLiveLineup() {
       const current = index === game.batterIndex && game.half === "top" ? " is-current" : "";
       return `<li class="${current}">
         <strong>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</strong>
-        <div class="player-meta">${escapeHtml(entry.role)} | ${escapeHtml(player.positions)} | OPS ${formatRate(stats.ops)} | Contact ${Math.round(contactQuality(stats) * 100)}</div>
+        <div class="player-meta">${escapeHtml(entry.role)} | ${escapeHtml(formatPositions(player.positions))} | OPS ${formatRate(stats.ops)} | Contact ${Math.round(contactQuality(stats) * 100)}</div>
       </li>`;
     })
     .join("");
@@ -4142,7 +4237,7 @@ function renderRoster() {
     card.dataset.playerId = player.id;
     node.querySelector(".number-pill").textContent = `#${player.number}`;
     node.querySelector("h3").textContent = player.name;
-    node.querySelector("p").textContent = `${player.positions} | Bats ${player.bats}`;
+    node.querySelector("p").textContent = `${formatPositions(player.positions)} | Bats ${player.bats}`;
     node.querySelector('[data-player-edit="name"]').value = player.name;
     node.querySelector('[data-player-edit="number"]').value = player.number;
     const activeToggle = node.querySelector(".active-toggle input");
@@ -5174,7 +5269,7 @@ function assignDefense(ids) {
       .map((id) => state.roster.find((player) => player.id === id))
       .filter(Boolean)
       .filter((player) => !used.has(player.id))
-      .filter((player) => player.positions.split(",").map((item) => item.trim()).includes(position))
+      .filter((player) => playerHasPosition(player, position))
       .sort((a, b) => b.grades.defense - a.grades.defense)[0];
     if (best) {
       assignment[best.id] = position;

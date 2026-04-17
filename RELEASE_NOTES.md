@@ -16,6 +16,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 - Added scorebook notation generation for common outs, including groundouts like `6-3`, flyouts like `F8`, and lineouts like `L6`.
 
 ### Changed
+- Replaced the demo roster with the real Oakmont roster and normalized roster positions as arrays.
 - Redesigned the scoring field visuals into a cleaner top-down baseball field with brighter grass, clay infield shapes, white baselines, visible bases, and a pitcher mound while preserving spray chart interactions.
 - Refactored scoring-field positioning to use a shared percentage coordinate system for bases, runners, pitcher, fielders, foul lines, and the infield diamond.
 - Updated the homepage Next Game card to choose its matchup graphic dynamically from the upcoming opponent.
