@@ -3166,8 +3166,10 @@ function renderRoster() {
     node.querySelectorAll("[data-grade]").forEach((input) => {
       const grade = input.dataset.grade;
       input.value = player.grades[grade];
+      setGradeFill(input);
       input.addEventListener("input", () => {
         player.grades[grade] = Number(input.value);
+        setGradeFill(input);
         saveState();
         optimizedIds = buildOptimizedLineup();
         renderOptimizedLineup();
@@ -3176,6 +3178,14 @@ function renderRoster() {
     });
     els.rosterGrid.appendChild(node);
   });
+}
+
+function setGradeFill(input) {
+  const min = Number(input.min) || 0;
+  const max = Number(input.max) || 100;
+  const value = Number(input.value) || min;
+  const pct = Math.max(0, Math.min(100, ((value - min) / (max - min || 1)) * 100));
+  input.style.setProperty("--grade-fill", `${pct}%`);
 }
 
 function updatePlayerIdentity(playerId, field, value) {

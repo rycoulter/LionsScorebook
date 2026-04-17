@@ -2558,10 +2558,11 @@ button:focus-visible {
 }
 
 #scoreView .pitch-panel {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  grid-area: field;
   z-index: 6;
   width: 100%;
+  min-height: 720px;
   margin: 0;
   pointer-events: none;
 }
@@ -3460,5 +3461,289 @@ button:focus-visible {
   #scoreView .pitch-trail {
     bottom: 11%;
     width: calc(100% - 24px);
+  }
+}
+
+/* Keep scoring controls anchored inside the field, down by the lower box/home-plate area. */
+#scoreView .pitch-panel {
+  min-height: clamp(660px, 72vh, 860px);
+}
+
+#scoreView .pitch-buttons {
+  bottom: 7%;
+  width: min(520px, calc(100% - 48px));
+}
+
+#scoreView .outcome-face {
+  bottom: 7%;
+  width: min(640px, calc(100% - 48px));
+}
+
+#scoreView .pitch-trail {
+  bottom: 17%;
+}
+
+@media (max-width: 700px) {
+  #scoreView .pitch-panel {
+    min-height: 640px;
+  }
+
+  #scoreView .pitch-buttons,
+  #scoreView .outcome-face {
+    bottom: 7%;
+    width: calc(100% - 24px);
+  }
+
+  #scoreView .pitch-trail {
+    bottom: 18%;
+  }
+}
+
+/* Roster profile cards */
+.roster-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 720px), 1fr));
+  gap: 22px;
+  align-items: start;
+}
+
+.player-card {
+  max-width: 920px;
+  min-height: 560px;
+  margin: 0 auto;
+  border-color: rgba(255, 255, 255, 0.13);
+  background:
+    radial-gradient(circle at 80% 0%, rgba(245, 189, 33, 0.18), transparent 34%),
+    linear-gradient(145deg, #1e2233 0%, #141827 42%, #070913 100%);
+  box-shadow: 0 28px 70px rgba(3, 10, 36, 0.32);
+}
+
+.player-card-logo {
+  left: 50%;
+  right: auto;
+  bottom: 18px;
+  width: min(58%, 470px);
+  opacity: 0.09;
+  transform: translateX(-18%) rotate(0deg);
+}
+
+.player-card-overlay {
+  background:
+    linear-gradient(90deg, rgba(20, 24, 39, 0.96), rgba(20, 24, 39, 0.78) 54%, rgba(20, 24, 39, 0.9)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(3, 10, 36, 0.48));
+}
+
+.player-card-content {
+  gap: 24px;
+  padding: 32px 34px 30px;
+}
+
+.player-card .player-topline {
+  align-items: start;
+}
+
+.player-card .player-topline > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 22px;
+  align-items: center;
+}
+
+.player-card .number-pill {
+  min-width: 68px;
+  min-height: 56px;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, #bd3b35, #9d2f2b);
+  color: var(--white);
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.player-card h3 {
+  font-size: 2.4rem;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.player-card .player-topline p {
+  grid-column: 2;
+  margin: 10px 0 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 1.28rem;
+  font-weight: 500;
+}
+
+.player-card .active-toggle {
+  position: relative;
+  display: grid;
+  width: 52px;
+  min-width: 52px;
+  min-height: 52px;
+  place-items: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.player-card .active-toggle span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.player-card .active-toggle input {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.player-card .active-toggle::after {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: 8px;
+  background: #4d37a5;
+  color: var(--white);
+  content: "";
+  place-items: center;
+  font-size: 2rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.player-card .active-toggle:has(input:checked)::after {
+  content: "✓";
+}
+
+.player-card .player-edit-row {
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.26fr);
+  gap: 16px;
+  border: 0;
+  padding: 10px 0 0;
+  background: transparent;
+}
+
+.player-card .player-edit-row label {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.12rem;
+  font-weight: 900;
+}
+
+.player-card input:not([type="range"]):not([type="checkbox"]) {
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--white);
+}
+
+.player-card .player-edit-row:focus-within input:not([type="range"]):not([type="checkbox"]) {
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--lion-navy);
+}
+
+.player-card .stat-strip {
+  gap: 12px;
+}
+
+.player-card .stat-strip span {
+  min-height: 116px;
+  border-color: rgba(255, 255, 255, 0.16);
+  padding: 20px 22px;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 1.15rem;
+  letter-spacing: 0;
+}
+
+.player-card .stat-strip strong {
+  margin-top: 12px;
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.player-card .grade-row {
+  gap: 24px;
+  border-top: 0;
+  padding-top: 8px;
+}
+
+.player-card .grade-row label {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  min-height: 70px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.16rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.player-card input[type="range"] {
+  --grade-fill: 50%;
+  height: 20px;
+}
+
+.player-card input[type="range"]::-webkit-slider-runnable-track {
+  height: 9px;
+  background: linear-gradient(90deg, var(--lion-gold) 0 var(--grade-fill), rgba(255, 255, 255, 0.78) var(--grade-fill) 100%);
+}
+
+.player-card input[type="range"]::-webkit-slider-thumb {
+  width: 26px;
+  height: 26px;
+  margin-top: -8.5px;
+  border-color: var(--lion-gold);
+}
+
+.player-card input[type="range"]::-moz-range-track {
+  height: 9px;
+  background: linear-gradient(90deg, var(--lion-gold) 0 var(--grade-fill), rgba(255, 255, 255, 0.78) var(--grade-fill) 100%);
+}
+
+.player-card input[type="range"]::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-color: var(--lion-gold);
+}
+
+@media (max-width: 760px) {
+  .player-card {
+    min-height: 0;
+  }
+
+  .player-card-content {
+    padding: 22px;
+  }
+
+  .player-card h3 {
+    font-size: 1.75rem;
+  }
+
+  .player-card .player-topline p {
+    font-size: 1rem;
+  }
+
+  .player-card .stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .player-card .stat-strip span {
+    min-height: 96px;
   }
 }
