@@ -1,8 +1,9 @@
-const CACHE_NAME = "baseball-scorebook-v7";
+const CACHE_NAME = "baseball-scorebook-v9";
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
   "./styles.css",
+  "./storage.js",
   "./app.js",
   "./manifest.json"
 ];

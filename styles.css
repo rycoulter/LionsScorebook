@@ -258,6 +258,94 @@ main {
   background: var(--white);
 }
 
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.home-panel,
+.score-status-card,
+.scorebook-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+
+.home-panel {
+  padding: 14px;
+}
+
+.home-hero-panel {
+  display: grid;
+  gap: 18px;
+  min-height: 100%;
+  background: linear-gradient(135deg, #ffffff 0%, #f2f8f4 64%, #fff7de 100%);
+}
+
+.home-field-image {
+  width: 100%;
+  height: 142px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.home-record {
+  font-size: 2rem;
+}
+
+.home-next-game {
+  display: grid;
+  gap: 8px;
+}
+
+.compact-leaders {
+  grid-template-columns: 1fr;
+  margin: 10px 0 0;
+}
+
+.score-status-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+}
+
+.score-status-card h3,
+.home-next-game h3 {
+  font-size: 1.22rem;
+}
+
+.clean-scoreline div {
+  border-color: var(--line);
+  background: #f7faf7;
+  color: var(--ink);
+}
+
+.clean-scoreline span {
+  color: var(--muted);
+}
+
+.clean-diamond {
+  border-color: var(--line);
+  background: #f7faf7;
+}
+
+.clean-diamond .base,
+.clean-diamond .plate {
+  border-color: var(--grass-strong);
+  background: var(--white);
+}
+
+.clean-diamond .base.is-filled {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+
 .view {
   display: none;
   width: min(1380px, calc(100% - 28px));
@@ -1534,6 +1622,98 @@ button:focus-visible {
   background: #fbfdfb;
 }
 
+.scorebook-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.scorebook-panel {
+  overflow: hidden;
+}
+
+.scorebook-panel .mini-head {
+  padding: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.scorebook-table-wrap {
+  overflow: auto;
+}
+
+.scorebook-table {
+  width: 100%;
+  min-width: 1040px;
+  border-collapse: collapse;
+}
+
+.scorebook-table th,
+.scorebook-table td {
+  min-width: 112px;
+  height: 82px;
+  border: 1px solid var(--line);
+  padding: 8px;
+  vertical-align: top;
+}
+
+.scorebook-table thead th {
+  height: auto;
+  background: #f4f8f4;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.scorebook-table tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 190px;
+  background: var(--white);
+  text-align: left;
+}
+
+.scorebook-table tbody th span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.scorebook-cell {
+  display: grid;
+  gap: 3px;
+  min-height: 64px;
+  border-radius: 8px;
+  padding: 7px;
+  background: #fbfdfb;
+}
+
+.scorebook-cell strong {
+  font-size: 1rem;
+}
+
+.scorebook-cell span,
+.scorebook-cell em,
+.scorebook-empty {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.scorebook-cell.is-hit {
+  background: #fff7de;
+}
+
+.scorebook-cell.is-out {
+  background: #f8eded;
+}
+
+.scorebook-cell.is-reach {
+  background: #edf7f0;
+}
+
 .scouting-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1645,6 +1825,11 @@ button:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.scout-row-muted {
+  background: #f7f8f7;
+  opacity: 0.78;
+}
+
 .scout-value {
   color: var(--grass-strong) !important;
   font-weight: 900 !important;
@@ -1711,6 +1896,8 @@ button:focus-visible {
   .topbar,
   .game-glass,
   .section-head,
+  .home-grid,
+  .score-status-card,
   .score-grid,
   .lab-grid,
   .analysis-grid {
@@ -1828,6 +2015,8 @@ button:focus-visible {
 
   .scoreline,
   .score-form,
+  .home-grid,
+  .score-status-card,
   .pitch-buttons,
   .game-form,
   .lineup-builder-row,
