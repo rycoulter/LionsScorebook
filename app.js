@@ -1,4 +1,5 @@
 const STORAGE_KEY = "oakmont-lions-scorebook-v1";
+const GAME_LIBRARY_KEY = "oakmont-lions-game-library-v1";
 
 const eventRules = {
   "1B": { label: "Single", pa: true, ab: true, hit: true, tb: 1, reach: true, bip: true },
@@ -9,6 +10,7 @@ const eventRules = {
   HBP: { label: "Hit by pitch", pa: true, ab: false, hbp: true, reach: true },
   ROE: { label: "Reached on error", pa: true, ab: true, reach: true, bip: true, roe: true },
   FC: { label: "Fielder's choice", pa: true, ab: true, out: true, bip: true },
+  DP: { label: "Double play", pa: true, ab: true, out: true, bip: true, dp: true },
   K: { label: "Strikeout", pa: true, ab: true, out: true, k: true },
   GO: { label: "Groundout", pa: true, ab: true, out: true, bip: true, launch: "gb" },
   FO: { label: "Flyout", pa: true, ab: true, out: true, bip: true, launch: "fb" },
@@ -42,7 +44,7 @@ const pitchLabels = {
   in_play: "Ball in play"
 };
 
-const battedBallResults = new Set(["1B", "2B", "3B", "HR", "ROE", "FC", "GO", "FO", "LO", "SAC"]);
+const battedBallResults = new Set(["1B", "2B", "3B", "HR", "ROE", "FC", "DP", "GO", "FO", "LO", "SAC"]);
 
 const defaultRoster = [
   makePlayer("p1", "Cam Miller", 2, "SS, P", "R", { contact: 68, power: 55, speed: 72, defense: 70 }),
@@ -61,6 +63,10 @@ let state = loadState();
 let optimizedIds = [];
 let pendingSpray = null;
 let lineupBuilderGameId = null;
+let gameEditId = null;
+let pendingRunnerOutBases = [];
+let hittingSort = { key: "ops", direction: "desc" };
+let statsSprayExpanded = false;
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
@@ -75,6 +81,7 @@ const els = {
   currentBatterMeta: document.getElementById("currentBatterMeta"),
   batterSummary: document.getElementById("batterSummary"),
   countDisplay: document.getElementById("countDisplay"),
+  currentOutsDisplay: document.getElementById("currentOutsDisplay"),
   pitchButtons: [...document.querySelectorAll("[data-pitch]")],
   pitchTrail: document.getElementById("pitchTrail"),
   resetCountBtn: document.getElementById("resetCountBtn"),
@@ -102,6 +109,8 @@ const els = {
   runnerSummary: document.getElementById("runnerSummary"),
   runnerHint: document.getElementById("runnerHint"),
   stealButtons: [...document.querySelectorAll("[data-steal]")],
+  runnerPlayControls: document.getElementById("runnerPlayControls"),
+  runnerOutButtons: [...document.querySelectorAll("[data-runner-out-base]")],
   scoreForm: document.getElementById("scoreForm"),
   choiceButtons: [...document.querySelectorAll("[data-choice-group]")],
   gameForm: document.getElementById("gameForm"),
@@ -115,6 +124,7 @@ const els = {
   closeLineupBuilderBtn: document.getElementById("closeLineupBuilderBtn"),
   opponentInput: document.getElementById("opponentInput"),
   gameDateInput: document.getElementById("gameDateInput"),
+  gameTimeInput: document.getElementById("gameTimeInput"),
   gameLocationInput: document.getElementById("gameLocationInput"),
   gameNotesInput: document.getElementById("gameNotesInput"),
   batterSelect: document.getElementById("batterSelect"),
@@ -123,6 +133,8 @@ const els = {
   rbiInput: document.getElementById("rbiInput"),
   contactSelect: document.getElementById("contactSelect"),
   launchSelect: document.getElementById("launchSelect"),
+  errorFielderSelect: document.getElementById("errorFielderSelect"),
+  autoScorePreview: document.getElementById("autoScorePreview"),
   noteInput: document.getElementById("noteInput"),
   newGameBtn: document.getElementById("newGameBtn"),
   undoBtn: document.getElementById("undoBtn"),
@@ -156,9 +168,22 @@ const els = {
   archiveSearch: document.getElementById("archiveSearch"),
   archiveGrid: document.getElementById("archiveGrid"),
   metricsGrid: document.getElementById("metricsGrid"),
+  gameBreakdown: document.getElementById("gameBreakdown"),
   valueBoard: document.getElementById("valueBoard"),
   hittingStatsBody: document.getElementById("hittingStatsBody"),
   pitchingStatsBody: document.getElementById("pitchingStatsBody"),
+  recordSummary: document.getElementById("recordSummary"),
+  gameEditPanel: document.getElementById("gameEditPanel"),
+  gameEditTitle: document.getElementById("gameEditTitle"),
+  editOpponentInput: document.getElementById("editOpponentInput"),
+  editDateInput: document.getElementById("editDateInput"),
+  editTimeInput: document.getElementById("editTimeInput"),
+  editLocationInput: document.getElementById("editLocationInput"),
+  editNotesInput: document.getElementById("editNotesInput"),
+  saveGameEditBtn: document.getElementById("saveGameEditBtn"),
+  closeGameEditBtn: document.getElementById("closeGameEditBtn"),
+  toggleStatsSprayBtn: document.getElementById("toggleStatsSprayBtn"),
+  statsSprayPanel: document.getElementById("statsSprayPanel"),
   statsSprayPlayerSelect: document.getElementById("statsSprayPlayerSelect"),
   statsSprayGameSelect: document.getElementById("statsSprayGameSelect"),
   statsSprayMarkers: document.getElementById("statsSprayMarkers"),
@@ -177,11 +202,21 @@ function todayValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function uuid() {
+function createId(prefix = "id") {
   if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
-    return globalThis.crypto.randomUUID();
+    return `${prefix}-${globalThis.crypto.randomUUID()}`;
   }
-  return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function uuid() {
+  return createId();
+}
+
+function deepClone(value) {
+  if (value === undefined || value === null) return value;
+  if (typeof structuredClone === "function") return structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
 }
 
 function makeAtBat() {
@@ -216,27 +251,85 @@ function defaultRoleForSpot(index) {
   return ["C", "P", "1B", "2B", "3B", "SS", "LF", "CF", "RF"][index] || "EH";
 }
 
-function makeGame(opponent = "Wildcats") {
+function lineupEntriesFromRoster(playerIds = []) {
+  return makeLineupEntries(playerIds).map((entry, index) => ({
+    ...entry,
+    order: index + 1
+  }));
+}
+
+function opponentLineupEntries(names = []) {
+  return names.map((name, index) => ({
+    id: createId("opp"),
+    name,
+    order: index + 1,
+    active: true
+  }));
+}
+
+function emptyBases(value = null) {
+  return { first: value, second: value, third: value };
+}
+
+function createGame(options = {}) {
+  const config = typeof options === "string" ? { opponent: options } : options;
+  const opponent = config.opponent || "Wildcats";
+  const awayLineup = config.awayLineup || config.lineupEntries || lineupEntriesFromRoster(defaultRoster.filter((player) => player.active).map((player) => player.id));
+  const homeLineup = config.homeLineup || opponentLineupEntries(config.opponentLineup || []);
+  const batterId = awayLineup[0]?.playerId || awayLineup[0]?.id || "";
+  const pitcherId = config.pitcherId || batterId;
+
   return {
-    id: uuid(),
+    id: config.id || createId("game"),
     opponent,
-    date: todayValue(),
-    location: "",
-    notes: "",
-    status: "active",
-    inning: 1,
-    half: "top",
-    outs: 0,
-    bases: { first: false, second: false, third: false },
-    batterIndex: 0,
-    lineupEntries: makeLineupEntries(defaultRoster.filter((player) => player.active).map((player) => player.id)),
-    opponentBatterIndex: 0,
-    opponentLineup: [],
-    pitcherId: "",
-    score: { lions: 0, opponent: 0 },
+    date: config.date || todayValue(),
+    time: config.time || "",
+    location: config.location || "",
+    notes: config.notes || "",
+    status: config.status || "active",
+    teams: {
+      away: { id: "oakmont-lions", name: "Oakmont Lions" },
+      home: { id: "opponent", name: opponent }
+    },
+    lineups: {
+      away: deepClone(awayLineup),
+      home: deepClone(homeLineup)
+    },
+    current: {
+      inning: config.inning ?? 1,
+      half: config.half || "top",
+      outs: config.outs ?? 0,
+      balls: 0,
+      strikes: 0,
+      batterId,
+      pitcherId,
+      runners: emptyBases()
+    },
+    inning: config.inning ?? 1,
+    half: config.half || "top",
+    outs: config.outs ?? 0,
+    bases: emptyBases(false),
+    batterIndex: config.batterIndex ?? 0,
+    lineupEntries: deepClone(awayLineup),
+    opponentBatterIndex: config.opponentBatterIndex ?? 0,
+    opponentLineup: homeLineup.map((entry) => entry.name),
+    pitcherId,
+    score: {
+      lions: config.score?.lions ?? config.score?.away ?? 0,
+      opponent: config.score?.opponent ?? config.score?.home ?? 0,
+      away: config.score?.away ?? config.score?.lions ?? 0,
+      home: config.score?.home ?? config.score?.opponent ?? 0
+    },
+    plateAppearances: [],
+    currentPlateAppearanceId: "",
+    substitutions: [],
     events: [],
     atBat: makeAtBat()
   };
+}
+
+function makeGame(opponent = "Wildcats") {
+  return createGame({ opponent });
 }
 
 function seedState() {
@@ -289,11 +382,31 @@ function seedEvent(game, playerId, result, runs, rbi, contact, launch, leverage,
 
 function loadState() {
   try {
+    const library = loadGameLibrary();
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return seedState();
-    const parsed = JSON.parse(raw);
-    if (!parsed.roster || !parsed.games || !parsed.lineup) return seedState();
-    return normalizeState(parsed);
+    const parsed = raw ? JSON.parse(raw) : null;
+    const hasAppState = parsed?.roster && parsed?.lineup;
+    const nextState = hasAppState
+      ? parsed
+      : {
+          ...seedState(),
+          games: []
+        };
+    if (library.gameOrder.length) {
+      nextState.games = library.gameOrder.map((gameId) => library.gamesById[gameId]).filter(Boolean);
+      nextState.activeGameId = library.activeGameId || nextState.games[0]?.id || "";
+    } else if (!nextState.games?.length && !hasAppState) {
+      const seeded = seedState();
+      nextState.games = seeded.games;
+      nextState.activeGameId = seeded.activeGameId;
+      saveGameLibrary(buildGameLibraryFromGames(nextState.games, nextState.activeGameId));
+    }
+    if (!nextState.roster || !nextState.games || !nextState.lineup) return seedState();
+    const normalized = normalizeState(nextState);
+    const activeFromLibrary = normalized.games.find((game) => game.id === library.activeGameId);
+    if (activeFromLibrary) normalized.activeGameId = activeFromLibrary.id;
+    if (!normalized.activeGameId && normalized.games.length) normalized.activeGameId = normalized.games[0].id;
+    return normalized;
   } catch (error) {
     console.warn("Unable to load saved scorebook.", error);
     return seedState();
@@ -301,26 +414,381 @@ function loadState() {
 }
 
 function normalizeState(nextState) {
-  nextState.games = nextState.games.map((game) => ({
-    ...game,
-    location: game.location || "",
-    notes: game.notes || "",
-    status: game.status || "active",
-    lineupEntries: game.lineupEntries || makeLineupEntries(nextState.lineup || []),
-    opponentBatterIndex: game.opponentBatterIndex || 0,
-    opponentLineup: game.opponentLineup || [],
-    pitcherId: game.pitcherId || "",
-    atBat: game.atBat || makeAtBat(),
-    events: (game.events || []).map((event) => ({
-      ...event,
-      pitches: event.pitches || [],
-      spray: event.spray || null
-    }))
-  }));
+  nextState.games = nextState.games.map((game) => normalizeGame(game, nextState));
   return nextState;
 }
 
+function normalizeGame(game, nextState = state) {
+  const lineupSource = game.lineups?.away || game.lineupEntries || makeLineupEntries(nextState.lineup || []);
+  const homeSource = game.lineups?.home || opponentLineupEntries(game.opponentLineup || []);
+  const lineupEntries = lineupSource.map((entry, index) => ({
+    id: entry.id || createId("lineup"),
+    playerId: entry.playerId || entry.id || "",
+    role: entry.role || defaultRoleForSpot(index),
+    order: entry.order || index + 1,
+    active: entry.active !== false,
+    note: entry.note || ""
+  }));
+  const homeLineup = homeSource.map((entry, index) => ({
+    id: entry.id || createId("opp"),
+    name: entry.name || String(entry),
+    order: entry.order || index + 1,
+    active: entry.active !== false
+  }));
+  const atBat = game.atBat || makeAtBat();
+  const score = {
+    lions: game.score?.lions ?? game.score?.away ?? 0,
+    opponent: game.score?.opponent ?? game.score?.home ?? 0,
+    away: game.score?.away ?? game.score?.lions ?? 0,
+    home: game.score?.home ?? game.score?.opponent ?? 0
+  };
+  const normalized = {
+    ...game,
+    opponent: game.opponent || game.teams?.home?.name || "Opponent",
+    time: game.time || "",
+    location: game.location || "",
+    notes: game.notes || "",
+    status: game.status || "active",
+    teams: {
+      away: game.teams?.away || { id: "oakmont-lions", name: "Oakmont Lions" },
+      home: { id: game.teams?.home?.id || "opponent", name: game.opponent || game.teams?.home?.name || "Opponent" }
+    },
+    lineups: {
+      away: lineupEntries,
+      home: homeLineup
+    },
+    inning: game.inning ?? game.current?.inning ?? 1,
+    half: game.half ?? game.current?.half ?? "top",
+    outs: game.outs ?? game.current?.outs ?? 0,
+    bases: game.bases || game.current?.runners || emptyBases(false),
+    batterIndex: game.batterIndex ?? 0,
+    lineupEntries,
+    opponentBatterIndex: game.opponentBatterIndex ?? 0,
+    opponentLineup: homeLineup.map((entry) => entry.name),
+    pitcherId: game.pitcherId || game.current?.pitcherId || "",
+    score,
+    atBat: {
+      ...makeAtBat(),
+      ...atBat,
+      pitches: normalizePitchTrail(atBat.pitches || [])
+    },
+    events: (game.events || []).map((event) => ({
+      ...event,
+      pitches: normalizePitchTrail(event.pitches || []),
+      spray: event.spray || event.result?.sprayChart || null
+    })),
+    substitutions: game.substitutions || []
+  };
+  normalized.current = {
+    inning: normalized.inning,
+    half: normalized.half,
+    outs: normalized.outs,
+    balls: normalized.atBat.balls ?? game.current?.balls ?? 0,
+    strikes: normalized.atBat.strikes ?? game.current?.strikes ?? 0,
+    batterId: game.current?.batterId || "",
+    pitcherId: normalized.pitcherId,
+    runners: deepClone(normalized.bases)
+  };
+  normalized.plateAppearances = normalizePlateAppearances(game.plateAppearances, normalized);
+  normalized.currentPlateAppearanceId = game.currentPlateAppearanceId || "";
+  syncGameCurrent(normalized);
+  return normalized;
+}
+
+function normalizePlateAppearances(plateAppearances, game) {
+  if (plateAppearances && plateAppearances.length) {
+    return plateAppearances.map((appearance) => ({
+      id: appearance.id || createId("pa"),
+      gameId: appearance.gameId || game.id,
+      inning: appearance.inning ?? game.inning,
+      half: appearance.half || game.half,
+      battingSide: appearance.battingSide || (appearance.half === "bottom" ? "home" : "away"),
+      batterId: appearance.batterId || appearance.playerId || "",
+      pitcherId: appearance.pitcherId || "",
+      basesBefore: appearance.basesBefore || emptyBases(false),
+      pitches: normalizePitchTrail(appearance.pitches || []),
+      result: normalizePlateAppearanceResult(appearance.result),
+      basesAfter: appearance.basesAfter || null,
+      outsBefore: appearance.outsBefore ?? 0,
+      outsAfter: appearance.outsAfter ?? appearance.outsBefore ?? 0,
+      runsScored: appearance.runsScored ?? 0,
+      startedAt: appearance.startedAt || appearance.createdAt || new Date().toISOString(),
+      completedAt: appearance.completedAt || null
+    }));
+  }
+  return (game.events || [])
+    .filter((event) => eventRules[event.result]?.pa)
+    .map((event) => ({
+      id: event.plateAppearanceId || createId("pa"),
+      gameId: game.id,
+      inning: event.inning,
+      half: event.half,
+      battingSide: event.half === "bottom" ? "home" : "away",
+      batterId: event.playerId,
+      pitcherId: event.pitcherId || "",
+      basesBefore: event.basesBefore || emptyBases(false),
+      pitches: normalizePitchTrail(event.pitches || []),
+      result: normalizePlateAppearanceResult({
+        type: event.result,
+        rbi: event.rbi || 0,
+        contact: event.contact || "none",
+        launch: event.launch || "none",
+        sprayChart: event.spray || null,
+        errorOnPlay: event.errorOnPlay || event.result === "ROE",
+        errorFielderPosition: event.errorFielderPosition || "",
+        runnerAdvancements: event.runnerAdvancements || [],
+        notes: event.note || ""
+      }),
+      basesAfter: event.basesAfter || null,
+      outsBefore: event.outsBefore ?? 0,
+      outsAfter: event.outsAfter ?? event.outsBefore ?? 0,
+      runsScored: event.runs ?? 0,
+      startedAt: event.createdAt || new Date().toISOString(),
+      completedAt: event.createdAt || null
+    }));
+}
+
+function normalizePlateAppearanceResult(result) {
+  if (!result) return null;
+  const type = result.type || result.result || "";
+  const rule = eventRules[type] || {};
+  return {
+    type,
+    hit: Boolean(result.hit ?? rule.hit),
+    officialAtBat: Boolean(result.officialAtBat ?? rule.ab),
+    errorOnPlay: Boolean(result.errorOnPlay ?? type === "ROE"),
+    errorFielderPosition: result.errorFielderPosition || "",
+    rbi: result.rbi ?? 0,
+    outsRecorded: result.outsRecorded ?? (rule.out ? 1 : 0),
+    contact: result.contact || "none",
+    launch: result.launch || rule.launch || "none",
+    sprayChart: result.sprayChart || null,
+    fieldedBy: result.fieldedBy || "",
+    runnerAdvancements: result.runnerAdvancements || [],
+    notes: result.notes || ""
+  };
+}
+
+function normalizePitchTrail(pitches = []) {
+  let balls = 0;
+  let strikes = 0;
+  return pitches.map((pitch, index) => {
+    const outcome = pitch.outcome || pitch.type || "ball";
+    const ballsBefore = pitch.ballsBefore ?? balls;
+    const strikesBefore = pitch.strikesBefore ?? strikes;
+    const next = nextPitchCount(ballsBefore, strikesBefore, outcome);
+    balls = pitch.ballsAfter ?? next.balls;
+    strikes = pitch.strikesAfter ?? next.strikes;
+    return {
+      id: pitch.id || createId("pitch"),
+      pitchNumber: pitch.pitchNumber || index + 1,
+      ballsBefore,
+      strikesBefore,
+      outcome,
+      ballsAfter: balls,
+      strikesAfter: strikes,
+      inPlay: Boolean(pitch.inPlay ?? outcome === "in_play"),
+      type: outcome,
+      label: pitch.label || pitchLabels[outcome] || outcome,
+      countBefore: pitch.countBefore || `${ballsBefore}-${strikesBefore}`,
+      createdAt: pitch.createdAt || new Date().toISOString()
+    };
+  });
+}
+
+function nextPitchCount(ballsBefore, strikesBefore, outcome) {
+  let balls = ballsBefore;
+  let strikes = strikesBefore;
+  if (outcome === "ball") balls = Math.min(4, balls + 1);
+  if (outcome === "called_strike" || outcome === "swinging_strike") strikes = Math.min(3, strikes + 1);
+  if (outcome === "foul" && strikes < 2) strikes += 1;
+  return { balls, strikes };
+}
+
+function emptyGameLibrary() {
+  return {
+    activeGameId: "",
+    gameOrder: [],
+    gamesById: {}
+  };
+}
+
+function buildGameLibraryFromGames(games = [], activeGameId = "") {
+  const library = emptyGameLibrary();
+  games.forEach((game) => {
+    if (!game?.id) return;
+    library.gamesById[game.id] = deepClone(game);
+    if (!library.gameOrder.includes(game.id)) library.gameOrder.push(game.id);
+  });
+  library.activeGameId = activeGameId && library.gamesById[activeGameId] ? activeGameId : library.gameOrder[0] || "";
+  return library;
+}
+
+function normalizeGameLibrary(library) {
+  const normalized = emptyGameLibrary();
+  if (!library || typeof library !== "object") return normalized;
+  const gamesById = library.gamesById && typeof library.gamesById === "object" ? library.gamesById : {};
+  const explicitOrder = Array.isArray(library.gameOrder) ? library.gameOrder : [];
+  explicitOrder.forEach((gameId) => {
+    if (!gamesById[gameId]) return;
+    normalized.gamesById[gameId] = deepClone(gamesById[gameId]);
+    if (!normalized.gameOrder.includes(gameId)) normalized.gameOrder.push(gameId);
+  });
+  Object.values(gamesById).forEach((game) => {
+    if (!game?.id) return;
+    normalized.gamesById[game.id] = deepClone(game);
+    if (!normalized.gameOrder.includes(game.id)) normalized.gameOrder.push(game.id);
+  });
+  normalized.activeGameId = library.activeGameId && normalized.gamesById[library.activeGameId]
+    ? library.activeGameId
+    : normalized.gameOrder[0] || "";
+  return normalized;
+}
+
+function loadGameLibrary() {
+  try {
+    const raw = localStorage.getItem(GAME_LIBRARY_KEY);
+    if (raw) return normalizeGameLibrary(JSON.parse(raw));
+    const legacyRaw = localStorage.getItem(STORAGE_KEY);
+    if (!legacyRaw) return emptyGameLibrary();
+    const legacy = JSON.parse(legacyRaw);
+    if (!Array.isArray(legacy.games)) return emptyGameLibrary();
+    const library = buildGameLibraryFromGames(legacy.games, legacy.activeGameId);
+    saveGameLibrary(library);
+    return library;
+  } catch (error) {
+    console.warn("Unable to load saved game library.", error);
+    return emptyGameLibrary();
+  }
+}
+
+function saveGameLibrary(library) {
+  const normalized = normalizeGameLibrary(library);
+  localStorage.setItem(GAME_LIBRARY_KEY, JSON.stringify(normalized));
+  return normalized;
+}
+
+function saveGameToLibrary(game, setActive = true) {
+  if (!game?.id) return loadGameLibrary();
+  const library = loadGameLibrary();
+  library.gamesById[game.id] = deepClone(game);
+  if (!library.gameOrder.includes(game.id)) library.gameOrder.push(game.id);
+  if (setActive) library.activeGameId = game.id;
+  return saveGameLibrary(library);
+}
+
+function loadGameById(gameId) {
+  const library = loadGameLibrary();
+  return library.gamesById[gameId] ? deepClone(library.gamesById[gameId]) : null;
+}
+
+function loadActiveGame() {
+  const library = loadGameLibrary();
+  return library.activeGameId ? loadGameById(library.activeGameId) : null;
+}
+
+function listSavedGames() {
+  const library = loadGameLibrary();
+  return library.gameOrder.map((gameId) => deepClone(library.gamesById[gameId])).filter(Boolean);
+}
+
+function setActiveGame(gameId) {
+  const library = loadGameLibrary();
+  if (!library.gamesById[gameId]) return null;
+  library.activeGameId = gameId;
+  saveGameLibrary(library);
+  if (typeof state !== "undefined") state.activeGameId = gameId;
+  return deepClone(library.gamesById[gameId]);
+}
+
+function deleteGame(gameId) {
+  const library = loadGameLibrary();
+  if (!library.gamesById[gameId]) return library;
+  delete library.gamesById[gameId];
+  library.gameOrder = library.gameOrder.filter((id) => id !== gameId);
+  if (library.activeGameId === gameId) library.activeGameId = library.gameOrder[0] || "";
+  const saved = saveGameLibrary(library);
+  if (typeof state !== "undefined") {
+    state.games = state.games.filter((game) => game.id !== gameId);
+    state.activeGameId = saved.activeGameId;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+  return saved;
+}
+
+function clearGameLibrary() {
+  const library = saveGameLibrary(emptyGameLibrary());
+  if (typeof state !== "undefined") {
+    state.games = [];
+    state.activeGameId = "";
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+  return library;
+}
+
+function exportGameAsJson(game) {
+  return JSON.stringify(deepClone(game), null, 2);
+}
+
+function importGameFromFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      reject(new Error("No file selected."));
+      return;
+    }
+    const reader = new FileReader();
+    reader.addEventListener("error", () => reject(reader.error || new Error("Unable to read game file.")));
+    reader.addEventListener("load", () => {
+      try {
+        const payload = JSON.parse(String(reader.result || ""));
+        if (payload.gamesById && payload.gameOrder) {
+          const incomingLibrary = normalizeGameLibrary(payload);
+          const currentLibrary = loadGameLibrary();
+          incomingLibrary.gameOrder.forEach((gameId) => {
+            currentLibrary.gamesById[gameId] = incomingLibrary.gamesById[gameId];
+            if (!currentLibrary.gameOrder.includes(gameId)) currentLibrary.gameOrder.push(gameId);
+          });
+          currentLibrary.activeGameId = incomingLibrary.activeGameId || currentLibrary.activeGameId;
+          const savedLibrary = saveGameLibrary(currentLibrary);
+          if (typeof state !== "undefined") {
+            state.games = savedLibrary.gameOrder.map((gameId) => normalizeGame(savedLibrary.gamesById[gameId], state)).filter(Boolean);
+            state.activeGameId = savedLibrary.activeGameId;
+            saveState();
+          }
+          resolve(savedLibrary);
+          return;
+        }
+        if (!payload.id) throw new Error("Imported JSON does not contain a game id.");
+        const game = typeof state !== "undefined" ? normalizeGame(payload, state) : payload;
+        saveGameToLibrary(game, true);
+        if (typeof state !== "undefined") {
+          const existingIndex = state.games.findIndex((item) => item.id === game.id);
+          if (existingIndex >= 0) state.games[existingIndex] = game;
+          else state.games.push(game);
+          state.activeGameId = game.id;
+          saveState();
+        }
+        resolve(game);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    reader.readAsText(file);
+  });
+}
+
+function exportSeasonAsJson(library = loadGameLibrary()) {
+  return JSON.stringify(normalizeGameLibrary(library), null, 2);
+}
+
 function saveState() {
+  if (state?.games?.length) {
+    state.games = state.games.map((game) => normalizeGame(game, state));
+    const activeGameObject = state.games.find((game) => game.id === state.activeGameId);
+    if (activeGameObject) saveGameToLibrary(activeGameObject, true);
+    const library = buildGameLibraryFromGames(state.games, state.activeGameId);
+    saveGameLibrary(library);
+  }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -345,7 +813,16 @@ function bindEvents() {
     if (button.dataset.gameAction === "score") scoreScheduledGame(button.dataset.gameId);
     if (button.dataset.gameAction === "complete") completeScheduledGame(button.dataset.gameId);
     if (button.dataset.gameAction === "lineup") openLineupBuilder(button.dataset.gameId);
+    if (button.dataset.gameAction === "edit") openGameEditor(button.dataset.gameId);
+    if (button.dataset.gameAction === "delete") removeScheduledGame(button.dataset.gameId);
   });
+
+  els.closeGameEditBtn.addEventListener("click", () => {
+    gameEditId = null;
+    renderGameEditor();
+  });
+
+  els.saveGameEditBtn.addEventListener("click", saveGameEdits);
 
   els.lineupBuilderRows.addEventListener("change", (event) => {
     const row = event.target.closest("[data-lineup-entry]");
@@ -373,6 +850,10 @@ function bindEvents() {
     button.addEventListener("click", () => recordSteal(button.dataset.steal, button.dataset.stealResult));
   });
 
+  els.runnerOutButtons.forEach((button) => {
+    button.addEventListener("click", () => togglePendingRunnerOut(button.dataset.runnerOutBase));
+  });
+
   els.opponentOutcomeButtons.forEach((button) => {
     button.addEventListener("click", () => logOpponentOutcome(button.dataset.opponentResult));
   });
@@ -380,6 +861,7 @@ function bindEvents() {
   els.opponentInput.addEventListener("input", () => {
     const game = activeGame();
     game.opponent = els.opponentInput.value.trim() || "Opponent";
+    if (game.teams?.home) game.teams.home.name = game.opponent;
     saveState();
     renderScoreboard();
     renderGames();
@@ -388,6 +870,14 @@ function bindEvents() {
 
   els.gameDateInput.addEventListener("change", () => {
     activeGame().date = els.gameDateInput.value || todayValue();
+    saveState();
+    renderScoreboard();
+    renderGames();
+    renderArchive();
+  });
+
+  els.gameTimeInput.addEventListener("change", () => {
+    activeGame().time = els.gameTimeInput.value || "";
     saveState();
     renderScoreboard();
     renderGames();
@@ -410,6 +900,20 @@ function bindEvents() {
     updateOpponentLineup(els.scoreOpponentLineupInput.value);
   });
 
+  els.liveLineup.addEventListener("blur", (event) => {
+    const item = event.target.closest("[data-opponent-lineup-index]");
+    if (item) updateOpponentLineupName(Number(item.dataset.opponentLineupIndex), item.textContent.trim());
+  }, true);
+
+  els.liveLineup.addEventListener("keydown", (event) => {
+    const item = event.target.closest("[data-opponent-lineup-index]");
+    if (!item) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      item.blur();
+    }
+  });
+
   els.pitcherSelect.addEventListener("change", () => {
     activeGame().pitcherId = els.pitcherSelect.value;
     saveState();
@@ -421,7 +925,14 @@ function bindEvents() {
   });
 
   els.resetCountBtn.addEventListener("click", () => {
-    activeGame().atBat = makeAtBat();
+    const game = activeGame();
+    game.atBat = makeAtBat();
+    const plateAppearance = getCurrentPlateAppearance(game, false);
+    if (plateAppearance) plateAppearance.pitches = [];
+    if (game.current) {
+      game.current.balls = 0;
+      game.current.strikes = 0;
+    }
     pendingSpray = null;
     resetBipChoices();
     saveState();
@@ -431,7 +942,14 @@ function bindEvents() {
 
   els.undoPitchBtn.addEventListener("click", undoPitch);
   els.resetOpponentCountBtn.addEventListener("click", () => {
-    activeGame().atBat = makeAtBat();
+    const game = activeGame();
+    game.atBat = makeAtBat();
+    const plateAppearance = getCurrentPlateAppearance(game, false);
+    if (plateAppearance) plateAppearance.pitches = [];
+    if (game.current) {
+      game.current.balls = 0;
+      game.current.strikes = 0;
+    }
     saveState();
     renderAtBat();
   });
@@ -459,6 +977,7 @@ function bindEvents() {
       const game = activeGame();
       game.batterIndex = index;
       game.atBat = makeAtBat();
+      game.currentPlateAppearanceId = "";
       pendingSpray = null;
       saveState();
       render();
@@ -468,7 +987,7 @@ function bindEvents() {
   els.newGameBtn.addEventListener("click", () => switchView("games"));
   els.undoBtn.addEventListener("click", undoLastPlay);
   els.endHalfBtn.addEventListener("click", () => {
-    advanceHalf(activeGame());
+    advanceHalfInning(activeGame());
     saveState();
     render();
   });
@@ -491,6 +1010,7 @@ function bindEvents() {
     if (!optimizedIds.length) optimizedIds = buildOptimizedLineup();
     const game = activeGame();
     game.lineupEntries = makeLineupEntries(optimizedIds);
+    game.lineups.away = deepClone(game.lineupEntries);
     game.batterIndex = 0;
     saveState();
     render();
@@ -507,6 +1027,20 @@ function bindEvents() {
   els.applySubBtn.addEventListener("click", applySubstitution);
   els.statsSprayPlayerSelect.addEventListener("change", renderStatsSprayChart);
   els.statsSprayGameSelect.addEventListener("change", renderStatsSprayChart);
+  els.toggleStatsSprayBtn.addEventListener("click", () => {
+    statsSprayExpanded = !statsSprayExpanded;
+    renderStatsSprayControls();
+  });
+  document.querySelectorAll("[data-hit-sort]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const key = button.dataset.hitSort;
+      hittingSort = {
+        key,
+        direction: hittingSort.key === key && hittingSort.direction === "desc" ? "asc" : "desc"
+      };
+      renderSeasonStats();
+    });
+  });
   els.exportBtn.addEventListener("click", exportData);
 }
 
@@ -521,6 +1055,7 @@ function activeGame() {
     game = makeGame();
     state.games.push(game);
     state.activeGameId = game.id;
+    saveGameToLibrary(game, true);
   }
   return game;
 }
@@ -535,6 +1070,8 @@ function gameLineupEntries(game = activeGame()) {
   if (!game.lineupEntries || !game.lineupEntries.length) {
     game.lineupEntries = makeLineupEntries(state.lineup);
   }
+  if (!game.lineups) game.lineups = { away: [], home: opponentLineupEntries(game.opponentLineup || []) };
+  game.lineups.away = deepClone(game.lineupEntries);
   return game.lineupEntries.filter((entry) => entry.active !== false && entry.playerId);
 }
 
@@ -573,7 +1110,22 @@ function nextOpponentBatterIndex(game) {
 function updateOpponentLineup(value) {
   const game = activeGame();
   game.opponentLineup = parseOpponentLineup(value);
+  game.lineups.home = opponentLineupEntries(game.opponentLineup);
   game.opponentBatterIndex = Math.min(game.opponentBatterIndex || 0, Math.max(game.opponentLineup.length - 1, 0));
+  saveState();
+  renderAtBat();
+  renderLiveLineup();
+  renderGames();
+}
+
+function updateOpponentLineupName(index, name) {
+  const game = activeGame();
+  const lineup = opponentLineup(game);
+  if (!name) name = `Batter ${index + 1}`;
+  lineup[index] = name;
+  game.opponentLineup = lineup;
+  game.lineups.home = opponentLineupEntries(lineup);
+  els.scoreOpponentLineupInput.value = lineup.join("\n");
   saveState();
   renderAtBat();
   renderLiveLineup();
@@ -587,83 +1139,433 @@ function currentPitcherId(game = activeGame()) {
   return fallback;
 }
 
+function battingSide(game = activeGame()) {
+  return game.half === "bottom" ? "home" : "away";
+}
+
+function currentBatterModelId(game = activeGame()) {
+  return battingSide(game) === "away" ? currentBatterId(game) : `opp:${currentOpponentBatter(game)}`;
+}
+
+function syncGameCurrent(game = activeGame()) {
+  if (!game.current) game.current = {};
+  if (!game.atBat) game.atBat = makeAtBat();
+  game.current.inning = game.inning ?? game.current.inning ?? 1;
+  game.current.half = game.half ?? game.current.half ?? "top";
+  game.current.outs = game.outs ?? game.current.outs ?? 0;
+  game.current.balls = game.atBat.balls ?? 0;
+  game.current.strikes = game.atBat.strikes ?? 0;
+  game.current.batterId = currentBatterModelId(game);
+  game.current.pitcherId = game.pitcherId || game.current.pitcherId || "";
+  game.current.runners = deepClone(game.bases || game.current.runners || emptyBases(false));
+  if (game.score) {
+    game.score.away = game.score.lions ?? game.score.away ?? 0;
+    game.score.home = game.score.opponent ?? game.score.home ?? 0;
+  }
+  return game.current;
+}
+
+function commitCurrentToLegacy(game = activeGame()) {
+  if (!game.current) return;
+  game.inning = game.current.inning;
+  game.half = game.current.half;
+  game.outs = game.current.outs;
+  game.bases = deepClone(game.current.runners);
+  game.pitcherId = game.current.pitcherId || game.pitcherId;
+  if (!game.atBat) game.atBat = makeAtBat();
+  game.atBat.balls = game.current.balls;
+  game.atBat.strikes = game.current.strikes;
+  if (game.score) {
+    game.score.lions = game.score.away ?? game.score.lions ?? 0;
+    game.score.opponent = game.score.home ?? game.score.opponent ?? 0;
+  }
+}
+
+function startPlateAppearance(game = activeGame(), batterId = currentBatterModelId(game), pitcherId = currentPitcherId(game)) {
+  syncGameCurrent(game);
+  const active = getCurrentPlateAppearance(game, false);
+  if (active && !active.result) return active;
+  const plateAppearance = {
+    id: createId("pa"),
+    gameId: game.id,
+    inning: game.current.inning,
+    half: game.current.half,
+    battingSide: battingSide(game),
+    batterId,
+    pitcherId,
+    basesBefore: deepClone(game.current.runners),
+    pitches: [],
+    result: null,
+    basesAfter: null,
+    outsBefore: game.current.outs,
+    outsAfter: game.current.outs,
+    runsScored: 0,
+    startedAt: new Date().toISOString(),
+    completedAt: null
+  };
+  if (!game.plateAppearances) game.plateAppearances = [];
+  game.plateAppearances.push(plateAppearance);
+  game.currentPlateAppearanceId = plateAppearance.id;
+  return plateAppearance;
+}
+
+function getCurrentPlateAppearance(game = activeGame(), createIfMissing = true) {
+  const current = (game.plateAppearances || []).find((appearance) => appearance.id === game.currentPlateAppearanceId);
+  if (current && !current.result) return current;
+  if (!createIfMissing) return null;
+  return startPlateAppearance(game);
+}
+
+function recordPitch(game = activeGame(), outcome) {
+  syncGameCurrent(game);
+  const plateAppearance = getCurrentPlateAppearance(game);
+  const ballsBefore = game.current.balls;
+  const strikesBefore = game.current.strikes;
+  const next = nextPitchCount(ballsBefore, strikesBefore, outcome);
+  const pitch = {
+    id: createId("pitch"),
+    pitchNumber: plateAppearance.pitches.length + 1,
+    ballsBefore,
+    strikesBefore,
+    outcome,
+    ballsAfter: next.balls,
+    strikesAfter: next.strikes,
+    inPlay: outcome === "in_play",
+    type: outcome,
+    label: pitchLabels[outcome] || outcome,
+    countBefore: `${ballsBefore}-${strikesBefore}`,
+    createdAt: new Date().toISOString()
+  };
+  plateAppearance.pitches.push(pitch);
+  game.current.balls = next.balls;
+  game.current.strikes = next.strikes;
+  if (!game.atBat) game.atBat = makeAtBat();
+  game.atBat.balls = next.balls;
+  game.atBat.strikes = next.strikes;
+  game.atBat.pitches.push(pitch);
+  if (pitch.inPlay) game.atBat.pendingInPlay = true;
+  commitCurrentToLegacy(game);
+  return pitch;
+}
+
+function applyRunnerAdvancements(game = activeGame(), runnerAdvancements = []) {
+  syncGameCurrent(game);
+  const runners = deepClone(game.current.runners || emptyBases(false));
+  let runsScored = 0;
+  let outsRecorded = 0;
+  runnerAdvancements.forEach((advancement) => {
+    const from = advancement.from || null;
+    const to = advancement.to || null;
+    const runnerId = advancement.runnerId || (from && runners[from]) || null;
+    if (from && runners[from] === runnerId) runners[from] = false;
+    if (advancement.remove) return;
+    if (advancement.out) {
+      outsRecorded += 1;
+      return;
+    }
+    if (to === "home") {
+      runsScored += 1;
+      return;
+    }
+    if (to && Object.prototype.hasOwnProperty.call(runners, to)) runners[to] = runnerId;
+  });
+  game.current.runners = runners;
+  game.bases = deepClone(runners);
+  return { runners, runsScored, outsRecorded };
+}
+
+function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
+  syncGameCurrent(game);
+  const plateAppearance = getCurrentPlateAppearance(game);
+  const type = resultInput.type || resultInput.result || "GO";
+  const rule = eventRules[type] || eventRules.GO;
+  if (resultInput.pitcherId) plateAppearance.pitcherId = resultInput.pitcherId;
+  const runnerAdvancements = resultInput.runnerAdvancements || defaultRunnerAdvancements(game, type, plateAppearance.batterId);
+  const movement = applyRunnerAdvancements(game, runnerAdvancements);
+  const runsScored = resultInput.runsScored ?? movement.runsScored;
+  const outsRecorded = resultInput.outsRecorded ?? (rule.out ? 1 : 0) + movement.outsRecorded;
+  const rbi = resultInput.rbi ?? 0;
+  const snapshotBefore = resultInput.snapshotBefore || {
+    inning: plateAppearance.inning,
+    half: plateAppearance.half,
+    outs: plateAppearance.outsBefore,
+    bases: deepClone(plateAppearance.basesBefore),
+    batterIndex: game.batterIndex,
+    opponentBatterIndex: game.opponentBatterIndex || 0,
+    score: deepClone(game.score),
+    atBat: cloneAtBat(game.atBat || makeAtBat())
+  };
+
+  if (game.current.half === "top") {
+    game.score.lions += runsScored;
+    game.score.away = game.score.lions;
+  } else {
+    game.score.opponent += runsScored;
+    game.score.home = game.score.opponent;
+  }
+  game.current.outs += outsRecorded;
+  commitCurrentToLegacy(game);
+
+  const result = normalizePlateAppearanceResult({
+    type,
+    hit: Boolean(rule.hit),
+    officialAtBat: Boolean(rule.ab),
+    errorOnPlay: resultInput.errorOnPlay ?? type === "ROE",
+    errorFielderPosition: resultInput.errorFielderPosition || "",
+    rbi,
+    outsRecorded,
+    contact: resultInput.contact || "none",
+    launch: resultInput.launch || rule.launch || "none",
+    sprayChart: resultInput.sprayChart || null,
+    fieldedBy: resultInput.fieldedBy || "",
+    runnerAdvancements,
+    notes: resultInput.notes || ""
+  });
+  plateAppearance.result = result;
+  plateAppearance.basesAfter = deepClone(game.current.runners);
+  plateAppearance.outsAfter = game.current.outs;
+  plateAppearance.runsScored = runsScored;
+  plateAppearance.completedAt = new Date().toISOString();
+  const lastPitch = plateAppearance.pitches[plateAppearance.pitches.length - 1];
+
+  const event = {
+    id: createId("event"),
+    plateAppearanceId: plateAppearance.id,
+    gameId: game.id,
+    playerId: plateAppearance.batterId,
+    opponentBatter: game.half === "bottom" ? currentOpponentBatter(game) : undefined,
+    result: type,
+    runs: runsScored,
+    rbi,
+    contact: result.contact,
+    launch: result.launch,
+    leverage: "neutral",
+    inning: plateAppearance.inning,
+    half: plateAppearance.half,
+    outsBefore: plateAppearance.outsBefore,
+    outsAfter: plateAppearance.outsAfter,
+    basesBefore: deepClone(plateAppearance.basesBefore),
+    basesAfter: deepClone(plateAppearance.basesAfter),
+    scope: plateAppearance.half === "top" ? "offense" : "defense",
+    pitcherId: plateAppearance.pitcherId,
+    note: result.notes,
+    pitches: deepClone(plateAppearance.pitches),
+    count: `${lastPitch?.ballsAfter ?? 0}-${lastPitch?.strikesAfter ?? 0}`,
+    spray: result.sprayChart,
+    errorOnPlay: result.errorOnPlay,
+    errorFielderPosition: result.errorFielderPosition,
+    runnerAdvancements: deepClone(result.runnerAdvancements),
+    createdAt: plateAppearance.completedAt,
+    snapshotBefore
+  };
+  if (!game.events) game.events = [];
+  game.events.push(event);
+
+  if (rule.pa) {
+    if (plateAppearance.half === "top") game.batterIndex = nextBatterIndex(game.batterIndex);
+    if (plateAppearance.half === "bottom") game.opponentBatterIndex = nextOpponentBatterIndex(game);
+  }
+  game.current.balls = 0;
+  game.current.strikes = 0;
+  game.atBat = makeAtBat();
+  game.currentPlateAppearanceId = "";
+  if (game.current.outs >= 3) advanceHalfInning(game);
+  else syncGameCurrent(game);
+  return plateAppearance;
+}
+
+function defaultRunnerAdvancements(game, result, batterId) {
+  const bases = deepClone(game.current?.runners || game.bases || emptyBases(false));
+  const advancements = [];
+  const occupied = [
+    ["third", bases.third],
+    ["second", bases.second],
+    ["first", bases.first]
+  ].filter(([, runner]) => isOccupied(runner));
+  const baseNumber = { first: 1, second: 2, third: 3 };
+  const baseName = { 1: "first", 2: "second", 3: "third" };
+
+  if (result === "HR") {
+    occupied.forEach(([from, runner]) => advancements.push({ runnerId: runner, from, to: "home" }));
+    advancements.push({ runnerId: batterId, from: "batter", to: "home" });
+    return advancements;
+  }
+
+  if (["1B", "2B", "3B"].includes(result)) {
+    const move = Number(result.slice(0, 1));
+    occupied.forEach(([from, runner]) => {
+      const destination = baseNumber[from] + move;
+      advancements.push({ runnerId: runner, from, to: destination > 3 ? "home" : baseName[destination] });
+    });
+    advancements.push({ runnerId: batterId, from: "batter", to: baseName[move] });
+    return advancements;
+  }
+
+  if (["BB", "HBP", "ROE"].includes(result)) {
+    if (isOccupied(bases.third) && isOccupied(bases.second) && isOccupied(bases.first)) advancements.push({ runnerId: bases.third, from: "third", to: "home" });
+    if (isOccupied(bases.second) && isOccupied(bases.first)) advancements.push({ runnerId: bases.second, from: "second", to: "third" });
+    if (isOccupied(bases.first)) advancements.push({ runnerId: bases.first, from: "first", to: "second" });
+    advancements.push({ runnerId: batterId, from: "batter", to: "first" });
+    return advancements;
+  }
+
+  if (result === "FC") {
+    if (isOccupied(bases.first)) advancements.push({ runnerId: bases.first, from: "first", remove: true });
+    advancements.push({ runnerId: batterId, from: "batter", to: "first" });
+  }
+  if (result === "DP") {
+    if (isOccupied(bases.first)) advancements.push({ runnerId: bases.first, from: "first", out: true });
+    else if (isOccupied(bases.second)) advancements.push({ runnerId: bases.second, from: "second", out: true });
+    else if (isOccupied(bases.third)) advancements.push({ runnerId: bases.third, from: "third", out: true });
+  }
+  return advancements;
+}
+
+function advanceHalfInning(game = activeGame()) {
+  if (!game.current) syncGameCurrent(game);
+  game.current.outs = 0;
+  game.current.balls = 0;
+  game.current.strikes = 0;
+  game.current.runners = emptyBases(false);
+  if (game.current.half === "top") {
+    game.current.half = "bottom";
+  } else {
+    game.current.half = "top";
+    game.current.inning += 1;
+    if (game.current.inning > 7) game.status = "completed";
+  }
+  game.current.batterId = currentBatterModelId(game);
+  game.current.pitcherId = game.pitcherId || game.current.pitcherId || "";
+  game.currentPlateAppearanceId = "";
+  game.atBat = makeAtBat();
+  commitCurrentToLegacy(game);
+  pendingSpray = null;
+}
+
+function addSubstitution(game = activeGame(), substitution = {}) {
+  syncGameCurrent(game);
+  const entryId = substitution.lineupEntryId || substitution.entryId;
+  const incomingPlayerId = substitution.incomingPlayerId || substitution.playerId;
+  if (!entryId || !incomingPlayerId) return null;
+  const currentEntries = gameLineupEntries(game);
+  const outgoing = currentEntries.find((entry) => entry.id === entryId);
+  if (!outgoing) return null;
+  const record = {
+    id: createId("sub"),
+    gameId: game.id,
+    inning: game.current.inning,
+    half: game.current.half,
+    teamSide: substitution.teamSide || "away",
+    lineupEntryId: entryId,
+    outgoingPlayerId: outgoing.playerId,
+    incomingPlayerId,
+    type: substitution.type || "sub",
+    notes: substitution.notes || "",
+    createdAt: new Date().toISOString()
+  };
+  game.lineupEntries = currentEntries.map((entry) =>
+    entry.id === entryId
+      ? { ...entry, playerId: incomingPlayerId, note: record.type === "ph" ? "Pinch hitter" : "Substitute" }
+      : entry
+  );
+  game.lineups.away = deepClone(game.lineupEntries);
+  if (!game.substitutions) game.substitutions = [];
+  game.substitutions.push(record);
+  game.events.push({
+    id: createId("event"),
+    gameId: game.id,
+    playerId: incomingPlayerId,
+    result: "SUB",
+    runs: 0,
+    rbi: 0,
+    contact: "none",
+    launch: "none",
+    leverage: "neutral",
+    inning: game.current.inning,
+    half: game.current.half,
+    outsBefore: game.current.outs,
+    basesBefore: deepClone(game.current.runners),
+    scope: "lineup",
+    substitutionId: record.id,
+    note: record.type === "ph" ? "Pinch hitter entered" : "Substitution entered",
+    pitches: [],
+    count: `${game.current.balls}-${game.current.strikes}`,
+    spray: null,
+    createdAt: record.createdAt,
+    snapshotBefore: {
+      inning: game.inning,
+      half: game.half,
+      outs: game.outs,
+      bases: deepClone(game.bases),
+      batterIndex: game.batterIndex,
+      opponentBatterIndex: game.opponentBatterIndex || 0,
+      score: deepClone(game.score),
+      atBat: cloneAtBat(game.atBat || makeAtBat()),
+      lineupEntries: deepClone(currentEntries)
+    }
+  });
+  syncGameCurrent(game);
+  return record;
+}
+
 function selectChoice(group, value, silent = false) {
-  const target = group === "result" ? els.resultSelect : group === "contact" ? els.contactSelect : els.launchSelect;
+  const target = group === "result" ? els.resultSelect : group === "contact" ? els.contactSelect : group === "error" ? els.errorFielderSelect : els.launchSelect;
   if (!target) return;
   target.value = value;
   els.choiceButtons
     .filter((button) => button.dataset.choiceGroup === group)
     .forEach((button) => button.classList.toggle("is-selected", button.dataset.choiceValue === value));
   if (silent) return;
-  if (group === "result") suggestRunValues();
+  if (group === "result") {
+    suggestRunValues();
+    if (value === "BB" || value === "K") autoCompleteResult(value);
+  }
   if ((group === "contact" || group === "launch") && value !== "none") {
     const game = activeGame();
     if (game.atBat) game.atBat.pendingInPlay = true;
     renderAtBat();
   }
+  if (group === "error" && value) selectChoice("result", "ROE", true);
 }
 
 function resetBipChoices() {
   selectChoice("result", "1B", true);
   selectChoice("contact", "none", true);
   selectChoice("launch", "none", true);
+  selectChoice("error", "", true);
+  pendingRunnerOutBases = [];
+  renderRunnerTracker();
 }
 
 function logPitch(type) {
   const game = activeGame();
-  if (!game.atBat) game.atBat = makeAtBat();
-  const pitch = {
-    id: uuid(),
-    type,
-    label: pitchLabels[type] || type,
-    countBefore: `${game.atBat.balls}-${game.atBat.strikes}`,
-    createdAt: new Date().toISOString()
-  };
-  game.atBat.pitches.push(pitch);
+  const pitch = recordPitch(game, type);
 
   if (game.half === "bottom") {
-    if (type === "ball") {
-      game.atBat.balls = Math.min(4, game.atBat.balls + 1);
-      if (game.atBat.balls >= 4) {
-        saveState();
-        logOpponentOutcome("BB");
-        return;
-      }
+    if (type === "ball" && pitch.ballsAfter >= 4) {
+      saveState();
+      logOpponentOutcome("BB");
+      return;
     }
-    if (type === "called_strike" || type === "swinging_strike") {
-      game.atBat.strikes = Math.min(3, game.atBat.strikes + 1);
-      if (game.atBat.strikes >= 3) {
-        saveState();
-        logOpponentOutcome("K");
-        return;
-      }
+    if ((type === "called_strike" || type === "swinging_strike") && pitch.strikesAfter >= 3) {
+      saveState();
+      logOpponentOutcome("K");
+      return;
     }
-    if (type === "foul" && game.atBat.strikes < 2) game.atBat.strikes += 1;
     saveState();
     renderAtBat();
     return;
   }
 
-  if (type === "ball") {
-    game.atBat.balls = Math.min(4, game.atBat.balls + 1);
-    if (game.atBat.balls >= 4) {
-      selectChoice("result", "BB");
-    }
+  if (type === "ball" && pitch.ballsAfter >= 4) {
+    autoCompleteResult("BB");
+    return;
   }
-
-  if (type === "called_strike" || type === "swinging_strike") {
-    game.atBat.strikes = Math.min(3, game.atBat.strikes + 1);
-    if (game.atBat.strikes >= 3) {
-      selectChoice("result", "K");
-    }
+  if ((type === "called_strike" || type === "swinging_strike") && pitch.strikesAfter >= 3) {
+    autoCompleteResult("K");
+    return;
   }
-
-  if (type === "foul" && game.atBat.strikes < 2) {
-    game.atBat.strikes += 1;
-  }
-
   if (type === "in_play") {
-    game.atBat.pendingInPlay = true;
     if (els.contactSelect.value === "none") selectChoice("contact", "solid");
     if (els.launchSelect.value === "none") selectChoice("launch", "ld");
     if (!battedBallResults.has(els.resultSelect.value)) selectChoice("result", "1B", true);
@@ -675,19 +1577,35 @@ function logPitch(type) {
   renderSprayChart();
 }
 
+function autoCompleteResult(result) {
+  const game = activeGame();
+  if (game.half !== "top") return;
+  selectChoice("result", result, true);
+  selectChoice("contact", "none", true);
+  selectChoice("launch", "none", true);
+  pendingSpray = null;
+  pendingRunnerOutBases = [];
+  logPlay();
+}
+
 function undoPitch() {
   const game = activeGame();
+  const plateAppearance = getCurrentPlateAppearance(game, false);
   if (!game.atBat || !game.atBat.pitches.length) return;
   game.atBat.pitches.pop();
-  const pitches = [...game.atBat.pitches];
+  if (plateAppearance?.pitches?.length) plateAppearance.pitches.pop();
+  const pitches = normalizePitchTrail(game.atBat.pitches);
   game.atBat = makeAtBat();
-  pitches.forEach((pitch) => {
-    if (pitch.type === "ball") game.atBat.balls = Math.min(4, game.atBat.balls + 1);
-    if (pitch.type === "called_strike" || pitch.type === "swinging_strike") game.atBat.strikes = Math.min(3, game.atBat.strikes + 1);
-    if (pitch.type === "foul" && game.atBat.strikes < 2) game.atBat.strikes += 1;
-    if (pitch.type === "in_play") game.atBat.pendingInPlay = true;
-    game.atBat.pitches.push(pitch);
-  });
+  game.atBat.pitches = pitches;
+  const lastPitch = pitches[pitches.length - 1];
+  game.atBat.balls = lastPitch?.ballsAfter || 0;
+  game.atBat.strikes = lastPitch?.strikesAfter || 0;
+  game.atBat.pendingInPlay = pitches.some((pitch) => pitch.inPlay);
+  if (plateAppearance) plateAppearance.pitches = pitches;
+  if (game.current) {
+    game.current.balls = game.atBat.balls;
+    game.current.strikes = game.atBat.strikes;
+  }
   saveState();
   renderAtBat();
 }
@@ -705,8 +1623,11 @@ function logPlay() {
   const playerId = els.batterSelect.value || currentBatterId(game);
   const result = els.resultSelect.value;
   const rule = eventRules[result];
-  const runs = clampNumber(els.runsInput.value, 0, 4);
-  const rbi = clampNumber(els.rbiInput.value, 0, 4);
+  startPlateAppearance(game, playerId, "");
+  const runnerAdvancements = runnerAdvancementsForPlay(game, result, playerId);
+  const runs = runnerAdvancements.filter((advancement) => advancement.to === "home" && !advancement.out && !advancement.remove).length;
+  const rbi = automaticRbiForPlay(result, runs);
+  const outsRecorded = result === "DP" ? 2 : undefined;
   const snapshotBefore = {
     inning: game.inning,
     half: game.half,
@@ -717,50 +1638,22 @@ function logPlay() {
     atBat: game.atBat ? cloneAtBat(game.atBat) : makeAtBat()
   };
 
-  const event = {
-    id: uuid(),
-    gameId: game.id,
-    playerId,
-    result,
-    runs,
+  finalizePlateAppearance(game, {
+    type: result,
+    runsScored: runs,
     rbi,
     contact: els.contactSelect.value,
     launch: rule.launch || els.launchSelect.value,
-    leverage: "neutral",
-    inning: game.inning,
-    half: game.half,
-    outsBefore: game.outs,
-    basesBefore: { ...game.bases },
-    scope: game.half === "top" ? "offense" : "defense",
-    note: els.noteInput.value.trim(),
-    pitches: game.atBat ? [...game.atBat.pitches] : [],
-    count: game.atBat ? `${game.atBat.balls}-${game.atBat.strikes}` : "0-0",
-    spray: battedBallResults.has(result) ? pendingSpray : null,
-    createdAt: new Date().toISOString(),
+    sprayChart: battedBallResults.has(result) ? pendingSpray : null,
+    runnerAdvancements,
+    outsRecorded,
+    errorOnPlay: result === "ROE" || Boolean(els.errorFielderSelect.value),
+    errorFielderPosition: els.errorFielderSelect.value,
+    notes: els.noteInput.value.trim(),
     snapshotBefore
-  };
-
-  game.events.push(event);
-
-  if (game.half === "top") {
-    game.score.lions += runs;
-    applyBaseMovement(game, result, playerId);
-    if (rule.pa) {
-      game.batterIndex = nextBatterIndex(game.batterIndex);
-      game.atBat = makeAtBat();
-      pendingSpray = null;
-    }
-  } else {
-    game.score.opponent += runs;
-    applyBaseMovement(game, result, "opponent");
-    if (rule.pa) {
-      game.atBat = makeAtBat();
-      pendingSpray = null;
-    }
-  }
-
-  if (rule.out) game.outs += 1;
-  if (game.outs >= 3) advanceHalf(game);
+  });
+  pendingSpray = null;
+  pendingRunnerOutBases = [];
 
   els.runsInput.value = "0";
   els.rbiInput.value = "0";
@@ -768,6 +1661,36 @@ function logPlay() {
   els.noteInput.value = "";
   saveState();
   render();
+}
+
+function automaticRbiForPlay(result, runs) {
+  if (!runs) return 0;
+  if (result === "ROE" || result === "DP") return 0;
+  if (result === "FC") return runs;
+  return runs;
+}
+
+function runnerAdvancementsForPlay(game, result, batterId) {
+  const advancements = defaultRunnerAdvancements(game, result, batterId);
+  const bases = deepClone(game.current?.runners || game.bases || emptyBases(false));
+  if (result === "DP") {
+    for (let index = advancements.length - 1; index >= 0; index -= 1) {
+      if (advancements[index].out) advancements.splice(index, 1);
+    }
+  }
+  const selectedOuts = new Set(pendingRunnerOutBases.filter((base) => isOccupied(bases[base])));
+  if (result === "DP" && !selectedOuts.size) {
+    if (isOccupied(bases.first)) selectedOuts.add("first");
+    else if (isOccupied(bases.second)) selectedOuts.add("second");
+    else if (isOccupied(bases.third)) selectedOuts.add("third");
+  }
+  selectedOuts.forEach((base) => {
+    const runnerId = bases[base];
+    const existingIndex = advancements.findIndex((advancement) => advancement.from === base);
+    if (existingIndex >= 0) advancements.splice(existingIndex, 1);
+    advancements.push({ runnerId, from: base, out: true });
+  });
+  return advancements;
 }
 
 function clampNumber(value, min, max) {
@@ -807,6 +1730,7 @@ function suggestRunValues() {
     if (els.launchSelect.value === "none") selectChoice("launch", "ld", true);
     renderAtBat();
   }
+  renderAutoScorePreview();
 }
 
 function applyBaseMovement(game, result, batterId = true) {
@@ -896,17 +1820,23 @@ function recordSteal(target, outcome) {
     atBat: game.atBat ? cloneAtBat(game.atBat) : makeAtBat()
   };
 
-  if (outcome === "safe") {
-    game.bases[steal.from] = false;
-    if (steal.to === "home") {
-      if (game.half === "top") game.score.lions += 1;
-      else game.score.opponent += 1;
+  const movement = applyRunnerAdvancements(game, [
+    outcome === "safe"
+      ? { runnerId: runner, from: steal.from, to: steal.to }
+      : { runnerId: runner, from: steal.from, out: true }
+  ]);
+  if (outcome === "safe" && movement.runsScored) {
+    if (game.half === "top") {
+      game.score.lions += movement.runsScored;
+      game.score.away = game.score.lions;
     } else {
-      game.bases[steal.to] = runner;
+      game.score.opponent += movement.runsScored;
+      game.score.home = game.score.opponent;
     }
-  } else {
-    game.bases[steal.from] = false;
-    game.outs += 1;
+  }
+  if (outcome === "out") {
+    game.current.outs += movement.outsRecorded;
+    commitCurrentToLegacy(game);
   }
 
   const event = {
@@ -932,7 +1862,7 @@ function recordSteal(target, outcome) {
     snapshotBefore
   };
   game.events.push(event);
-  if (game.outs >= 3) advanceHalf(game);
+  if (game.outs >= 3) advanceHalfInning(game);
   saveState();
   render();
 }
@@ -940,10 +1870,10 @@ function recordSteal(target, outcome) {
 function logOpponentOutcome(result) {
   const game = activeGame();
   if (game.status !== "completed") game.status = "active";
-  const rule = eventRules[result] || eventRules.GO;
   const batter = currentOpponentBatter(game);
   const pitcherId = currentPitcherId(game);
   const runs = opponentRunsForResult(game, result);
+  startPlateAppearance(game, `opp:${batter}`, pitcherId);
   const snapshotBefore = {
     inning: game.inning,
     half: game.half,
@@ -955,40 +1885,18 @@ function logOpponentOutcome(result) {
     atBat: game.atBat ? cloneAtBat(game.atBat) : makeAtBat()
   };
 
-  game.score.opponent += runs;
-  applyBaseMovement(game, result, "opponent");
-  if (rule.out) game.outs += 1;
-
-  const event = {
-    id: uuid(),
-    gameId: game.id,
-    playerId: `opp:${batter}`,
-    opponentBatter: batter,
-    result,
+  finalizePlateAppearance(game, {
+    type: result,
     runs,
+    runsScored: runs,
     rbi: 0,
     contact: "none",
     launch: "none",
-    leverage: "neutral",
-    inning: game.inning,
-    half: game.half,
-    outsBefore: snapshotBefore.outs,
-    basesBefore: { ...snapshotBefore.bases },
-    scope: "defense",
     pitcherId,
-    note: "Opponent plate appearance",
-    pitches: game.atBat ? [...game.atBat.pitches] : [],
-    count: game.atBat ? `${game.atBat.balls}-${game.atBat.strikes}` : "0-0",
-    spray: null,
-    createdAt: new Date().toISOString(),
+    outsRecorded: result === "DP" ? 2 : undefined,
+    notes: "Opponent plate appearance",
     snapshotBefore
-  };
-  game.events.push(event);
-  if (rule.pa) {
-    game.opponentBatterIndex = nextOpponentBatterIndex(game);
-    game.atBat = makeAtBat();
-  }
-  if (game.outs >= 3) advanceHalf(game);
+  });
   saveState();
   render();
 }
@@ -1004,32 +1912,35 @@ function opponentRunsForResult(game, result) {
 }
 
 function advanceHalf(game) {
-  game.outs = 0;
-  game.bases = { first: false, second: false, third: false };
-  game.atBat = makeAtBat();
-  pendingSpray = null;
-  if (game.half === "top") {
-    game.half = "bottom";
-  } else {
-    game.half = "top";
-    game.inning += 1;
-  }
+  advanceHalfInning(game);
 }
 
 function undoLastPlay() {
   const game = activeGame();
   const event = game.events.pop();
   if (!event) return;
+  if (event.plateAppearanceId) {
+    game.plateAppearances = (game.plateAppearances || []).filter((appearance) => appearance.id !== event.plateAppearanceId);
+    game.currentPlateAppearanceId = "";
+  }
+  if (event.substitutionId) {
+    game.substitutions = (game.substitutions || []).filter((substitution) => substitution.id !== event.substitutionId);
+  }
   if (event.snapshotBefore) {
     game.inning = event.snapshotBefore.inning;
     game.half = event.snapshotBefore.half;
     game.outs = event.snapshotBefore.outs;
     game.bases = { ...event.snapshotBefore.bases };
     game.batterIndex = event.snapshotBefore.batterIndex;
-    game.opponentBatterIndex = event.snapshotBefore.opponentBatterIndex || game.opponentBatterIndex || 0;
+    game.opponentBatterIndex = event.snapshotBefore.opponentBatterIndex ?? game.opponentBatterIndex ?? 0;
     game.score = { ...event.snapshotBefore.score };
     game.atBat = cloneAtBat(event.snapshotBefore.atBat || makeAtBat());
+    if (event.snapshotBefore.lineupEntries) {
+      game.lineupEntries = deepClone(event.snapshotBefore.lineupEntries);
+      game.lineups.away = deepClone(game.lineupEntries);
+    }
     pendingSpray = event.spray || null;
+    syncGameCurrent(game);
   }
   saveState();
   render();
@@ -1039,6 +1950,7 @@ function startNewGame() {
   const game = makeGame("Opponent");
   state.games.push(game);
   state.activeGameId = game.id;
+  saveGameToLibrary(game, true);
   pendingSpray = null;
   saveState();
   render();
@@ -1048,11 +1960,13 @@ function scheduleGame() {
   const opponent = els.opponentInput.value.trim() || "Opponent";
   const game = makeGame(opponent);
   game.date = els.gameDateInput.value || todayValue();
+  game.time = els.gameTimeInput.value || "";
   game.location = els.gameLocationInput.value.trim();
   game.notes = els.gameNotesInput.value.trim();
   game.status = "scheduled";
   state.games.push(game);
   state.activeGameId = game.id;
+  saveGameToLibrary(game, true);
   pendingSpray = null;
   saveState();
   render();
@@ -1062,7 +1976,7 @@ function scoreScheduledGame(gameId) {
   const game = state.games.find((item) => item.id === gameId);
   if (!game) return;
   game.status = game.status === "completed" ? "completed" : "active";
-  state.activeGameId = game.id;
+  setActiveGame(game.id);
   pendingSpray = null;
   saveState();
   render();
@@ -1117,6 +2031,7 @@ function render() {
   renderArchive();
   renderAnalysis();
   renderGames();
+  renderGameEditor();
   renderSeasonStats();
   renderSubControls();
   renderLineupBuilder();
@@ -1128,13 +2043,17 @@ function render() {
 function renderScoreboard() {
   const game = activeGame();
   if (!game.atBat) game.atBat = makeAtBat();
+  syncGameCurrent(game);
   els.opponentInput.value = game.opponent;
   els.gameDateInput.value = game.date;
+  els.gameTimeInput.value = game.time || "";
   els.gameLocationInput.value = game.location || "";
   els.gameNotesInput.value = game.notes || "";
   els.scoreOpponentLineupInput.value = (game.opponentLineup || []).join("\n");
   els.gameTitle.textContent = `Lions vs ${game.opponent}`;
-  els.gameContext.textContent = `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}, ${game.outs} ${game.outs === 1 ? "out" : "outs"}`;
+  els.gameContext.textContent = game.status === "completed"
+    ? `Final after ${Math.min(game.inning, 7)} innings`
+    : `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}, ${game.outs} ${game.outs === 1 ? "out" : "outs"}`;
   els.lionsScore.textContent = game.score.lions;
   els.opponentScore.textContent = game.score.opponent;
   els.bases.forEach((base) => {
@@ -1156,6 +2075,7 @@ function renderRunnerTracker() {
     const runner = game.bases[key];
     const name = runnerName(runner);
     baseEl.classList.toggle("is-occupied", isOccupied(runner));
+    baseEl.classList.toggle("is-pending-out", pendingRunnerOutBases.includes(key));
     baseEl.querySelector("span").textContent = name || "Empty";
     if (name) occupied.push(`${name} on ${baseLabels[key]}`);
   });
@@ -1168,6 +2088,15 @@ function renderRunnerTracker() {
     const enabled = target === "second" ? canStealSecond : target === "third" ? canStealThird : canStealHome;
     button.disabled = !enabled;
   });
+  const showRunnerOuts = Boolean(game.atBat?.pendingInPlay) && game.half === "top";
+  els.runnerPlayControls.classList.toggle("is-visible", showRunnerOuts);
+  els.runnerOutButtons.forEach((button) => {
+    const base = button.dataset.runnerOutBase;
+    const enabled = showRunnerOuts && isOccupied(game.bases[base]);
+    button.disabled = !enabled;
+    button.classList.toggle("is-selected", pendingRunnerOutBases.includes(base));
+  });
+  renderAutoScorePreview();
 }
 
 function runnerName(runner) {
@@ -1175,6 +2104,30 @@ function runnerName(runner) {
   const player = state.roster.find((item) => item.id === runner);
   if (player) return player.name.split(" ")[0];
   return runner === true ? "Runner" : "Opponent";
+}
+
+function togglePendingRunnerOut(base) {
+  if (!base) return;
+  if (pendingRunnerOutBases.includes(base)) {
+    pendingRunnerOutBases = pendingRunnerOutBases.filter((item) => item !== base);
+  } else {
+    pendingRunnerOutBases.push(base);
+  }
+  renderRunnerTracker();
+}
+
+function renderAutoScorePreview() {
+  const game = activeGame();
+  if (!els.autoScorePreview || game.half === "bottom") return;
+  const result = els.resultSelect.value || "1B";
+  const batterId = currentBatterId(game);
+  const runnerAdvancements = runnerAdvancementsForPlay(game, result, batterId);
+  const runs = runnerAdvancements.filter((advancement) => advancement.to === "home" && !advancement.out && !advancement.remove).length;
+  const rbi = automaticRbiForPlay(result, runs);
+  const extraOuts = result === "DP" ? 2 : Math.min(3, (eventRules[result]?.out ? 1 : 0) + runnerAdvancements.filter((advancement) => advancement.out).length);
+  els.runsInput.value = String(runs);
+  els.rbiInput.value = String(rbi);
+  els.autoScorePreview.textContent = `Auto: ${runs} run${runs === 1 ? "" : "s"}, ${rbi} RBI, ${extraOuts} out${extraOuts === 1 ? "" : "s"} on this result.`;
 }
 
 function renderAtBat() {
@@ -1188,6 +2141,7 @@ function renderAtBat() {
     : "Set an active lineup to begin.";
   renderCurrentBatterSummary(game, currentPlayer);
   els.countDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
+  els.currentOutsDisplay.textContent = `${game.outs} ${game.outs === 1 ? "out" : "outs"}`;
   const opponentBatter = currentOpponentBatter(game);
   renderPitcherSelect(game);
   els.opponentBatterName.textContent = opponentBatter;
@@ -1234,7 +2188,7 @@ function pitcherStats(playerId, gameId = null) {
     .forEach((event) => {
       const rule = eventRules[event.result] || {};
       stats.batters += rule.pa ? 1 : 0;
-      stats.outs += rule.out ? 1 : 0;
+      stats.outs += Math.max(0, (event.outsAfter ?? event.outsBefore ?? 0) - (event.outsBefore ?? 0)) || (rule.out ? 1 : 0);
       stats.h += rule.hit ? 1 : 0;
       stats.hr += event.result === "HR" ? 1 : 0;
       stats.k += event.result === "K" ? 1 : 0;
@@ -1363,7 +2317,11 @@ function renderSprayDot({ event, game }) {
   const kind = rule.hit ? "hit" : "out";
   const title = `${player?.name || "Unknown"} ${rule.label} vs ${game.opponent} (${event.spray.zone})`;
   const label = rule.hit ? "H" : "O";
-  return `<span class="spray-dot ${kind}" style="left:${event.spray.x}%;top:${event.spray.y}%;" title="${escapeHtml(title)}">${label}</span>`;
+  const dx = event.spray.x - 50;
+  const dy = event.spray.y - 92;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  return `<span class="spray-line ${kind}" style="left:50%;top:92%;width:${length}%;transform:rotate(${angle}deg);"></span><span class="spray-dot ${kind}" style="left:${event.spray.x}%;top:${event.spray.y}%;" title="${escapeHtml(title)}">${label}</span>`;
 }
 
 function renderBatterSelect() {
@@ -1393,8 +2351,8 @@ function renderLiveLineup() {
       .map((name, index) => {
         const current = index === (game.opponentBatterIndex || 0) ? " is-current" : "";
         return `<li class="${current}">
-          <strong>${escapeHtml(name)}</strong>
-          <div class="player-meta">${escapeHtml(game.opponent)} batting | Simple scoring</div>
+          <strong contenteditable="true" spellcheck="false" data-opponent-lineup-index="${index}">${escapeHtml(name)}</strong>
+          <div class="player-meta">${escapeHtml(game.opponent)} batting | Click name to edit</div>
         </li>`;
       })
       .join("");
@@ -1418,6 +2376,7 @@ function renderLiveLineup() {
 
 function renderSubControls() {
   const game = activeGame();
+  els.subPanel.classList.toggle("is-hidden", game.half === "bottom");
   if (game.half === "bottom") {
     els.subSpotSelect.innerHTML = "";
     els.subPlayerSelect.innerHTML = "";
@@ -1442,41 +2401,11 @@ function applySubstitution() {
   const playerId = els.subPlayerSelect.value;
   if (!entryId || !playerId) return;
   const type = els.subTypeSelect.value;
-  game.lineupEntries = gameLineupEntries(game).map((entry) =>
-    entry.id === entryId
-      ? { ...entry, playerId, note: type === "ph" ? "Pinch hitter" : "Substitute" }
-      : entry
-  );
-  game.events.push({
-    id: uuid(),
-    gameId: game.id,
-    playerId,
-    result: "SUB",
-    runs: 0,
-    rbi: 0,
-    contact: "none",
-    launch: "none",
-    leverage: "neutral",
-    inning: game.inning,
-    half: game.half,
-    outsBefore: game.outs,
-    basesBefore: { ...game.bases },
-    scope: "lineup",
-    note: type === "ph" ? "Pinch hitter entered" : "Substitution entered",
-    pitches: [],
-    count: "0-0",
-    spray: null,
-    createdAt: new Date().toISOString(),
-    snapshotBefore: {
-      inning: game.inning,
-      half: game.half,
-      outs: game.outs,
-      bases: { ...game.bases },
-      batterIndex: game.batterIndex,
-      opponentBatterIndex: game.opponentBatterIndex || 0,
-      score: { ...game.score },
-      atBat: game.atBat ? cloneAtBat(game.atBat) : makeAtBat()
-    }
+  addSubstitution(game, {
+    lineupEntryId: entryId,
+    incomingPlayerId: playerId,
+    type,
+    notes: type === "ph" ? "Pinch hitter entered" : "Substitution entered"
   });
   saveState();
   render();
@@ -1491,12 +2420,14 @@ function renderPlayFeed() {
         .map((event) => {
           const player = state.roster.find((item) => item.id === event.playerId);
           const name = event.scope === "defense" ? event.opponentBatter || "Opponent batter" : player ? player.name : "Opponent";
-          const scope = event.scope === "offense" ? "Lions" : "Opponent";
+          const scope = event.scope === "defense" ? "Opponent" : "Lions";
           const rule = eventRules[event.result] || { label: event.result };
           return `<article class="play-item">
             <strong>${escapeHtml(scope)} ${inningLabel(event)}: ${escapeHtml(name)} ${escapeHtml(rule.label)}</strong>
             <div class="play-meta">${event.pitches?.length || 0} pitches | Count ${escapeHtml(event.count || "0-0")} | Runs ${event.runs}, RBI ${event.rbi}</div>
             <div class="play-meta">${escapeHtml(contactLabels[event.contact] || event.contact)}, ${escapeHtml(launchLabels[event.launch] || event.launch)}${event.spray ? ` | ${escapeHtml(event.spray.zone)}` : ""}</div>
+            ${event.errorOnPlay ? `<div class="play-meta">Error charged${event.errorFielderPosition ? ` to ${escapeHtml(event.errorFielderPosition)}` : ""}</div>` : ""}
+            ${event.runnerAdvancements?.some((advancement) => advancement.out) ? `<div class="play-meta">Runner out on play</div>` : ""}
             ${event.note ? `<div class="play-meta">${escapeHtml(event.note)}</div>` : ""}
           </article>`;
         })
@@ -1591,7 +2522,8 @@ function renderArchiveCard(game) {
     .reverse()
     .map((event) => {
       const player = state.roster.find((item) => item.id === event.playerId);
-      return `<div class="archive-meta">${escapeHtml(player?.name || "Unknown")} ${escapeHtml(eventRules[event.result].label)} ${event.note ? `- ${escapeHtml(event.note)}` : ""}</div>`;
+      const rule = eventRules[event.result] || { label: event.result };
+      return `<div class="archive-meta">${escapeHtml(player?.name || "Unknown")} ${escapeHtml(rule.label)} ${event.note ? `- ${escapeHtml(event.note)}` : ""}</div>`;
     })
     .join("");
 
@@ -1607,6 +2539,7 @@ function renderArchiveCard(game) {
 
 function renderGames() {
   const activeId = activeGame().id;
+  renderRecordSummary();
   const sorted = [...state.games].sort((a, b) => {
     const dateCompare = (b.date || "").localeCompare(a.date || "");
     if (dateCompare) return dateCompare;
@@ -1619,7 +2552,7 @@ function renderGames() {
       const status = game.status === "active" ? "Ready to score" : game.status;
       return `<article class="game-card${active}">
         <div>
-          <span class="player-meta">${escapeHtml(game.date || "No date")} ${game.location ? `| ${escapeHtml(game.location)}` : ""}</span>
+          <span class="player-meta">${escapeHtml(game.date || "No date")} ${game.time ? `| ${escapeHtml(game.time)}` : ""} ${game.location ? `| ${escapeHtml(game.location)}` : ""}</span>
           <h3>${score}</h3>
         </div>
         <div class="archive-meta">${escapeHtml(status)} | ${game.events.length} tracked events</div>
@@ -1628,11 +2561,70 @@ function renderGames() {
         <div class="game-actions">
           <button type="button" class="primary-action" data-game-action="score" data-game-id="${game.id}">${game.id === activeId ? "Continue Scoring" : "Score This Game"}</button>
           <button type="button" class="secondary-action" data-game-action="lineup" data-game-id="${game.id}">Lineup</button>
+          <button type="button" class="secondary-action" data-game-action="edit" data-game-id="${game.id}">Edit</button>
           <button type="button" class="secondary-action" data-game-action="complete" data-game-id="${game.id}">Mark Final</button>
+          <button type="button" class="secondary-action danger-action" data-game-action="delete" data-game-id="${game.id}">Remove</button>
         </div>
       </article>`;
     })
     .join("");
+}
+
+function renderRecordSummary() {
+  const completed = state.games.filter((game) => game.status === "completed" || game.inning > 7);
+  const wins = completed.filter((game) => (game.score?.lions || 0) > (game.score?.opponent || 0)).length;
+  const losses = completed.filter((game) => (game.score?.lions || 0) < (game.score?.opponent || 0)).length;
+  const ties = completed.filter((game) => (game.score?.lions || 0) === (game.score?.opponent || 0)).length;
+  els.recordSummary.innerHTML = [
+    metricCard("Record", `${wins}-${losses}${ties ? `-${ties}` : ""}`, "Completed games only."),
+    metricCard("Games Saved", String(state.games.length), "Stored in the local game library."),
+    metricCard("Runs For", String(completed.reduce((sum, game) => sum + (game.score?.lions || 0), 0)), "Oakmont runs in final games."),
+    metricCard("Runs Against", String(completed.reduce((sum, game) => sum + (game.score?.opponent || 0), 0)), "Opponent runs in final games.")
+  ].join("");
+}
+
+function openGameEditor(gameId) {
+  const game = state.games.find((item) => item.id === gameId);
+  if (!game) return;
+  gameEditId = gameId;
+  els.editOpponentInput.value = game.opponent || "";
+  els.editDateInput.value = game.date || todayValue();
+  els.editTimeInput.value = game.time || "";
+  els.editLocationInput.value = game.location || "";
+  els.editNotesInput.value = game.notes || "";
+  renderGameEditor();
+}
+
+function renderGameEditor() {
+  const game = state.games.find((item) => item.id === gameEditId);
+  els.gameEditPanel.classList.toggle("is-visible", Boolean(game));
+  if (!game) return;
+  els.gameEditTitle.textContent = `Edit ${game.opponent}`;
+}
+
+function saveGameEdits() {
+  const game = state.games.find((item) => item.id === gameEditId);
+  if (!game) return;
+  game.opponent = els.editOpponentInput.value.trim() || "Opponent";
+  if (game.teams?.home) game.teams.home.name = game.opponent;
+  game.date = els.editDateInput.value || todayValue();
+  game.time = els.editTimeInput.value || "";
+  game.location = els.editLocationInput.value.trim();
+  game.notes = els.editNotesInput.value.trim();
+  saveState();
+  render();
+}
+
+function removeScheduledGame(gameId) {
+  const game = state.games.find((item) => item.id === gameId);
+  if (!game) return;
+  const ok = window.confirm(`Remove ${game.opponent} on ${game.date || "this date"}?`);
+  if (!ok) return;
+  deleteGame(gameId);
+  if (!state.activeGameId && state.games.length) state.activeGameId = state.games[0].id;
+  if (gameEditId === gameId) gameEditId = null;
+  saveState();
+  render();
 }
 
 function openLineupBuilder(gameId) {
@@ -1672,6 +2664,7 @@ function updateLineupEntry(entryId, playerId, role) {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   if (!game) return;
   game.lineupEntries = gameLineupEntries(game).map((entry) => (entry.id === entryId ? { ...entry, playerId, role } : entry));
+  game.lineups.away = deepClone(game.lineupEntries);
   saveState();
   renderLineupBuilder();
   if (game.id === activeGame().id) render();
@@ -1684,6 +2677,7 @@ function addLineupEntry() {
   const player = state.roster.find((item) => !used.has(item.id)) || state.roster[0];
   if (!player) return;
   game.lineupEntries.push({ id: uuid(), playerId: player.id, role: defaultRoleForSpot(game.lineupEntries.length), active: true, note: "" });
+  game.lineups.away = deepClone(game.lineupEntries);
   saveState();
   renderLineupBuilder();
 }
@@ -1692,6 +2686,7 @@ function removeLineupEntry(entryId) {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   if (!game) return;
   game.lineupEntries = gameLineupEntries(game).filter((entry) => entry.id !== entryId);
+  game.lineups.away = deepClone(game.lineupEntries);
   game.batterIndex = Math.min(game.batterIndex, Math.max(game.lineupEntries.length - 1, 0));
   saveState();
   renderLineupBuilder();
@@ -1702,6 +2697,7 @@ function resetBuilderLineup() {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   if (!game) return;
   game.lineupEntries = makeLineupEntries(state.lineup);
+  game.lineups.away = deepClone(game.lineupEntries);
   game.batterIndex = 0;
   saveState();
   renderLineupBuilder();
@@ -1718,23 +2714,71 @@ function renderAnalysis() {
     metricCard("K rate", `${Math.round(team.kRate * 100)}%`, "Strikeouts per plate appearance."),
     metricCard("First-pitch strike", `${Math.round(team.firstPitchStrikeRate * 100)}%`, "How often the AB starts in a pitcher count.")
   ].join("");
+  renderGameBreakdown();
   renderValueBoard();
 }
 
+function renderGameBreakdown() {
+  els.gameBreakdown.innerHTML = state.games
+    .filter((game) => game.events.length || game.status !== "scheduled")
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+    .map((game) => {
+      const offensiveEvents = game.events.filter((event) => event.scope === "offense" && eventRules[event.result]?.pa);
+      const stats = emptyStats();
+      offensiveEvents.forEach((event) => applyEventToStats(stats, event));
+      finishStats(stats);
+      const lineup = gameLineupEntries(game)
+        .map((entry, index) => {
+          const player = state.roster.find((item) => item.id === entry.playerId);
+          if (!player) return "";
+          const playerEvents = offensiveEvents.filter((event) => event.playerId === player.id);
+          const reached = playerEvents.filter((event) => eventRules[event.result]?.reach).length;
+          return `${index + 1}. ${player.name} ${entry.role} (${reached}/${Math.max(playerEvents.length, 1)} reached)`;
+        })
+        .filter(Boolean)
+        .join(" | ");
+      return `<article class="breakdown-card">
+        <div class="mini-head">
+          <div>
+            <h3>${escapeHtml(game.date || "No date")} vs ${escapeHtml(game.opponent)}</h3>
+            <span class="player-meta">Oakmont ${game.score.lions} - ${game.score.opponent} | ${game.status}</span>
+          </div>
+          <span class="player-meta">${offensiveEvents.length} PA</span>
+        </div>
+        <div class="stat-strip">
+          ${statCell("OPS", formatRate(stats.ops))}
+          ${statCell("OBP", formatRate(stats.obp))}
+          ${statCell("K%", `${Math.round(stats.kRate * 100)}%`)}
+          ${statCell("P/PA", stats.pitchesPerPa.toFixed(2))}
+        </div>
+        <p class="player-meta">${escapeHtml(lineup || "No Oakmont lineup logged.")}</p>
+      </article>`;
+    })
+    .join("") || `<p class="player-meta">Game analysis appears after scorekeeping begins.</p>`;
+}
+
 function renderSeasonStats() {
-  els.hittingStatsBody.innerHTML = state.roster
-    .map((player) => {
-      const hit = statsForPlayer(player.id);
+  const hittingRows = state.roster
+    .map((player) => ({ player, hit: statsForPlayer(player.id), gp: gamesPlayedForPlayer(player.id) }))
+    .sort((a, b) => compareHittingRows(a, b));
+  els.hittingStatsBody.innerHTML = hittingRows
+    .map(({ player, hit, gp }) => {
       return `<tr>
         <td>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</td>
+        <td>${gp}</td>
         <td>${hit.pa}</td>
+        <td>${hit.ab}</td>
+        <td>${hit.h}</td>
         <td>${formatRate(hit.avg)}</td>
         <td>${formatRate(hit.obp)}</td>
         <td>${formatRate(hit.slg)}</td>
         <td>${formatRate(hit.ops)}</td>
         <td>${hit.rbi}</td>
+        <td>${hit.bb}</td>
+        <td>${hit.k}</td>
         <td>${hit.sb}</td>
-        <td>${Math.round(hit.kRate * 100)}%</td>
+        <td>${hit.roe}</td>
+        <td>${hit.errors}</td>
       </tr>`;
     })
     .join("");
@@ -1766,6 +2810,8 @@ function renderSeasonStats() {
 }
 
 function renderStatsSprayControls() {
+  els.statsSprayPanel.classList.toggle("is-visible", statsSprayExpanded);
+  els.toggleStatsSprayBtn.textContent = statsSprayExpanded ? "Close Spray Chart" : "Open Spray Chart";
   const selectedPlayer = els.statsSprayPlayerSelect.value || state.roster[0]?.id || "";
   els.statsSprayPlayerSelect.innerHTML = state.roster
     .map((player) => `<option value="${player.id}" ${player.id === selectedPlayer ? "selected" : ""}>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</option>`)
@@ -1792,6 +2838,24 @@ function renderStatsSprayChart() {
   els.statsSprayMarkers.innerHTML = events.length
     ? events.map(renderSprayDot).join("")
     : `<span class="spray-empty">No tracked batted balls</span>`;
+}
+
+function gamesPlayedForPlayer(playerId) {
+  return state.games.filter((game) => gameLineupPlayerIds(game).includes(playerId) || game.events.some((event) => event.playerId === playerId)).length;
+}
+
+function compareHittingRows(a, b) {
+  const key = hittingSort.key;
+  const direction = hittingSort.direction === "asc" ? 1 : -1;
+  const valueFor = (row) => {
+    if (key === "name") return row.player.name;
+    if (key === "gp") return row.gp;
+    return row.hit[key] ?? 0;
+  };
+  const left = valueFor(a);
+  const right = valueFor(b);
+  if (typeof left === "string") return left.localeCompare(right) * direction;
+  return (left - right) * direction;
 }
 
 function metricCard(label, value, copy) {
@@ -1973,10 +3037,13 @@ function emptyStats() {
     hbp: 0,
     k: 0,
     sac: 0,
+    dp: 0,
     tb: 0,
     rbi: 0,
     sb: 0,
     cs: 0,
+    roe: 0,
+    errors: 0,
     bip: 0,
     hard: 0,
     barrel: 0,
@@ -2013,8 +3080,11 @@ function applyEventToStats(stats, event) {
   if (rule.hbp) stats.hbp += 1;
   if (rule.k) stats.k += 1;
   if (rule.sac) stats.sac += 1;
+  if (rule.dp) stats.dp += 1;
   if (rule.sb) stats.sb += 1;
   if (rule.cs) stats.cs += 1;
+  if (event.result === "ROE") stats.roe += 1;
+  if (event.errorOnPlay) stats.errors += 1;
   if (rule.reach) stats.reach += 1;
   stats.tb += rule.tb || 0;
   stats.rbi += event.rbi || 0;
@@ -2093,11 +3163,12 @@ function formatInnings(outs) {
 }
 
 function exportData() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  saveState();
+  const blob = new Blob([exportSeasonAsJson(loadGameLibrary())], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `oakmont-lions-scorebook-${todayValue()}.json`;
+  link.download = `oakmont-lions-season-${todayValue()}.json`;
   link.click();
   URL.revokeObjectURL(url);
 }

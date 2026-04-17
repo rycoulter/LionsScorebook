@@ -575,8 +575,20 @@ main {
   color: var(--red);
 }
 
+.auto-score {
+  min-height: 40px;
+  align-content: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: #fbfdfb;
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .score-form.is-defense label,
 .score-form.is-defense .quick-outcomes,
+.score-form.is-defense .auto-score,
 .score-form.is-defense .bip-panel,
 .score-form.is-defense button[type="submit"],
 .score-form.is-defense #undoBtn {
@@ -654,6 +666,11 @@ main {
   border-color: var(--grass-strong);
   background: var(--grass-strong);
   color: var(--white);
+}
+
+.danger-action {
+  border-color: rgba(184, 47, 50, 0.45);
+  color: var(--red);
 }
 
 .pitch-trail {
@@ -1001,16 +1018,19 @@ button:focus-visible {
 .left-field {
   left: 12%;
   top: 28%;
+  display: none;
 }
 
 .center-field {
   left: calc(50% - 17px);
   top: 8%;
+  display: none;
 }
 
 .right-field {
   right: 12%;
   top: 28%;
+  display: none;
 }
 
 .plate-label {
@@ -1051,6 +1071,22 @@ button:focus-visible {
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
 }
 
+.spray-line {
+  position: absolute;
+  height: 3px;
+  transform-origin: left center;
+  background: rgba(255, 255, 255, 0.7);
+  z-index: 2;
+}
+
+.spray-line.hit {
+  background: rgba(15, 93, 56, 0.62);
+}
+
+.spray-line.out {
+  background: rgba(184, 47, 50, 0.58);
+}
+
 .spray-dot.hit {
   background: var(--grass-strong);
 }
@@ -1069,6 +1105,7 @@ button:focus-visible {
 .base-tracker {
   position: relative;
   min-height: 252px;
+  aspect-ratio: 1 / 0.82;
   overflow: hidden;
   border: 2px solid #2f734d;
   border-radius: 8px;
@@ -1110,6 +1147,12 @@ button:focus-visible {
   color: var(--ink);
 }
 
+.runner-base.is-pending-out {
+  border-color: var(--red);
+  background: #fff1f1;
+  color: var(--red);
+}
+
 .runner-first {
   right: 10%;
   bottom: 29%;
@@ -1138,6 +1181,33 @@ button:focus-visible {
   gap: 6px;
 }
 
+.runner-play-grid {
+  display: none;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfb;
+}
+
+.runner-play-grid.is-visible {
+  display: grid;
+}
+
+.runner-play-grid > span {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.runner-play-grid .is-selected {
+  border-color: var(--red);
+  background: #fff1f1;
+  color: var(--red);
+}
+
 .steal-grid button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -1147,6 +1217,13 @@ button:focus-visible {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+}
+
+.record-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .game-card {
@@ -1164,6 +1241,13 @@ button:focus-visible {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.game-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 10px;
+  align-items: end;
 }
 
 .coach-card {
@@ -1341,6 +1425,38 @@ button:focus-visible {
   grid-template-columns: repeat(2, minmax(180px, 1fr));
   gap: 12px;
   padding: 0 14px 12px;
+}
+
+.stats-spray-panel {
+  display: none;
+}
+
+.stats-spray-panel.is-visible {
+  display: block;
+}
+
+.stats-table th button {
+  min-height: 30px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 900;
+}
+
+.game-breakdown {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.breakdown-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfdfb;
 }
 
 .stats-spray-chart {

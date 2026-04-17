@@ -80,7 +80,10 @@
                       <h3 id="currentBatterName">Current batter</h3>
                       <span class="player-meta" id="currentBatterMeta">Ready</span>
                     </div>
-                    <div class="count-display" id="countDisplay">0-0</div>
+                    <div class="count-pair">
+                      <div class="count-display" id="countDisplay">0-0</div>
+                      <div class="count-display opponent-outs" id="currentOutsDisplay">0 out</div>
+                    </div>
                   </div>
                   <div class="pitch-buttons" aria-label="Pitch result buttons">
                     <button type="button" class="pitch-btn ball" data-pitch="ball">Ball</button>
@@ -112,6 +115,7 @@
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="HR">Home Run</button>
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="ROE">Error</button>
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="FC">Fielder's Choice</button>
+                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="DP">Double Play</button>
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="GO">Groundout</button>
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="FO">Flyout</button>
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="LO">Lineout</button>
@@ -132,6 +136,20 @@
                     <button type="button" class="choice-btn" data-choice-group="launch" data-choice-value="ld">Line Drive</button>
                     <button type="button" class="choice-btn" data-choice-group="launch" data-choice-value="fb">Fly Ball</button>
                     <button type="button" class="choice-btn" data-choice-group="launch" data-choice-value="pu">Pop Up</button>
+                  </div>
+                  <input id="errorFielderSelect" type="hidden" value="">
+                  <div class="button-group compact-group" aria-label="Error charged to fielder">
+                    <span>Error Charged</span>
+                    <button type="button" class="choice-btn is-selected" data-choice-group="error" data-choice-value="">None</button>
+                    <button type="button" class="choice-btn" data-choice-group="error" data-choice-value="P">P</button>
+                    <button type="button" class="choice-btn" data-choice-group="error" data-choice-value="C">C</button>
+                    <button type="button" class="choice-btn" data-choice-group="error" data-choice-value="1B">1B</button>
+                    <button type="button" class="choice-btn" data-choice-group="error" data-choice-value="2B">2B</button>
+                    <button type="button" class="choice-btn" data-choice-group="error" data-choice-value="SS">SS</button>
+                    <button type="button" class="choice-btn" data-choice-group="error" data-choice-value="3B">3B</button>
+                    <button type="button" class="choice-btn" data-choice-group="error" data-choice-value="LF">LF</button>
+                    <button type="button" class="choice-btn" data-choice-group="error" data-choice-value="CF">CF</button>
+                    <button type="button" class="choice-btn" data-choice-group="error" data-choice-value="RF">RF</button>
                   </div>
                 </div>
                 <div class="ab-face opponent-face" id="opponentAbPanel">
@@ -174,6 +192,7 @@
                     <button type="button" class="choice-btn" data-opponent-result="HBP">HBP</button>
                     <button type="button" class="choice-btn" data-opponent-result="ROE">Error</button>
                     <button type="button" class="choice-btn" data-opponent-result="FC">FC</button>
+                    <button type="button" class="choice-btn" data-opponent-result="DP">DP</button>
                     <button type="button" class="choice-btn" data-opponent-result="K">K</button>
                     <button type="button" class="choice-btn" data-opponent-result="GO">Groundout</button>
                     <button type="button" class="choice-btn" data-opponent-result="FO">Flyout</button>
@@ -254,6 +273,12 @@
                   <button type="button" class="secondary-action" data-steal="home" data-steal-result="safe">Steal Home Safe</button>
                   <button type="button" class="secondary-action" data-steal="home" data-steal-result="out">Steal Home Out</button>
                 </div>
+                <div class="runner-play-grid" id="runnerPlayControls" aria-label="Runner outs on batted ball">
+                  <span>Runner Out On Ball In Play</span>
+                  <button type="button" class="secondary-action" data-runner-out-base="first">Runner from 1B Out</button>
+                  <button type="button" class="secondary-action" data-runner-out-base="second">Runner from 2B Out</button>
+                  <button type="button" class="secondary-action" data-runner-out-base="third">Runner from 3B Out</button>
+                </div>
               </section>
 
               <form class="score-form" id="scoreForm">
@@ -261,14 +286,9 @@
                   Batter
                   <select id="batterSelect" name="batter"></select>
                 </label>
-                <label>
-                  Runs scored
-                  <input id="runsInput" name="runs" type="number" min="0" max="4" value="0">
-                </label>
-                <label>
-                  RBI
-                  <input id="rbiInput" name="rbi" type="number" min="0" max="4" value="0">
-                </label>
+                <input id="runsInput" name="runs" type="hidden" value="0">
+                <input id="rbiInput" name="rbi" type="hidden" value="0">
+                <div class="auto-score wide" id="autoScorePreview">Runs and RBI calculate when the play is saved.</div>
                 <input id="resultSelect" name="result" type="hidden" value="1B">
                 <input id="contactSelect" name="contact" type="hidden" value="none">
                 <input id="launchSelect" name="launch" type="hidden" value="none">
@@ -317,7 +337,7 @@
                 <button type="button" class="secondary-action" id="applySubBtn">Apply</button>
               </div>
               <label class="opponent-lineup-editor">
-                Opponent lineup
+                Opponent lineup paste
                 <textarea id="scoreOpponentLineupInput" rows="5" placeholder="One hitter per line"></textarea>
               </label>
               <div class="mini-head">
@@ -347,6 +367,10 @@
               <input id="gameDateInput" name="date" type="date">
             </label>
             <label>
+              Time
+              <input id="gameTimeInput" name="time" type="time">
+            </label>
+            <label>
               Location
               <input id="gameLocationInput" name="location" autocomplete="off" placeholder="Home, away, field name">
             </label>
@@ -355,7 +379,25 @@
               <input id="gameNotesInput" name="gameNotes" autocomplete="off" placeholder="Tournament, starting pitcher, arrival time...">
             </label>
           </form>
+          <div class="record-summary" id="recordSummary"></div>
           <div class="games-grid" id="gamesGrid"></div>
+          <section class="lineup-builder" id="gameEditPanel">
+            <div class="mini-head">
+              <div>
+                <h3 id="gameEditTitle">Edit Game</h3>
+                <span class="player-meta">Update opponent, time, location, and notes.</span>
+              </div>
+              <button type="button" class="secondary-action" id="closeGameEditBtn">Close</button>
+            </div>
+            <div class="game-edit-grid">
+              <label>Opponent <input id="editOpponentInput" autocomplete="off"></label>
+              <label>Date <input id="editDateInput" type="date"></label>
+              <label>Time <input id="editTimeInput" type="time"></label>
+              <label>Location <input id="editLocationInput" autocomplete="off"></label>
+              <label class="wide">Notes <input id="editNotesInput" autocomplete="off"></label>
+              <button type="button" class="primary-action" id="saveGameEditBtn">Save Game Details</button>
+            </div>
+          </section>
           <section class="lineup-builder" id="lineupBuilderPanel">
             <div class="mini-head">
               <div>
@@ -442,8 +484,12 @@
             </div>
             <span class="player-meta">Updates from completed and in-progress games</span>
           </div>
-          <div class="stats-table-wrap">
-            <h3 class="stats-subhead">Spray Chart</h3>
+          <div class="stats-table-wrap stats-spray-shell">
+            <div class="mini-head">
+              <h3 class="stats-subhead">Spray Chart</h3>
+              <button type="button" class="secondary-action spray-toggle" id="toggleStatsSprayBtn">Open Spray Chart</button>
+            </div>
+            <div class="stats-spray-panel" id="statsSprayPanel">
             <div class="stats-spray-controls">
               <label>
                 Player
@@ -478,21 +524,28 @@
               <div class="spray-label plate-label">HP</div>
               <div class="spray-markers" id="statsSprayMarkers"></div>
             </div>
+            </div>
           </div>
           <div class="stats-table-wrap">
             <h3 class="stats-subhead">Hitting</h3>
             <table class="stats-table">
               <thead>
                 <tr>
-                  <th>Player</th>
-                  <th>PA</th>
-                  <th>AVG</th>
-                  <th>OBP</th>
-                  <th>SLG</th>
-                  <th>OPS</th>
-                  <th>RBI</th>
-                  <th>SB</th>
-                  <th>K%</th>
+                  <th><button type="button" data-hit-sort="name">Player</button></th>
+                  <th><button type="button" data-hit-sort="gp">GP</button></th>
+                  <th><button type="button" data-hit-sort="pa">PA</button></th>
+                  <th><button type="button" data-hit-sort="ab">AB</button></th>
+                  <th><button type="button" data-hit-sort="h">H</button></th>
+                  <th><button type="button" data-hit-sort="avg">AVG</button></th>
+                  <th><button type="button" data-hit-sort="obp">OBP</button></th>
+                  <th><button type="button" data-hit-sort="slg">SLG</button></th>
+                  <th><button type="button" data-hit-sort="ops">OPS</button></th>
+                  <th><button type="button" data-hit-sort="rbi">RBI</button></th>
+                  <th><button type="button" data-hit-sort="bb">BB</button></th>
+                  <th><button type="button" data-hit-sort="k">K</button></th>
+                  <th><button type="button" data-hit-sort="sb">SB</button></th>
+                  <th><button type="button" data-hit-sort="roe">ROE</button></th>
+                  <th><button type="button" data-hit-sort="errors">E</button></th>
                 </tr>
               </thead>
               <tbody id="hittingStatsBody"></tbody>
@@ -548,6 +601,10 @@
             <button class="secondary-action" id="exportBtn">Export JSON</button>
           </div>
           <div class="metrics-grid" id="metricsGrid"></div>
+          <div class="stats-table-wrap">
+            <h3 class="stats-subhead">Game Breakdown</h3>
+            <div class="game-breakdown" id="gameBreakdown"></div>
+          </div>
           <div class="analysis-grid">
             <div>
               <div class="mini-head">
