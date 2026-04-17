@@ -149,18 +149,10 @@
                 <div class="ab-face outcome-face bip-panel" id="bipPanel">
                   <div class="mini-head">
                     <div>
-                      <h3>Ball In Play Details</h3>
-                      <span class="player-meta">Choose outcome, contact, launch, then tap the spray chart.</span>
+                      <h3>Select Outcome</h3>
+                      <span class="player-meta">Pick the result, then tap the field where the ball went.</span>
                     </div>
                     <button type="button" class="secondary-action compact-action" id="clearBipBtn">Back</button>
-                  </div>
-                  <div class="button-group compact-group" aria-label="Select contact quality">
-                    <span>Contact</span>
-                    <button type="button" class="choice-btn is-selected" data-choice-group="contact" data-choice-value="none">No Contact</button>
-                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="weak">Weak</button>
-                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="solid">Solid</button>
-                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="hard">Hard Hit</button>
-                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="barrel">Barrel</button>
                   </div>
                   <div class="button-group" aria-label="Select batted ball result">
                     <span>Outcome</span>
@@ -168,17 +160,15 @@
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="2B">Double</button>
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="3B">Triple</button>
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="HR">Home Run</button>
-                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="ROE">Error</button>
+                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="GO">Out</button>
+                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="ROE">Error (E)</button>
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="FC">Fielder's Choice</button>
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="DP">Double Play</button>
-                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="GO">Groundout</button>
-                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="FO">Flyout</button>
-                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="LO">Lineout</button>
                     <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="SAC">Sacrifice</button>
                   </div>
                   <div class="button-group compact-group launch-detail-group" aria-label="Select launch band">
                     <span>Launch</span>
-                    <button type="button" class="choice-btn is-selected" data-choice-group="launch" data-choice-value="none">No Contact</button>
+                    <button type="button" class="choice-btn is-selected" data-choice-group="launch" data-choice-value="none">None</button>
                     <button type="button" class="choice-btn" data-choice-group="launch" data-choice-value="gb">Ground Ball</button>
                     <button type="button" class="choice-btn" data-choice-group="launch" data-choice-value="ld">Line Drive</button>
                     <button type="button" class="choice-btn" data-choice-group="launch" data-choice-value="fb">Fly Ball</button>
@@ -747,8 +737,8 @@
               <div class="tracking-list">
                 <p><strong>Plate appearance outcome:</strong> every PA powers AVG, OBP, SLG, OPS, wOBA-lite, strikeout rate, walk rate, and RBI opportunities.</p>
                 <p><strong>Pitch trail:</strong> counts, pitch volume, and first-pitch strike trends show approach quality before the result.</p>
-                <p><strong>Batted-ball profile:</strong> contact strength plus launch band helps separate real skill from luck.</p>
-                <p><strong>Spray location:</strong> hit and out locations reveal pull tendency, opposite-field contact, and where defenses are taking away hits.</p>
+                <p><strong>Batted-ball profile:</strong> outcome, launch band, and location separate real damage from routine contact.</p>
+                <p><strong>Spray location:</strong> hit and out locations reveal pull tendency, opposite-field direction, and where defenses are taking away hits.</p>
                 <p><strong>Baserunning:</strong> steals, caught stealing, runs, and pressure speed influence lineup shape.</p>
                 <p><strong>Defense:</strong> positions and coach grades keep the best nine from becoming a fragile nine.</p>
               </div>

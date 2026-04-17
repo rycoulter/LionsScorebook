@@ -2155,6 +2155,176 @@ button:focus-visible {
   background: #fbfdfb;
 }
 
+#scoreView .pitch-panel {
+  width: min(520px, calc(100% - 24px));
+  padding: 0;
+  pointer-events: none;
+  backdrop-filter: none;
+}
+
+#scoreView .ab-face,
+#scoreView .pitch-panel button,
+#scoreView .pitch-panel select,
+#scoreView .pitch-panel input,
+#scoreView .pitch-panel textarea {
+  pointer-events: auto;
+}
+
+#scoreView .outcome-face,
+#scoreView .opponent-face,
+#scoreView .pitch-panel.is-outcome .batter-face,
+#scoreView .pitch-panel.is-opponent .batter-face,
+#scoreView .pitch-panel.is-opponent .outcome-face {
+  pointer-events: none;
+}
+
+#scoreView .pitch-panel.is-outcome .outcome-face,
+#scoreView .pitch-panel.is-opponent .opponent-face,
+#scoreView .pitch-panel:not(.is-outcome):not(.is-opponent) .batter-face {
+  pointer-events: auto;
+}
+
+#scoreView .batter-face .mini-head,
+#scoreView .opponent-face .mini-head {
+  min-height: 76px;
+  border-color: #111827;
+  background: #111827;
+  color: var(--white);
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.22);
+  backdrop-filter: none;
+}
+
+#scoreView .batter-face .mini-head .player-meta,
+#scoreView .opponent-face .mini-head .player-meta {
+  color: #d7dee7;
+}
+
+#scoreView .count-display {
+  min-width: 68px;
+  border: 0;
+  background: transparent;
+  color: #61d38a;
+  font-size: 1.45rem;
+}
+
+#scoreView .opponent-outs {
+  color: #ef8787;
+}
+
+#scoreView .pitch-buttons {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  margin: 8px auto 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+#scoreView .pitch-btn {
+  min-height: 64px;
+  border: 1px solid transparent;
+  box-shadow: 0 8px 16px rgba(14, 27, 19, 0.08);
+  font-size: 1rem;
+}
+
+#scoreView .pitch-btn.ball {
+  background: #9ed9ae;
+  color: #ffffff;
+}
+
+#scoreView .pitch-btn.strike {
+  background: #ef8c8c;
+  color: #ffffff;
+}
+
+#scoreView .pitch-btn.foul {
+  background: #f2b48f;
+  color: #ffffff;
+}
+
+#scoreView .pitch-btn.in-play {
+  background: #90aaf0;
+  color: #ffffff;
+}
+
+#scoreView .pitch-btn.hbp {
+  background: #c6b5ef;
+  color: #ffffff;
+}
+
+#scoreView .pitch-trail {
+  display: flex;
+  justify-content: center;
+  min-height: 34px;
+  border: 1px solid #d8e0e8;
+  border-radius: 8px;
+  padding: 7px;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+#scoreView .batter-face > .button-row,
+#scoreView .opponent-face > .button-row {
+  justify-content: center;
+}
+
+#scoreView .outcome-face {
+  align-self: start;
+  width: min(520px, calc(100% - 24px));
+  margin: 92px auto 0;
+  border-color: #b7d0ff;
+  padding: 12px;
+  background: #eef5ff;
+  box-shadow: 0 14px 28px rgba(32, 75, 140, 0.16);
+  backdrop-filter: none;
+}
+
+#scoreView .outcome-face .mini-head {
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#scoreView .button-group[aria-label="Select batted ball result"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-color: #c8d9ff;
+  padding: 10px;
+  background: transparent;
+}
+
+#scoreView .button-group[aria-label="Select batted ball result"] .choice-btn {
+  min-height: 56px;
+  background: #e8faed;
+  border-color: #a8e5b9;
+}
+
+#scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="GO"],
+#scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="DP"],
+#scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="SAC"] {
+  background: #f2f5f7;
+  border-color: #d9e1e8;
+}
+
+#scoreView .button-group[aria-label="Select batted ball result"] .choice-btn[data-choice-value="ROE"] {
+  background: #fff0dc;
+  border-color: #f0bf7a;
+}
+
+#scoreView .button-group[aria-label="Select batted ball result"] .choice-btn.is-selected {
+  background: var(--grass-strong);
+  border-color: var(--grass-strong);
+  color: var(--white);
+}
+
+#scoreView .spray-panel .mini-head,
+#scoreView .runner-panel .mini-head,
+#scoreView .runner-play-grid {
+  backdrop-filter: none;
+}
+
 @media (max-width: 940px) {
   .pitcher-row {
     grid-template-columns: 1fr;
