@@ -392,7 +392,8 @@ const AA_SCOUTING_SNAPSHOT = {
       ra: 56,
       last10: "7-2-1",
       streak: "Won 2",
-      url: PITTSBURGH_NABA_URL,
+      url: "https://www.pittsburghnaba.org/teams/default.asp?u=BAKERYSQUAREBANDIDOS&s=baseball&p=stats",
+      statsUrl: "https://www.pittsburghnaba.org/teams/default.asp?u=BAKERYSQUAREBANDIDOS&s=baseball&p=stats",
       hitters: [
         { name: "B. Hartz", pos: "-", ab: 37, avg: ".595" }
       ],
@@ -502,6 +503,7 @@ let scoutingData = null;
 let selectedScoutingTeamId = "";
 let scoutingRefreshState = "snapshot";
 let scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
+let scorebookGameId = "";
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
@@ -517,6 +519,8 @@ const els = {
   homePitchingLeaders: document.getElementById("homePitchingLeaders"),
   gameTitle: document.getElementById("gameTitle"),
   gameContext: document.getElementById("gameContext"),
+  inningStateDisplay: document.getElementById("inningStateDisplay"),
+  outsStateDisplay: document.getElementById("outsStateDisplay"),
   lionsScore: document.getElementById("lionsScore"),
   opponentScore: document.getElementById("opponentScore"),
   bases: [...document.querySelectorAll(".base")],
@@ -560,6 +564,7 @@ const els = {
   gameForm: document.getElementById("gameForm"),
   scheduleGameBtn: document.getElementById("scheduleGameBtn"),
   gamesGrid: document.getElementById("gamesGrid"),
+  scorebookGameSelect: document.getElementById("scorebookGameSelect"),
   scorebookGameMeta: document.getElementById("scorebookGameMeta"),
   scorebookHead: document.getElementById("scorebookHead"),
   scorebookBody: document.getElementById("scorebookBody"),
@@ -1181,6 +1186,10 @@ function bindEvents() {
   els.homeScoreGameBtn.addEventListener("click", () => switchView("score"));
   els.homeGamesBtn.addEventListener("click", () => switchView("games"));
   els.homeScoutingBtn.addEventListener("click", openNextGameScouting);
+  els.scorebookGameSelect.addEventListener("change", () => {
+    scorebookGameId = els.scorebookGameSelect.value;
+    renderTraditionalScorebook();
+  });
 
   els.scoreForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -2536,6 +2545,9 @@ function renderScoreboard() {
   els.gameNotesInput.value = game.notes || "";
   els.scoreOpponentLineupInput.value = (game.opponentLineup || []).join("\n");
   els.gameTitle.textContent = `Lions vs ${game.opponent}`;
+  const inningLabel = game.status === "completed" ? "Final" : `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}`;
+  els.inningStateDisplay.textContent = inningLabel;
+  els.outsStateDisplay.textContent = String(game.outs);
   els.gameContext.textContent = game.status === "completed"
     ? `Final after ${Math.min(game.inning, 7)} innings`
     : `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}, ${game.outs} ${game.outs === 1 ? "out" : "outs"}`;
@@ -2925,7 +2937,13 @@ function inningLabel(event) {
 
 function renderTraditionalScorebook() {
   if (!els.scorebookBody) return;
-  const game = activeGame();
+  const active = activeGame();
+  if (!scorebookGameId || !state.games.some((game) => game.id === scorebookGameId)) scorebookGameId = active.id;
+  els.scorebookGameSelect.innerHTML = [...state.games]
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+    .map((game) => `<option value="${game.id}" ${game.id === scorebookGameId ? "selected" : ""}>${escapeHtml(game.date || "No date")} vs ${escapeHtml(game.opponent)}</option>`)
+    .join("");
+  const game = state.games.find((item) => item.id === scorebookGameId) || active;
   els.scorebookGameMeta.textContent = `${game.date || "No date"} | Oakmont ${game.score.lions} - ${game.score.opponent} ${game.opponent}`;
   const innings = [1, 2, 3, 4, 5, 6, 7];
   const head = `<tr><th>Lineup</th>${innings.map((inning) => `<th>${inning}</th>`).join("")}<th>R</th><th>H</th><th>RBI</th></tr>`;
@@ -2984,19 +3002,67 @@ function renderScorebookCell(events) {
   return events.map((event) => {
     const rule = eventRules[event.result] || { label: event.result };
     const pitchCount = event.pitches?.length || 0;
-    const detail = [
-      pitchCount ? `${pitchCount}P` : "",
-      event.rbi ? `${event.rbi} RBI` : "",
-      event.spray?.zone || "",
-      event.errorOnPlay ? "E" : "",
-      event.runnerAdvancements?.some((advancement) => advancement.out) ? "Runner out" : ""
-    ].filter(Boolean).join(" | ");
+    const notation = scorebookNotation(event);
+    const reached = batterReachedBase(event.result);
+    const scored = Boolean((event.runs || 0) && ["HR"].includes(event.result));
+    const detail = scorebookDetail(event, pitchCount);
     return `<div class="scorebook-cell ${rule.hit ? "is-hit" : rule.out ? "is-out" : "is-reach"}">
-      <strong>${escapeHtml(event.result)}</strong>
+      <div class="scorebook-diamond ${scored ? "is-run" : ""}">
+        <span class="path hp-1 ${reached >= 1 ? "is-active" : ""}"></span>
+        <span class="path one-2 ${reached >= 2 ? "is-active" : ""}"></span>
+        <span class="path two-3 ${reached >= 3 ? "is-active" : ""}"></span>
+        <span class="path three-h ${reached >= 4 ? "is-active" : ""}"></span>
+        <strong>${escapeHtml(notation)}</strong>
+        ${rule.out ? `<small>${escapeHtml(outNumber(event))}</small>` : ""}
+      </div>
       <span>${escapeHtml(detail || rule.label)}</span>
       ${event.note ? `<em>${escapeHtml(event.note)}</em>` : ""}
     </div>`;
   }).join("");
+}
+
+function scorebookNotation(event) {
+  const result = event.result;
+  if (result === "GO") return "6-3";
+  if (result === "FO") return "F8";
+  if (result === "LO") return "L6";
+  if (result === "K") return "K";
+  if (result === "BB") return "BB";
+  if (result === "HBP") return "HP";
+  if (result === "ROE") return event.errorFielderPosition ? `E${fielderNumber(event.errorFielderPosition)}` : "E";
+  if (result === "FC") return "FC";
+  if (result === "DP") return "DP";
+  if (result === "SAC") return "SAC";
+  return result;
+}
+
+function batterReachedBase(result) {
+  if (result === "1B" || result === "BB" || result === "HBP" || result === "ROE" || result === "FC") return 1;
+  if (result === "2B") return 2;
+  if (result === "3B") return 3;
+  if (result === "HR") return 4;
+  return 0;
+}
+
+function scorebookDetail(event, pitchCount) {
+  return [
+    pitchCount ? `${pitchCount} pitches` : "",
+    event.count ? `Count ${event.count}` : "",
+    event.rbi ? `${event.rbi} RBI` : "",
+    event.runs ? `${event.runs} R` : "",
+    event.spray?.zone || "",
+    event.runnerAdvancements?.some((advancement) => advancement.out) ? "Runner out" : ""
+  ].filter(Boolean).join(" | ");
+}
+
+function outNumber(event) {
+  const after = event.outsAfter ?? event.outsBefore ?? 0;
+  if (!after) return "OUT";
+  return `${after}${ordinalSuffix(after)} out`;
+}
+
+function fielderNumber(position) {
+  return { P: 1, C: 2, "1B": 3, "2B": 4, "3B": 5, SS: 6, LF: 7, CF: 8, RF: 9 }[position] || "";
 }
 
 function renderRoster() {
@@ -3357,7 +3423,7 @@ function initializeScoutingReport() {
 async function refreshScoutingData(options = {}) {
   if (!scoutingData) scoutingData = deepClone(AA_SCOUTING_SNAPSHOT);
   const selectedTeam = getSelectedScoutingTeam();
-  const urls = [PITTSBURGH_NABA_URL, selectedTeam?.url]
+  const urls = [PITTSBURGH_NABA_URL, teamStatsPageUrl(selectedTeam)]
     .filter(Boolean)
     .filter((url, index, list) => list.indexOf(url) === index);
 
@@ -3592,7 +3658,7 @@ function renderScoutingReport() {
           <h3>${escapeHtml(team.name)}</h3>
           <span class="player-meta">AA Division | ${escapeHtml(team.record)} | ${escapeHtml(team.streak)}</span>
         </div>
-        <a class="scout-link" href="${escapeHtml(team.url || scoutingData.sourceUrl)}" target="_blank" rel="noreferrer">Team page</a>
+        <a class="scout-link" href="${escapeHtml(teamStatsPageUrl(team))}" target="_blank" rel="noreferrer">Team Stats Page</a>
       </div>
       <div class="scout-metrics">
         ${scoutMetric("Win %", team.winPct)}
@@ -3762,6 +3828,21 @@ function signedNumber(value) {
 
 function normalizeScoutName(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function teamStatsPageUrl(team) {
+  if (!team) return PITTSBURGH_NABA_URL;
+  if (team.statsUrl) return team.statsUrl;
+  try {
+    const url = new URL(team.url || PITTSBURGH_NABA_URL, window.location.href);
+    const teamCode = url.searchParams.get("u");
+    if (teamCode) {
+      return `https://www.pittsburghnaba.org/teams/default.asp?u=${encodeURIComponent(teamCode)}&s=baseball&p=stats`;
+    }
+  } catch (error) {
+    // Fall back to the league page when a team URL is not parseable.
+  }
+  return team.url || PITTSBURGH_NABA_URL;
 }
 
 function renderSeasonStats() {

@@ -95,7 +95,14 @@
             <div>
               <p class="eyebrow">Game State</p>
               <h3 id="gameTitle">Lions vs Wildcats</h3>
-              <p class="player-meta" id="gameContext">Top 1, 0 outs</p>
+            </div>
+            <div class="game-state-focus">
+              <span>Inning</span>
+              <strong id="inningStateDisplay">Top 1</strong>
+            </div>
+            <div class="game-state-focus">
+              <span>Outs</span>
+              <strong id="outsStateDisplay">0</strong>
             </div>
             <div class="scoreline clean-scoreline" aria-label="Current score">
               <div>
@@ -107,12 +114,7 @@
                 <strong id="opponentScore">0</strong>
               </div>
             </div>
-            <div class="diamond clean-diamond" aria-label="Base state">
-              <span class="base second" data-base="2"></span>
-              <span class="base third" data-base="3"></span>
-              <span class="base first" data-base="1"></span>
-              <span class="plate"></span>
-            </div>
+            <p class="player-meta game-state-context" id="gameContext">Top 1, 0 outs</p>
           </section>
 
           <div class="score-grid">
@@ -399,8 +401,12 @@
               <p class="eyebrow">Scorebook</p>
               <h2>Traditional game sheet</h2>
             </div>
-            <span class="player-meta" id="scorebookGameMeta">Active game</span>
+            <label class="scorebook-game-picker">
+              Game
+              <select id="scorebookGameSelect"></select>
+            </label>
           </div>
+          <p class="player-meta scorebook-meta" id="scorebookGameMeta">Active game</p>
           <div class="scorebook-layout">
             <section class="scorebook-panel">
               <div class="mini-head">
