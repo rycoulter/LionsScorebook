@@ -473,6 +473,17 @@
             </select>
             <button class="secondary-action" type="submit">Save Player</button>
           </form>
+          <div class="roster-toolbar">
+            <label>
+              Roster view
+              <select id="rosterFilter">
+                <option value="active">Active players</option>
+                <option value="inactive">Inactive players</option>
+                <option value="all">All players</option>
+              </select>
+            </label>
+            <span class="player-meta" id="rosterFilterSummary">Showing active players</span>
+          </div>
           <div class="roster-grid" id="rosterGrid"></div>
         </section>
 
@@ -484,6 +495,7 @@
             </div>
             <span class="player-meta">Updates from completed and in-progress games</span>
           </div>
+          <div class="leader-grid" id="leadersGrid"></div>
           <div class="stats-table-wrap stats-spray-shell">
             <div class="mini-head">
               <h3 class="stats-subhead">Spray Chart</h3>
@@ -536,6 +548,10 @@
                   <th><button type="button" data-hit-sort="pa">PA</button></th>
                   <th><button type="button" data-hit-sort="ab">AB</button></th>
                   <th><button type="button" data-hit-sort="h">H</button></th>
+                  <th><button type="button" data-hit-sort="singles">1B</button></th>
+                  <th><button type="button" data-hit-sort="doubles">2B</button></th>
+                  <th><button type="button" data-hit-sort="triples">3B</button></th>
+                  <th><button type="button" data-hit-sort="hr">HR</button></th>
                   <th><button type="button" data-hit-sort="avg">AVG</button></th>
                   <th><button type="button" data-hit-sort="obp">OBP</button></th>
                   <th><button type="button" data-hit-sort="slg">SLG</button></th>
@@ -556,24 +572,24 @@
             <table class="stats-table">
               <thead>
                 <tr>
-                  <th>Player</th>
-                  <th>IP</th>
-                  <th>NP</th>
-                  <th>Ball</th>
-                  <th>Str</th>
-                  <th>Str%</th>
-                  <th>BF</th>
-                  <th>H</th>
-                  <th>R</th>
-                  <th>BB</th>
-                  <th>K</th>
-                  <th>K%</th>
-                  <th>BB%</th>
-                  <th>K/BB</th>
-                  <th>K/9</th>
-                  <th>R/9</th>
-                  <th>WHIP</th>
-                  <th>P/IP</th>
+                  <th><button type="button" data-pit-sort="name">Player</button></th>
+                  <th><button type="button" data-pit-sort="outs">IP</button></th>
+                  <th><button type="button" data-pit-sort="pitches">NP</button></th>
+                  <th><button type="button" data-pit-sort="balls">Ball</button></th>
+                  <th><button type="button" data-pit-sort="strikes">Str</button></th>
+                  <th><button type="button" data-pit-sort="strikeRate">Str%</button></th>
+                  <th><button type="button" data-pit-sort="batters">BF</button></th>
+                  <th><button type="button" data-pit-sort="h">H</button></th>
+                  <th><button type="button" data-pit-sort="runs">R</button></th>
+                  <th><button type="button" data-pit-sort="bb">BB</button></th>
+                  <th><button type="button" data-pit-sort="k">K</button></th>
+                  <th><button type="button" data-pit-sort="kRate">K%</button></th>
+                  <th><button type="button" data-pit-sort="bbRate">BB%</button></th>
+                  <th><button type="button" data-pit-sort="kbb">K/BB</button></th>
+                  <th><button type="button" data-pit-sort="k9">K/9</button></th>
+                  <th><button type="button" data-pit-sort="r9">R/9</button></th>
+                  <th><button type="button" data-pit-sort="whip">WHIP</button></th>
+                  <th><button type="button" data-pit-sort="pitchesPerInning">P/IP</button></th>
                 </tr>
               </thead>
               <tbody id="pitchingStatsBody"></tbody>
@@ -644,6 +660,10 @@
             Active
             <input type="checkbox">
           </label>
+        </div>
+        <div class="player-edit-row">
+          <label>Name <input data-player-edit="name" autocomplete="off"></label>
+          <label>Number <input data-player-edit="number" autocomplete="off" inputmode="numeric"></label>
         </div>
         <div class="stat-strip"></div>
         <div class="grade-row">

@@ -391,12 +391,21 @@ main {
   position: relative;
   min-height: 216px;
   overflow: hidden;
+  background:
+    linear-gradient(45deg, transparent 47%, rgba(255, 255, 255, 0.7) 47.6% 48.4%, transparent 49%),
+    linear-gradient(-45deg, transparent 47%, rgba(255, 255, 255, 0.7) 47.6% 48.4%, transparent 49%),
+    radial-gradient(circle at 50% 84%, rgba(201, 144, 69, 0.95) 0 13%, transparent 13.4%),
+    linear-gradient(180deg, #edf8f0 0%, #f8faf8 100%);
   transition: background-color 180ms ease, border-color 180ms ease;
 }
 
 .pitch-panel.is-outcome {
   border-color: var(--grass);
-  background: #f7fbf8;
+  background:
+    linear-gradient(45deg, transparent 47%, rgba(255, 255, 255, 0.72) 47.6% 48.4%, transparent 49%),
+    linear-gradient(-45deg, transparent 47%, rgba(255, 255, 255, 0.72) 47.6% 48.4%, transparent 49%),
+    radial-gradient(circle at 50% 84%, rgba(201, 144, 69, 0.92) 0 13%, transparent 13.4%),
+    #f7fbf8;
 }
 
 .ab-face {
@@ -435,7 +444,11 @@ main {
 
 .pitch-panel.is-opponent {
   border-color: var(--red);
-  background: #fff7f7;
+  background:
+    linear-gradient(45deg, transparent 47%, rgba(255, 255, 255, 0.7) 47.6% 48.4%, transparent 49%),
+    linear-gradient(-45deg, transparent 47%, rgba(255, 255, 255, 0.7) 47.6% 48.4%, transparent 49%),
+    radial-gradient(circle at 50% 84%, rgba(201, 144, 69, 0.88) 0 13%, transparent 13.4%),
+    #fff7f7;
 }
 
 .spray-panel {
@@ -1071,22 +1084,6 @@ button:focus-visible {
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
 }
 
-.spray-line {
-  position: absolute;
-  height: 3px;
-  transform-origin: left center;
-  background: rgba(255, 255, 255, 0.7);
-  z-index: 2;
-}
-
-.spray-line.hit {
-  background: rgba(15, 93, 56, 0.62);
-}
-
-.spray-line.out {
-  background: rgba(184, 47, 50, 0.58);
-}
-
 .spray-dot.hit {
   background: var(--grass-strong);
 }
@@ -1264,7 +1261,19 @@ button:focus-visible {
   grid-template-columns: minmax(180px, 1fr) 80px minmax(180px, 1fr) 90px auto;
   gap: 10px;
   padding: 12px;
+  margin-bottom: 10px;
+}
+
+.roster-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 18px;
+}
+
+.roster-toolbar label {
+  max-width: 240px;
 }
 
 .roster-grid,
@@ -1301,6 +1310,12 @@ button:focus-visible {
 .active-toggle input {
   width: 22px;
   min-height: 22px;
+}
+
+.player-edit-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 92px;
+  gap: 10px;
 }
 
 .stat-strip {
@@ -1435,6 +1450,21 @@ button:focus-visible {
   display: block;
 }
 
+.stats-spray-shell {
+  background: #fbfdfb;
+}
+
+.stats-spray-chart {
+  max-width: 680px;
+  min-height: 330px;
+  margin: 0 auto 14px;
+}
+
+.stats-spray-chart .fielder-icon {
+  opacity: 0.72;
+  transform: scale(0.88);
+}
+
 .stats-table th button {
   min-height: 30px;
   border: 0;
@@ -1442,6 +1472,51 @@ button:focus-visible {
   background: transparent;
   color: inherit;
   font-weight: 900;
+}
+
+.stats-table th button::after {
+  content: " △▽";
+  color: #96a19a;
+  font-size: 0.68rem;
+}
+
+.stats-table th button.is-sorted[data-direction="asc"]::after {
+  content: " ▲";
+  color: var(--grass-strong);
+}
+
+.stats-table th button.is-sorted[data-direction="desc"]::after {
+  content: " ▼";
+  color: var(--grass-strong);
+}
+
+.leader-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.leader-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--white);
+}
+
+.leader-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.leader-row strong {
+  color: var(--ink);
 }
 
 .game-breakdown {
@@ -1460,13 +1535,14 @@ button:focus-visible {
 }
 
 .stats-spray-chart {
-  min-height: 380px;
-  margin: 0 14px 14px;
+  max-width: 680px;
+  min-height: 330px;
+  margin: 0 auto 14px;
 }
 
 .stats-table {
   width: 100%;
-  min-width: 860px;
+  min-width: 1120px;
   border-collapse: collapse;
 }
 

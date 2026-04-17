@@ -66,7 +66,9 @@ let lineupBuilderGameId = null;
 let gameEditId = null;
 let pendingRunnerOutBases = [];
 let hittingSort = { key: "ops", direction: "desc" };
+let pitchingSort = { key: "outs", direction: "desc" };
 let statsSprayExpanded = false;
+let rosterFilter = "active";
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
@@ -164,12 +166,15 @@ const els = {
   playerNumber: document.getElementById("playerNumber"),
   playerPositions: document.getElementById("playerPositions"),
   playerBats: document.getElementById("playerBats"),
+  rosterFilter: document.getElementById("rosterFilter"),
+  rosterFilterSummary: document.getElementById("rosterFilterSummary"),
   rosterGrid: document.getElementById("rosterGrid"),
   archiveSearch: document.getElementById("archiveSearch"),
   archiveGrid: document.getElementById("archiveGrid"),
   metricsGrid: document.getElementById("metricsGrid"),
   gameBreakdown: document.getElementById("gameBreakdown"),
   valueBoard: document.getElementById("valueBoard"),
+  leadersGrid: document.getElementById("leadersGrid"),
   hittingStatsBody: document.getElementById("hittingStatsBody"),
   pitchingStatsBody: document.getElementById("pitchingStatsBody"),
   recordSummary: document.getElementById("recordSummary"),
@@ -972,16 +977,7 @@ function bindEvents() {
   });
   els.sprayFilter.addEventListener("change", renderSprayChart);
   els.batterSelect.addEventListener("change", () => {
-    const index = gameLineupPlayerIds().indexOf(els.batterSelect.value);
-    if (index >= 0) {
-      const game = activeGame();
-      game.batterIndex = index;
-      game.atBat = makeAtBat();
-      game.currentPlateAppearanceId = "";
-      pendingSpray = null;
-      saveState();
-      render();
-    }
+    renderBatterSelect();
   });
   els.resultSelect.addEventListener("change", suggestRunValues);
   els.newGameBtn.addEventListener("click", () => switchView("games"));
@@ -1023,6 +1019,19 @@ function bindEvents() {
     addPlayer();
   });
 
+  els.rosterFilter.addEventListener("change", () => {
+    rosterFilter = els.rosterFilter.value;
+    renderRoster();
+  });
+
+  els.rosterGrid.addEventListener("change", (event) => {
+    const input = event.target.closest("[data-player-edit]");
+    if (!input) return;
+    const card = event.target.closest("[data-player-id]");
+    if (!card) return;
+    updatePlayerIdentity(card.dataset.playerId, input.dataset.playerEdit, input.value);
+  });
+
   els.archiveSearch.addEventListener("input", renderArchive);
   els.applySubBtn.addEventListener("click", applySubstitution);
   els.statsSprayPlayerSelect.addEventListener("change", renderStatsSprayChart);
@@ -1037,6 +1046,16 @@ function bindEvents() {
       hittingSort = {
         key,
         direction: hittingSort.key === key && hittingSort.direction === "desc" ? "asc" : "desc"
+      };
+      renderSeasonStats();
+    });
+  });
+  document.querySelectorAll("[data-pit-sort]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const key = button.dataset.pitSort;
+      pitchingSort = {
+        key,
+        direction: pitchingSort.key === key && pitchingSort.direction === "desc" ? "asc" : "desc"
       };
       renderSeasonStats();
     });
@@ -1620,7 +1639,7 @@ function logPlay() {
   game.opponent = game.opponent || "Opponent";
   game.date = game.date || todayValue();
 
-  const playerId = els.batterSelect.value || currentBatterId(game);
+  const playerId = currentBatterId(game);
   const result = els.resultSelect.value;
   const rule = eventRules[result];
   startPlateAppearance(game, playerId, "");
@@ -2033,6 +2052,7 @@ function render() {
   renderGames();
   renderGameEditor();
   renderSeasonStats();
+  renderLeaders();
   renderSubControls();
   renderLineupBuilder();
   renderStatsSprayControls();
@@ -2317,17 +2337,14 @@ function renderSprayDot({ event, game }) {
   const kind = rule.hit ? "hit" : "out";
   const title = `${player?.name || "Unknown"} ${rule.label} vs ${game.opponent} (${event.spray.zone})`;
   const label = rule.hit ? "H" : "O";
-  const dx = event.spray.x - 50;
-  const dy = event.spray.y - 92;
-  const length = Math.sqrt(dx * dx + dy * dy);
-  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-  return `<span class="spray-line ${kind}" style="left:50%;top:92%;width:${length}%;transform:rotate(${angle}deg);"></span><span class="spray-dot ${kind}" style="left:${event.spray.x}%;top:${event.spray.y}%;" title="${escapeHtml(title)}">${label}</span>`;
+  return `<span class="spray-dot ${kind}" style="left:${event.spray.x}%;top:${event.spray.y}%;" title="${escapeHtml(title)}">${label}</span>`;
 }
 
 function renderBatterSelect() {
   const game = activeGame();
   if (game.half === "bottom") {
     els.batterSelect.innerHTML = `<option>${escapeHtml(currentOpponentBatter(game))}</option>`;
+    els.batterSelect.disabled = true;
     return;
   }
   const entries = gameLineupEntries(game);
@@ -2340,6 +2357,8 @@ function renderBatterSelect() {
   els.batterSelect.innerHTML = options.join("");
   const current = currentBatterId(game);
   if (current) els.batterSelect.value = current;
+  els.batterSelect.disabled = true;
+  els.batterSelect.title = "Batting order is locked to the current lineup spot.";
 }
 
 function renderLiveLineup() {
@@ -2441,7 +2460,18 @@ function inningLabel(event) {
 
 function renderRoster() {
   els.rosterGrid.innerHTML = "";
-  state.roster.forEach((player) => {
+  els.rosterFilter.value = rosterFilter;
+  const visiblePlayers = state.roster.filter((player) => {
+    if (rosterFilter === "all") return true;
+    if (rosterFilter === "inactive") return !state.lineup.includes(player.id);
+    return state.lineup.includes(player.id);
+  });
+  els.rosterFilterSummary.textContent = `${visiblePlayers.length} ${rosterFilter === "all" ? "total" : rosterFilter} player${visiblePlayers.length === 1 ? "" : "s"}`;
+  if (!visiblePlayers.length) {
+    els.rosterGrid.innerHTML = `<p class="player-meta">No ${escapeHtml(rosterFilter)} players to show.</p>`;
+    return;
+  }
+  visiblePlayers.forEach((player) => {
     const stats = statsForPlayer(player.id);
     const node = els.playerTemplate.content.cloneNode(true);
     const card = node.querySelector(".player-card");
@@ -2449,6 +2479,8 @@ function renderRoster() {
     node.querySelector(".number-pill").textContent = `#${player.number}`;
     node.querySelector("h3").textContent = player.name;
     node.querySelector("p").textContent = `${player.positions} | Bats ${player.bats}`;
+    node.querySelector('[data-player-edit="name"]').value = player.name;
+    node.querySelector('[data-player-edit="number"]').value = player.number;
     const activeToggle = node.querySelector(".active-toggle input");
     activeToggle.checked = state.lineup.includes(player.id);
     activeToggle.addEventListener("change", () => togglePlayerActive(player.id, activeToggle.checked));
@@ -2472,6 +2504,22 @@ function renderRoster() {
     });
     els.rosterGrid.appendChild(node);
   });
+}
+
+function updatePlayerIdentity(playerId, field, value) {
+  const cleaned = value.trim();
+  if (!cleaned) {
+    renderRoster();
+    return;
+  }
+  state.roster = state.roster.map((player) => {
+    if (player.id !== playerId) return player;
+    if (field === "name") return { ...player, name: cleaned };
+    if (field === "number") return { ...player, number: cleaned };
+    return player;
+  });
+  saveState();
+  render();
 }
 
 function togglePlayerActive(playerId, isActive) {
@@ -2758,6 +2806,7 @@ function renderGameBreakdown() {
 }
 
 function renderSeasonStats() {
+  updateSortIndicators();
   const hittingRows = state.roster
     .map((player) => ({ player, hit: statsForPlayer(player.id), gp: gamesPlayedForPlayer(player.id) }))
     .sort((a, b) => compareHittingRows(a, b));
@@ -2769,6 +2818,10 @@ function renderSeasonStats() {
         <td>${hit.pa}</td>
         <td>${hit.ab}</td>
         <td>${hit.h}</td>
+        <td>${hit.singles}</td>
+        <td>${hit.doubles}</td>
+        <td>${hit.triples}</td>
+        <td>${hit.hr}</td>
         <td>${formatRate(hit.avg)}</td>
         <td>${formatRate(hit.obp)}</td>
         <td>${formatRate(hit.slg)}</td>
@@ -2783,8 +2836,9 @@ function renderSeasonStats() {
     })
     .join("");
   els.pitchingStatsBody.innerHTML = state.roster
-    .map((player) => {
-      const pit = pitcherStats(player.id);
+    .map((player) => ({ player, pit: pitcherStats(player.id) }))
+    .sort((a, b) => comparePitchingRows(a, b))
+    .map(({ player, pit }) => {
       return `<tr>
         <td>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</td>
         <td>${formatInnings(pit.outs)}</td>
@@ -2840,8 +2894,48 @@ function renderStatsSprayChart() {
     : `<span class="spray-empty">No tracked batted balls</span>`;
 }
 
+function renderLeaders() {
+  const hitterRows = state.roster.map((player) => ({ player, stats: statsForPlayer(player.id) }));
+  const pitcherRows = state.roster.map((player) => ({ player, stats: pitcherStats(player.id) }));
+  els.leadersGrid.innerHTML = [
+    leaderCard("Hitting OPS", hitterRows, (row) => row.stats.ops, (value) => formatRate(value)),
+    leaderCard("Hits", hitterRows, (row) => row.stats.h, String),
+    leaderCard("Extra Base Hits", hitterRows, (row) => row.stats.doubles + row.stats.triples + row.stats.hr, String),
+    leaderCard("RBI", hitterRows, (row) => row.stats.rbi, String),
+    leaderCard("Pitching K", pitcherRows, (row) => row.stats.k, String),
+    leaderCard("WHIP", pitcherRows, (row) => row.stats.whip, (value) => value.toFixed(2), true)
+  ].join("");
+}
+
+function leaderCard(label, rows, scorer, formatter, lowWins = false) {
+  const leaders = rows
+    .filter((row) => row.player.active || scorer(row) > 0)
+    .sort((a, b) => lowWins ? scorer(a) - scorer(b) : scorer(b) - scorer(a))
+    .slice(0, 3);
+  return `<article class="leader-card">
+    <h3>${escapeHtml(label)}</h3>
+    ${leaders.map((row, index) => `<div class="leader-row">
+      <span>${index + 1}. ${escapeHtml(row.player.name)}</span>
+      <strong>${escapeHtml(formatter(scorer(row)))}</strong>
+    </div>`).join("") || `<p class="player-meta">No data yet.</p>`}
+  </article>`;
+}
+
 function gamesPlayedForPlayer(playerId) {
   return state.games.filter((game) => gameLineupPlayerIds(game).includes(playerId) || game.events.some((event) => event.playerId === playerId)).length;
+}
+
+function updateSortIndicators() {
+  document.querySelectorAll("[data-hit-sort]").forEach((button) => {
+    const active = button.dataset.hitSort === hittingSort.key;
+    button.classList.toggle("is-sorted", active);
+    button.dataset.direction = active ? hittingSort.direction : "";
+  });
+  document.querySelectorAll("[data-pit-sort]").forEach((button) => {
+    const active = button.dataset.pitSort === pitchingSort.key;
+    button.classList.toggle("is-sorted", active);
+    button.dataset.direction = active ? pitchingSort.direction : "";
+  });
 }
 
 function compareHittingRows(a, b) {
@@ -2852,6 +2946,16 @@ function compareHittingRows(a, b) {
     if (key === "gp") return row.gp;
     return row.hit[key] ?? 0;
   };
+  const left = valueFor(a);
+  const right = valueFor(b);
+  if (typeof left === "string") return left.localeCompare(right) * direction;
+  return (left - right) * direction;
+}
+
+function comparePitchingRows(a, b) {
+  const key = pitchingSort.key;
+  const direction = pitchingSort.direction === "asc" ? 1 : -1;
+  const valueFor = (row) => key === "name" ? row.player.name : row.pit[key] ?? 0;
   const left = valueFor(a);
   const right = valueFor(b);
   if (typeof left === "string") return left.localeCompare(right) * direction;
