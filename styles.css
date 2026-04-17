@@ -4858,6 +4858,279 @@ label {
   display: none;
 }
 
+#scoreView .spray-panel {
+  background:
+    radial-gradient(ellipse at 50% 12%, rgba(45, 118, 72, 0.34), transparent 44%),
+    linear-gradient(180deg, #07142b 0%, #081d22 18%, #052817 100%);
+}
+
+#scoreView .spray-chart {
+  cursor: crosshair;
+  background:
+    radial-gradient(ellipse at 50% 17%, rgba(36, 120, 65, 0.44) 0 34%, transparent 35%),
+    radial-gradient(ellipse at 50% 100%, rgba(245, 189, 33, 0.08) 0 12%, transparent 13%),
+    linear-gradient(180deg, #0d6033 0%, #0a4928 62%, #062716 100%);
+}
+
+#scoreView .spray-chart:focus-visible {
+  outline: 3px solid rgba(245, 189, 33, 0.62);
+  outline-offset: -5px;
+}
+
+#scoreView .spray-chart::after {
+  width: min(540px, 45%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.09), transparent 44%),
+    #5a4a30;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+    0 14px 36px rgba(0, 0, 0, 0.18);
+}
+
+#scoreView .spray-chart::before {
+  background: #fffaf0;
+  box-shadow: 0 0 0 4px rgba(245, 189, 33, 0.18);
+}
+
+#scoreView .foul-line {
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.18);
+}
+
+#scoreView .fence-line {
+  border-color: rgba(255, 255, 255, 0.74);
+  opacity: 0.68;
+}
+
+#scoreView .spray-label,
+#scoreView .fielder-icon {
+  display: none;
+}
+
+#scoreView .spray-base {
+  width: 36px;
+  height: 36px;
+  border: 2px solid rgba(255, 255, 255, 0.96);
+  background: #fffaf0;
+  color: #071437;
+  font-size: 0.64rem;
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.08),
+    0 10px 22px rgba(0, 0, 0, 0.28);
+  transition:
+    background 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+#scoreView .spray-second-base {
+  left: calc(50% - 18px);
+}
+
+#scoreView .spray-base.is-occupied {
+  border-color: #fffaf0;
+  background: var(--lion-gold);
+  color: var(--lion-navy);
+  box-shadow:
+    0 0 0 5px rgba(245, 189, 33, 0.22),
+    0 0 26px rgba(245, 189, 33, 0.62),
+    0 12px 24px rgba(0, 0, 0, 0.32);
+}
+
+#scoreView .spray-dot.pending {
+  width: 30px;
+  height: 30px;
+  border-color: #fffaf0;
+  background: var(--lion-gold);
+  color: transparent;
+  box-shadow:
+    0 0 0 8px rgba(245, 189, 33, 0.2),
+    0 0 26px rgba(245, 189, 33, 0.56),
+    0 10px 22px rgba(0, 0, 0, 0.28);
+  animation: sprayTap 220ms ease-out;
+}
+
+#scoreView .spray-dot.pending::after {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--lion-navy);
+  content: "";
+}
+
+#scoreView .runner-base {
+  transition:
+    transform 220ms ease,
+    opacity 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+  will-change: transform;
+}
+
+#scoreView .runner-base.is-occupied {
+  box-shadow:
+    0 0 0 5px rgba(245, 189, 33, 0.2),
+    0 0 24px rgba(245, 189, 33, 0.44),
+    0 12px 24px rgba(0, 0, 0, 0.24);
+  animation: runnerSettle 220ms ease-out;
+}
+
+#scoreView .runner-base.is-pending-out {
+  border-color: rgba(255, 138, 143, 0.88);
+  background: rgba(255, 138, 143, 0.18);
+  color: var(--white);
+  animation: runnerOut 220ms ease-out;
+}
+
+#scoreView .step-grid-pitches {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+#scoreView .panel-secondary-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#scoreView .panel-secondary-row .step-button-more {
+  min-height: 42px;
+  min-width: 148px;
+  opacity: 0.88;
+}
+
+#scoreView .scoring-step-panel {
+  gap: 10px;
+  border-color: rgba(245, 189, 33, 0.36);
+  background:
+    radial-gradient(circle at 82% 0%, rgba(245, 189, 33, 0.12), transparent 36%),
+    linear-gradient(145deg, rgba(8, 18, 48, 0.98), rgba(3, 10, 32, 0.98));
+}
+
+#scoreView .step-button {
+  min-height: 58px;
+  letter-spacing: 0;
+}
+
+#scoreView .step-button:hover,
+#scoreView .runner-choice:hover {
+  transform: translateY(-1px);
+}
+
+#scoreView .spray-instruction-card {
+  min-height: 56px;
+  border-color: rgba(245, 189, 33, 0.22);
+  background:
+    linear-gradient(135deg, rgba(245, 189, 33, 0.12), rgba(255, 255, 255, 0.05));
+}
+
+#scoreView .runner-decision-card {
+  grid-template-columns: minmax(170px, 0.32fr) minmax(0, 1fr);
+  border-color: rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+#scoreView .runner-decision-card.is-auto {
+  border-color: rgba(245, 189, 33, 0.26);
+}
+
+#scoreView .runner-decision-card.is-adjusted {
+  border-color: rgba(102, 232, 142, 0.42);
+}
+
+#scoreView .runner-decision-card .runner-route {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.92rem;
+}
+
+#scoreView .runner-decision-card .runner-auto-badge {
+  border-color: rgba(245, 189, 33, 0.34);
+  background: rgba(245, 189, 33, 0.15);
+  color: var(--lion-gold);
+}
+
+#scoreView .runner-decision-card.is-adjusted .runner-auto-badge {
+  border-color: rgba(102, 232, 142, 0.34);
+  background: rgba(102, 232, 142, 0.12);
+  color: #8ef5aa;
+}
+
+#scoreView .runner-choice-group {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(3, 10, 36, 0.38);
+  gap: 0;
+  justify-content: flex-start;
+}
+
+#scoreView .runner-choice {
+  flex: 1 1 86px;
+  min-height: 42px;
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+  background: transparent;
+}
+
+#scoreView .runner-choice:last-child {
+  border-right: 0;
+}
+
+#scoreView .runner-choice.is-selected {
+  background: var(--lion-gold);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+#scoreView .runner-choice[data-runner-choice="home"].is-selected {
+  animation: runnerScore 220ms ease-out;
+}
+
+@keyframes sprayTap {
+  from {
+    opacity: 0.42;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes runnerSettle {
+  from {
+    opacity: 0.72;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes runnerOut {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(0.96);
+  }
+}
+
+@keyframes runnerScore {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-3px);
+  }
+}
+
 .stats-table td,
 .stats-table td:first-child,
 .stats-table th,
@@ -4940,6 +5213,14 @@ label {
   #scoreView .step-grid-opponent,
   #scoreView .step-grid-fielders {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #scoreView .panel-secondary-row {
+    justify-content: stretch;
+  }
+
+  #scoreView .panel-secondary-row .step-button-more {
+    width: 100%;
   }
 
   #scoreView .runner-decision-card {

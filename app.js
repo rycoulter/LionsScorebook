@@ -3145,14 +3145,24 @@ function renderRunnerTracker() {
     second: "2B",
     third: "3B"
   };
+  const sprayBaseSelectors = {
+    first: ".spray-first-base",
+    second: ".spray-second-base",
+    third: ".spray-third-base"
+  };
   const occupied = [];
   els.runnerBases.forEach((baseEl) => {
     const key = baseEl.dataset.runnerBase;
     const runner = game.bases[key];
     const name = runnerName(runner);
-    baseEl.classList.toggle("is-occupied", isOccupied(runner));
+    const occupiedBase = isOccupied(runner);
+    baseEl.classList.toggle("is-occupied", occupiedBase);
     baseEl.classList.toggle("is-pending-out", pendingRunnerOutBases.includes(key));
     baseEl.querySelector("span").textContent = name || "Empty";
+    const sprayBase = els.sprayChart?.querySelector(sprayBaseSelectors[key]);
+    if (sprayBase) {
+      sprayBase.classList.toggle("is-occupied", occupiedBase);
+    }
     if (name) occupied.push(`${name} on ${baseLabels[key]}`);
   });
   els.runnerSummary.textContent = occupied.length ? occupied.join(" | ") : "Bases empty";
@@ -3405,13 +3415,15 @@ function scoringStepConfig(game) {
     title: "Record Pitch",
     hint: "Choose the pitch result.",
     body: `<div class="step-grid step-grid-pitches">
-      ${stepButton("Ball", "step-pitch", "ball", "ball")}
-      ${stepButton("Called Strike", "step-pitch", "called_strike", "strike")}
-      ${stepButton("Swinging Strike", "step-pitch", "swinging_strike", "strike")}
-      ${stepButton("Foul", "step-pitch", "foul", "foul")}
-      ${stepButton("In Play", "step-pitch", "in_play", "inplay")}
-      <button type="button" class="step-button step-button-more" data-step-more>More</button>
-    </div>`
+        ${stepButton("Ball", "step-pitch", "ball", "ball")}
+        ${stepButton("Called Strike", "step-pitch", "called_strike", "strike")}
+        ${stepButton("Swinging Strike", "step-pitch", "swinging_strike", "strike")}
+        ${stepButton("Foul", "step-pitch", "foul", "foul")}
+        ${stepButton("In Play", "step-pitch", "in_play", "inplay")}
+      </div>
+      <div class="panel-secondary-row">
+        <button type="button" class="step-button step-button-more" data-step-more>More Results</button>
+      </div>`
   };
 }
 
@@ -3461,13 +3473,15 @@ function renderOpponentScoringStepPanel(game) {
   scoringStep = "pitch";
   els.scoringStepHint.textContent = "Track the count. In Play opens the outcome choices.";
   els.scoringStepBody.innerHTML = `<div class="step-grid step-grid-pitches">
-    ${stepButton("Ball", "step-pitch", "ball", "ball")}
-    ${stepButton("Called Strike", "step-pitch", "called_strike", "strike")}
-    ${stepButton("Swinging Strike", "step-pitch", "swinging_strike", "strike")}
-    ${stepButton("Foul", "step-pitch", "foul", "foul")}
-    ${stepButton("In Play", "step-pitch", "in_play", "inplay")}
-    <button type="button" class="step-button step-button-more" data-step-more>More</button>
-  </div>`;
+      ${stepButton("Ball", "step-pitch", "ball", "ball")}
+      ${stepButton("Called Strike", "step-pitch", "called_strike", "strike")}
+      ${stepButton("Swinging Strike", "step-pitch", "swinging_strike", "strike")}
+      ${stepButton("Foul", "step-pitch", "foul", "foul")}
+      ${stepButton("In Play", "step-pitch", "in_play", "inplay")}
+    </div>
+    <div class="panel-secondary-row">
+      <button type="button" class="step-button step-button-more" data-step-more>More Results</button>
+    </div>`;
 }
 
 function stepButton(label, dataName, value, tone) {
@@ -3517,11 +3531,12 @@ function renderSpecialActionGrid(game = activeGame()) {
 
 function renderRunnerDecisionCard(card) {
   const selected = runnerChoiceDestination(card.base) || "hold";
-  return `<article class="runner-decision-card">
-    <div>
-      <strong>${escapeHtml(card.label)}</strong>
-      <span>${escapeHtml(card.start)} -> ${escapeHtml(baseLabel(card.to || "hold"))}</span>
-      <em>${card.adjusted ? "User adjusted" : `Auto: ${baseLabel(card.automaticTo || card.to || "hold")}`}</em>
+  const destination = baseLabel(card.to || "hold");
+  return `<article class="runner-decision-card ${card.adjusted ? "is-adjusted" : "is-auto"}">
+    <div class="runner-decision-summary">
+      <strong>Runner: ${escapeHtml(card.label)}</strong>
+      <span class="runner-route">${escapeHtml(card.start)} &rarr; ${escapeHtml(destination)}</span>
+      <em class="runner-auto-badge">${card.adjusted ? "ADJUSTED" : "AUTO"}</em>
     </div>
     <div class="runner-choice-group">
       ${runnerOverrideOptions(card).map((option) => `<button type="button" class="runner-choice ${selected === option ? "is-selected" : ""} ${option === "out" ? "is-out" : ""}" data-runner-choice-base="${card.base}" data-runner-choice="${option}">${escapeHtml(runnerOverrideLabel(card, option))}</button>`).join("")}
@@ -3541,11 +3556,12 @@ function runnerOverrideOptions(card) {
 }
 
 function runnerOverrideLabel(card, option) {
-  if (option === (card.to || card.automaticTo)) return `${card.adjusted ? "Keep" : "Auto"} ${baseLabel(option)}`;
-  if (option === "home") return "Send Home";
+  const automatic = card.to || card.automaticTo || "hold";
+  if (option === automatic) return option === "out" ? "Out" : "Keep";
+  if (option === "home") return "Score";
   if (option === "out") return card.to === "home" || card.automaticTo === "home" ? "Out at Home" : "Out";
-  if (option === "hold") return "Hold";
-  return `Advance ${baseLabel(option)}`;
+  if (option === "hold") return "Keep";
+  return "Advance";
 }
 
 function nextBaseFrom(start) {

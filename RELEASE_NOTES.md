@@ -12,6 +12,10 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 - Added scorebook notation generation for common outs, including groundouts like `6-3`, flyouts like `F8`, and lineouts like `L6`.
 
 ### Changed
+- Cleaned up the scoring field with a darker stadium-style look, brighter bases, and occupied-base gold highlights.
+- Refined the bottom scoring panel into a cleaner pitch/outcome/spray/runner flow with a secondary More Results action.
+- Improved runner decision cards with clearer auto/adjusted movement labels and segmented action buttons.
+- Added subtle visual feedback for spray chart placement and runner/base state changes.
 - Updated opponent scoring so `In Play` opens the same step-based outcome flow used for Oakmont at-bats, including out type and fielder selection.
 - Moved pitcher information into the top game-state header and restyled it as a compact dark card so it no longer floats over the field.
 - Realigned the score header so the pitcher card spans a clean second-row area and its stat tiles no longer crowd the score.
