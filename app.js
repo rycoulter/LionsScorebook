@@ -2024,6 +2024,7 @@ function applyEvent(game = activeGame(), event = {}) {
     if ((outcome === "called_strike" || outcome === "swinging_strike") && pitch.strikesAfter >= 3) return applyEvent(game, { type: "resolve_play", result: "K" });
     if (outcome === "in_play") {
       clearPendingPlayState(game, true);
+      if (game.atBat) game.atBat.pendingInPlay = true;
       if (!battedBallResults.has(els.resultSelect.value)) selectChoice("result", "1B", true);
       els.sprayHint.textContent = "Select the outcome, then tap where the ball landed or was fielded.";
     }
