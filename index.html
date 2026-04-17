@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+  <head>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2937">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Oakmont Lions Scorebook</title>
+    <link rel="preconnect" href="https://images.unsplash.com">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="mark">OL</div>
+          <div>
+            <p class="eyebrow">Oakmont Lions</p>
+            <h1>Coach's Scorebook</h1>
+          </div>
+        </div>
+        <nav class="tabs" aria-label="Scorebook sections">
+          <button class="tab is-active" data-view="score">Score Game</button>
+          <button class="tab" data-view="games">Games</button>
+          <button class="tab" data-view="lineup">Lineup Lab</button>
+          <button class="tab" data-view="roster">Roster</button>
+          <button class="tab" data-view="stats">Stats</button>
+          <button class="tab" data-view="archive">Game Archive</button>
+          <button class="tab" data-view="analysis">Analysis</button>
+        </nav>
+      </header>
+
+      <main>
+        <section class="scoreboard-band">
+          <img
+            src="https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=1800&q=80"
+            alt="Baseball field at game time"
+            class="field-image">
+          <div class="game-glass">
+            <div>
+              <p class="eyebrow">Live Card</p>
+              <h2 id="gameTitle">Lions vs Wildcats</h2>
+              <p id="gameContext">Top 1, 0 outs</p>
+            </div>
+            <div class="scoreline" aria-label="Current score">
+              <div>
+                <span>Oakmont</span>
+                <strong id="lionsScore">0</strong>
+              </div>
+              <div>
+                <span>Opponent</span>
+                <strong id="opponentScore">0</strong>
+              </div>
+            </div>
+            <div class="diamond" aria-label="Base state">
+              <span class="base second" data-base="2"></span>
+              <span class="base third" data-base="3"></span>
+              <span class="base first" data-base="1"></span>
+              <span class="plate"></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="view is-visible" id="scoreView" data-panel="score">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Score Game</p>
+              <h2>Pitch-by-pitch scorekeeping</h2>
+            </div>
+            <button class="secondary-action" id="newGameBtn">Games</button>
+          </div>
+
+          <div class="score-grid">
+            <div class="scorer-stack" id="scorerStack">
+              <section class="pitch-panel" id="abCard" aria-label="Current at-bat controls">
+                <div class="ab-face batter-face">
+                  <div class="mini-head">
+                    <div>
+                      <h3 id="currentBatterName">Current batter</h3>
+                      <span class="player-meta" id="currentBatterMeta">Ready</span>
+                    </div>
+                    <div class="count-display" id="countDisplay">0-0</div>
+                  </div>
+                  <div class="pitch-buttons" aria-label="Pitch result buttons">
+                    <button type="button" class="pitch-btn ball" data-pitch="ball">Ball</button>
+                    <button type="button" class="pitch-btn strike" data-pitch="called_strike">Called Strike</button>
+                    <button type="button" class="pitch-btn strike" data-pitch="swinging_strike">Swinging Strike</button>
+                    <button type="button" class="pitch-btn foul" data-pitch="foul">Foul</button>
+                    <button type="button" class="pitch-btn in-play" data-pitch="in_play">Ball In Play</button>
+                  </div>
+                  <div class="batter-summary" id="batterSummary"></div>
+                  <div class="pitch-trail" id="pitchTrail"></div>
+                  <div class="button-row">
+                    <button type="button" class="secondary-action" id="resetCountBtn">Reset Count</button>
+                    <button type="button" class="secondary-action" id="undoPitchBtn">Undo Pitch</button>
+                  </div>
+                </div>
+                <div class="ab-face outcome-face bip-panel" id="bipPanel">
+                  <div class="mini-head">
+                    <div>
+                      <h3>Ball In Play Details</h3>
+                      <span class="player-meta">Choose outcome, contact, launch, then tap the spray chart.</span>
+                    </div>
+                    <button type="button" class="secondary-action compact-action" id="clearBipBtn">Back</button>
+                  </div>
+                  <div class="button-group" aria-label="Select batted ball result">
+                    <span>Outcome</span>
+                    <button type="button" class="choice-btn is-selected" data-choice-group="result" data-choice-value="1B">Single</button>
+                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="2B">Double</button>
+                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="3B">Triple</button>
+                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="HR">Home Run</button>
+                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="ROE">Error</button>
+                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="FC">Fielder's Choice</button>
+                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="GO">Groundout</button>
+                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="FO">Flyout</button>
+                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="LO">Lineout</button>
+                    <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="SAC">Sacrifice</button>
+                  </div>
+                  <div class="button-group compact-group" aria-label="Select contact quality">
+                    <span>Contact</span>
+                    <button type="button" class="choice-btn is-selected" data-choice-group="contact" data-choice-value="none">No Contact</button>
+                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="weak">Weak</button>
+                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="solid">Solid</button>
+                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="hard">Hard Hit</button>
+                    <button type="button" class="choice-btn" data-choice-group="contact" data-choice-value="barrel">Barrel</button>
+                  </div>
+                  <div class="button-group compact-group" aria-label="Select launch band">
+                    <span>Launch</span>
+                    <button type="button" class="choice-btn is-selected" data-choice-group="launch" data-choice-value="none">No Contact</button>
+                    <button type="button" class="choice-btn" data-choice-group="launch" data-choice-value="gb">Ground Ball</button>
+                    <button type="button" class="choice-btn" data-choice-group="launch" data-choice-value="ld">Line Drive</button>
+                    <button type="button" class="choice-btn" data-choice-group="launch" data-choice-value="fb">Fly Ball</button>
+                    <button type="button" class="choice-btn" data-choice-group="launch" data-choice-value="pu">Pop Up</button>
+                  </div>
+                </div>
+                <div class="ab-face opponent-face" id="opponentAbPanel">
+                  <div class="mini-head">
+                    <div>
+                      <h3 id="opponentBatterName">Opponent batter</h3>
+                      <span class="player-meta" id="opponentBatterMeta">Simple opponent scoring</span>
+                    </div>
+                    <div class="count-pair">
+                      <div class="count-display" id="opponentCountDisplay">0-0</div>
+                      <div class="count-display opponent-outs" id="opponentOutsDisplay">0 out</div>
+                    </div>
+                  </div>
+                  <div class="pitcher-row">
+                    <label>
+                      Lions pitcher
+                      <select id="pitcherSelect"></select>
+                    </label>
+                    <div class="pitcher-stat-strip" id="pitcherStatStrip"></div>
+                  </div>
+                  <div class="batter-summary" id="opponentBatterSummary"></div>
+                  <div class="pitch-buttons" aria-label="Opponent pitch result buttons">
+                    <button type="button" class="pitch-btn ball" data-pitch="ball">Ball</button>
+                    <button type="button" class="pitch-btn strike" data-pitch="called_strike">Called Strike</button>
+                    <button type="button" class="pitch-btn strike" data-pitch="swinging_strike">Swinging Strike</button>
+                    <button type="button" class="pitch-btn foul" data-pitch="foul">Foul</button>
+                    <button type="button" class="pitch-btn in-play" data-pitch="in_play">Ball In Play</button>
+                  </div>
+                  <div class="pitch-trail" id="opponentPitchTrail"></div>
+                  <div class="button-row">
+                    <button type="button" class="secondary-action" id="resetOpponentCountBtn">Reset Count</button>
+                    <button type="button" class="secondary-action" id="undoOpponentPitchBtn">Undo Pitch</button>
+                  </div>
+                  <div class="opponent-outcomes" aria-label="Opponent plate appearance outcomes">
+                    <button type="button" class="choice-btn" data-opponent-result="1B">1B</button>
+                    <button type="button" class="choice-btn" data-opponent-result="2B">2B</button>
+                    <button type="button" class="choice-btn" data-opponent-result="3B">3B</button>
+                    <button type="button" class="choice-btn" data-opponent-result="HR">HR</button>
+                    <button type="button" class="choice-btn" data-opponent-result="BB">BB</button>
+                    <button type="button" class="choice-btn" data-opponent-result="HBP">HBP</button>
+                    <button type="button" class="choice-btn" data-opponent-result="ROE">Error</button>
+                    <button type="button" class="choice-btn" data-opponent-result="FC">FC</button>
+                    <button type="button" class="choice-btn" data-opponent-result="K">K</button>
+                    <button type="button" class="choice-btn" data-opponent-result="GO">Groundout</button>
+                    <button type="button" class="choice-btn" data-opponent-result="FO">Flyout</button>
+                    <button type="button" class="choice-btn" data-opponent-result="LO">Lineout</button>
+                    <button type="button" class="choice-btn" data-opponent-result="SAC">Sacrifice</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="spray-panel" aria-label="Spray chart">
+                <div class="mini-head">
+                  <div>
+                    <h3>Spray Chart</h3>
+                    <span class="player-meta" id="sprayHint">Tap the field after a ball is put in play.</span>
+                  </div>
+                  <select id="sprayFilter" aria-label="Spray chart filter">
+                    <option value="hitter">Current hitter</option>
+                    <option value="team">Whole team</option>
+                    <option value="current">Current game</option>
+                    <option value="hits">Hits only</option>
+                    <option value="outs">Outs only</option>
+                  </select>
+                </div>
+                <div class="spray-chart" id="sprayChart" role="button" tabindex="0" aria-label="Tap to set batted ball location">
+                  <div class="foul-line left-line"></div>
+                  <div class="foul-line right-line"></div>
+                  <div class="fence-line"></div>
+                  <div class="infield-arc"></div>
+                  <div class="outfield-arc"></div>
+                  <div class="spray-base spray-first-base">1B</div>
+                  <div class="spray-base spray-second-base">2B</div>
+                  <div class="spray-base spray-third-base">3B</div>
+                  <div class="fielder-icon fielder-p">P</div>
+                  <div class="fielder-icon fielder-c">C</div>
+                  <div class="fielder-icon fielder-1b">1B</div>
+                  <div class="fielder-icon fielder-2b">2B</div>
+                  <div class="fielder-icon fielder-ss">SS</div>
+                  <div class="fielder-icon fielder-3b">3B</div>
+                  <div class="fielder-icon fielder-lf">LF</div>
+                  <div class="fielder-icon fielder-cf">CF</div>
+                  <div class="fielder-icon fielder-rf">RF</div>
+                  <div class="spray-label left-field">LF</div>
+                  <div class="spray-label center-field">CF</div>
+                  <div class="spray-label right-field">RF</div>
+                  <div class="spray-label plate-label">HP</div>
+                  <div class="spray-markers" id="sprayMarkers"></div>
+                </div>
+              </section>
+
+              <section class="runner-panel" aria-label="Runner tracker">
+                <div class="mini-head">
+                  <div>
+                    <h3>Runners On Base</h3>
+                    <span class="player-meta" id="runnerHint">Tap safe or out when a runner steals.</span>
+                  </div>
+                  <span class="player-meta" id="runnerSummary">Bases empty</span>
+                </div>
+                <div class="base-tracker" aria-label="Focused base runner tracker">
+                  <div class="runner-base runner-second" data-runner-base="second">
+                    <strong>2B</strong>
+                    <span>Empty</span>
+                  </div>
+                  <div class="runner-base runner-third" data-runner-base="third">
+                    <strong>3B</strong>
+                    <span>Empty</span>
+                  </div>
+                  <div class="runner-base runner-first" data-runner-base="first">
+                    <strong>1B</strong>
+                    <span>Empty</span>
+                  </div>
+                  <div class="runner-plate">HP</div>
+                </div>
+                <div class="steal-grid">
+                  <button type="button" class="secondary-action" data-steal="second" data-steal-result="safe">Steal 2B Safe</button>
+                  <button type="button" class="secondary-action" data-steal="second" data-steal-result="out">Steal 2B Out</button>
+                  <button type="button" class="secondary-action" data-steal="third" data-steal-result="safe">Steal 3B Safe</button>
+                  <button type="button" class="secondary-action" data-steal="third" data-steal-result="out">Steal 3B Out</button>
+                  <button type="button" class="secondary-action" data-steal="home" data-steal-result="safe">Steal Home Safe</button>
+                  <button type="button" class="secondary-action" data-steal="home" data-steal-result="out">Steal Home Out</button>
+                </div>
+              </section>
+
+              <form class="score-form" id="scoreForm">
+                <label>
+                  Batter
+                  <select id="batterSelect" name="batter"></select>
+                </label>
+                <label>
+                  Runs scored
+                  <input id="runsInput" name="runs" type="number" min="0" max="4" value="0">
+                </label>
+                <label>
+                  RBI
+                  <input id="rbiInput" name="rbi" type="number" min="0" max="4" value="0">
+                </label>
+                <input id="resultSelect" name="result" type="hidden" value="1B">
+                <input id="contactSelect" name="contact" type="hidden" value="none">
+                <input id="launchSelect" name="launch" type="hidden" value="none">
+                <div class="quick-outcomes wide" aria-label="Quick non-contact outcomes">
+                  <span>Quick end</span>
+                  <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="BB">Walk</button>
+                  <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="K">Strikeout</button>
+                  <button type="button" class="choice-btn" data-choice-group="result" data-choice-value="HBP">HBP</button>
+                </div>
+                <label class="wide">
+                  Coach note
+                  <input id="noteInput" name="note" autocomplete="off" placeholder="Two-strike approach, hit-and-run, baserunning read...">
+                </label>
+                <div class="button-row wide">
+                  <button type="submit" class="primary-action">Complete AB</button>
+                  <button type="button" class="secondary-action" id="undoBtn">Undo Last Play</button>
+                  <button type="button" class="secondary-action" id="endHalfBtn">End Half</button>
+                  <button type="button" class="secondary-action" id="finishGameBtn">Finish Game</button>
+                </div>
+              </form>
+            </div>
+
+            <aside class="play-panel">
+              <div class="mini-head">
+                <h3>Current Lineup</h3>
+                <span id="lineupCount">0 active</span>
+              </div>
+              <ol class="lineup-list" id="liveLineup"></ol>
+              <div class="sub-panel" id="subPanel">
+                <h3>Substitute</h3>
+                <label>
+                  Lineup spot
+                  <select id="subSpotSelect"></select>
+                </label>
+                <label>
+                  Player
+                  <select id="subPlayerSelect"></select>
+                </label>
+                <label>
+                  Move type
+                  <select id="subTypeSelect">
+                    <option value="sub">Substitute</option>
+                    <option value="ph">Pinch hitter</option>
+                  </select>
+                </label>
+                <button type="button" class="secondary-action" id="applySubBtn">Apply</button>
+              </div>
+              <label class="opponent-lineup-editor">
+                Opponent lineup
+                <textarea id="scoreOpponentLineupInput" rows="5" placeholder="One hitter per line"></textarea>
+              </label>
+              <div class="mini-head">
+                <h3>Last Plays</h3>
+                <span id="playCount">0 plays</span>
+              </div>
+              <div class="play-feed" id="playFeed"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="gamesView" data-panel="games">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Games</p>
+              <h2>Schedule, select, and score</h2>
+            </div>
+            <button class="primary-action" id="scheduleGameBtn">Create Game</button>
+          </div>
+          <form class="game-form" id="gameForm">
+            <label>
+              Opponent
+              <input id="opponentInput" name="opponent" autocomplete="off" placeholder="Opponent name">
+            </label>
+            <label>
+              Date
+              <input id="gameDateInput" name="date" type="date">
+            </label>
+            <label>
+              Location
+              <input id="gameLocationInput" name="location" autocomplete="off" placeholder="Home, away, field name">
+            </label>
+            <label class="wide">
+              Game notes
+              <input id="gameNotesInput" name="gameNotes" autocomplete="off" placeholder="Tournament, starting pitcher, arrival time...">
+            </label>
+          </form>
+          <div class="games-grid" id="gamesGrid"></div>
+          <section class="lineup-builder" id="lineupBuilderPanel">
+            <div class="mini-head">
+              <div>
+                <h3 id="lineupBuilderTitle">Game Lineup</h3>
+                <span class="player-meta">Build this game card, including DH and EH spots.</span>
+              </div>
+              <button type="button" class="secondary-action" id="closeLineupBuilderBtn">Close</button>
+            </div>
+            <div class="lineup-builder-rows" id="lineupBuilderRows"></div>
+            <div class="button-row">
+              <button type="button" class="primary-action" id="addLineupSpotBtn">Add Spot</button>
+              <button type="button" class="secondary-action" id="resetGameLineupBtn">Use Active Roster</button>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="lineupView" data-panel="lineup">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Lineup Lab</p>
+              <h2>Predicted order and defensive fit</h2>
+            </div>
+            <button class="primary-action" id="optimizeBtn">Optimize Lineup</button>
+          </div>
+          <div class="lab-grid">
+            <div class="optimizer-board">
+              <div class="mini-head">
+                <h3>Recommended Batting Order</h3>
+                <span id="optimizerMode">Balanced model</span>
+              </div>
+              <ol id="optimizedLineup" class="optimized-list"></ol>
+            </div>
+            <div class="coach-card">
+              <h3>Coach Priorities</h3>
+              <label>
+                Run creation
+                <input id="runWeight" type="range" min="0" max="100" value="42">
+              </label>
+              <label>
+                Contact reliability
+                <input id="contactWeight" type="range" min="0" max="100" value="28">
+              </label>
+              <label>
+                Speed pressure
+                <input id="speedWeight" type="range" min="0" max="100" value="16">
+              </label>
+              <label>
+                Defensive stability
+                <input id="defenseWeight" type="range" min="0" max="100" value="14">
+              </label>
+              <button class="secondary-action full" id="applyOptimizedBtn">Use Recommended Order</button>
+              <p class="small-copy">The model favors on-base skill at the top, total-base damage in run-producing spots, contact and speed near the turn, and defensive coverage without hiding weak positions.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="rosterView" data-panel="roster">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Roster</p>
+              <h2>Player cards and coach grades</h2>
+            </div>
+            <button class="primary-action" id="addPlayerBtn">Add Player</button>
+          </div>
+          <form class="player-form" id="playerForm">
+            <input id="playerName" placeholder="Player name" autocomplete="off" required>
+            <input id="playerNumber" placeholder="#" autocomplete="off" inputmode="numeric">
+            <input id="playerPositions" placeholder="Positions: C, SS, CF" autocomplete="off">
+            <select id="playerBats">
+              <option>R</option>
+              <option>L</option>
+              <option>S</option>
+            </select>
+            <button class="secondary-action" type="submit">Save Player</button>
+          </form>
+          <div class="roster-grid" id="rosterGrid"></div>
+        </section>
+
+        <section class="view" id="statsView" data-panel="stats">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Stats</p>
+              <h2>Season roster stats</h2>
+            </div>
+            <span class="player-meta">Updates from completed and in-progress games</span>
+          </div>
+          <div class="stats-table-wrap">
+            <h3 class="stats-subhead">Spray Chart</h3>
+            <div class="stats-spray-controls">
+              <label>
+                Player
+                <select id="statsSprayPlayerSelect"></select>
+              </label>
+              <label>
+                Game
+                <select id="statsSprayGameSelect"></select>
+              </label>
+            </div>
+            <div class="spray-chart stats-spray-chart" id="statsSprayChart" aria-label="Player spray chart">
+              <div class="foul-line left-line"></div>
+              <div class="foul-line right-line"></div>
+              <div class="fence-line"></div>
+              <div class="infield-arc"></div>
+              <div class="outfield-arc"></div>
+              <div class="spray-base spray-first-base">1B</div>
+              <div class="spray-base spray-second-base">2B</div>
+              <div class="spray-base spray-third-base">3B</div>
+              <div class="fielder-icon fielder-p">P</div>
+              <div class="fielder-icon fielder-c">C</div>
+              <div class="fielder-icon fielder-1b">1B</div>
+              <div class="fielder-icon fielder-2b">2B</div>
+              <div class="fielder-icon fielder-ss">SS</div>
+              <div class="fielder-icon fielder-3b">3B</div>
+              <div class="fielder-icon fielder-lf">LF</div>
+              <div class="fielder-icon fielder-cf">CF</div>
+              <div class="fielder-icon fielder-rf">RF</div>
+              <div class="spray-label left-field">LF</div>
+              <div class="spray-label center-field">CF</div>
+              <div class="spray-label right-field">RF</div>
+              <div class="spray-label plate-label">HP</div>
+              <div class="spray-markers" id="statsSprayMarkers"></div>
+            </div>
+          </div>
+          <div class="stats-table-wrap">
+            <h3 class="stats-subhead">Hitting</h3>
+            <table class="stats-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>PA</th>
+                  <th>AVG</th>
+                  <th>OBP</th>
+                  <th>SLG</th>
+                  <th>OPS</th>
+                  <th>RBI</th>
+                  <th>SB</th>
+                  <th>K%</th>
+                </tr>
+              </thead>
+              <tbody id="hittingStatsBody"></tbody>
+            </table>
+          </div>
+          <div class="stats-table-wrap">
+            <h3 class="stats-subhead">Pitching</h3>
+            <table class="stats-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>IP</th>
+                  <th>NP</th>
+                  <th>Ball</th>
+                  <th>Str</th>
+                  <th>Str%</th>
+                  <th>BF</th>
+                  <th>H</th>
+                  <th>R</th>
+                  <th>BB</th>
+                  <th>K</th>
+                  <th>K%</th>
+                  <th>BB%</th>
+                  <th>K/BB</th>
+                  <th>K/9</th>
+                  <th>R/9</th>
+                  <th>WHIP</th>
+                  <th>P/IP</th>
+                </tr>
+              </thead>
+              <tbody id="pitchingStatsBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="view" id="archiveView" data-panel="archive">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Game Archive</p>
+              <h2>Past games and searchable notes</h2>
+            </div>
+            <input class="search-box" id="archiveSearch" placeholder="Search opponent, player, result, note">
+          </div>
+          <div class="archive-grid" id="archiveGrid"></div>
+        </section>
+
+        <section class="view" id="analysisView" data-panel="analysis">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Analysis</p>
+              <h2>Team trends that shape the next card</h2>
+            </div>
+            <button class="secondary-action" id="exportBtn">Export JSON</button>
+          </div>
+          <div class="metrics-grid" id="metricsGrid"></div>
+          <div class="analysis-grid">
+            <div>
+              <div class="mini-head">
+                <h3>Player Value Board</h3>
+                <span>Adjusted score</span>
+              </div>
+              <div id="valueBoard" class="value-board"></div>
+            </div>
+            <div>
+              <div class="mini-head">
+                <h3>What To Track</h3>
+                <span>MLB-informed</span>
+              </div>
+              <div class="tracking-list">
+                <p><strong>Plate appearance outcome:</strong> every PA powers AVG, OBP, SLG, OPS, wOBA-lite, strikeout rate, walk rate, and RBI opportunities.</p>
+                <p><strong>Pitch trail:</strong> counts, pitch volume, and first-pitch strike trends show approach quality before the result.</p>
+                <p><strong>Batted-ball profile:</strong> contact strength plus launch band helps separate real skill from luck.</p>
+                <p><strong>Spray location:</strong> hit and out locations reveal pull tendency, opposite-field contact, and where defenses are taking away hits.</p>
+                <p><strong>Baserunning:</strong> steals, caught stealing, runs, and pressure speed influence lineup shape.</p>
+                <p><strong>Defense:</strong> positions and coach grades keep the best nine from becoming a fragile nine.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <template id="playerCardTemplate">
+      <article class="player-card">
+        <div class="player-topline">
+          <div>
+            <span class="number-pill"></span>
+            <h3></h3>
+            <p></p>
+          </div>
+          <label class="active-toggle">
+            Active
+            <input type="checkbox">
+          </label>
+        </div>
+        <div class="stat-strip"></div>
+        <div class="grade-row">
+          <label>Contact <input data-grade="contact" type="range" min="20" max="80"></label>
+          <label>Power <input data-grade="power" type="range" min="20" max="80"></label>
+          <label>Speed <input data-grade="speed" type="range" min="20" max="80"></label>
+          <label>Defense <input data-grade="defense" type="range" min="20" max="80"></label>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
