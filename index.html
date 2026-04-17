@@ -46,8 +46,9 @@
           <div class="home-grid">
             <section class="home-panel home-hero-panel">
               <img
-                src="https://images.unsplash.com/photo-1508344928928-7165b67de128?auto=format&fit=crop&w=1200&q=80"
-                alt="Baseball diamond before first pitch"
+                src="lions-logo.png"
+                alt="Oakmont Lions matchup graphic"
+                id="homeMatchupImage"
                 class="home-field-image">
               <div class="mini-head">
                 <div>
@@ -79,6 +80,13 @@
                 <span>K | WHIP | Strike %</span>
               </div>
               <div class="leader-grid compact-leaders" id="homePitchingLeaders"></div>
+            </section>
+            <section class="home-panel home-upcoming-panel">
+              <div class="mini-head">
+                <h3>Upcoming Games</h3>
+                <span>Next 2</span>
+              </div>
+              <div class="upcoming-game-grid" id="homeUpcomingGames"></div>
             </section>
           </div>
         </section>
@@ -801,6 +809,7 @@
     </template>
 
     <script src="storage.js"></script>
+    <script src="matchup-images.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

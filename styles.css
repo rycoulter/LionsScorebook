@@ -309,6 +309,49 @@ main {
   margin: 10px 0 0;
 }
 
+.home-upcoming-panel {
+  grid-column: 1 / -1;
+}
+
+.upcoming-game-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.upcoming-game-card {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.46fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.upcoming-game-card img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.upcoming-game-card h4 {
+  margin: 2px 0 4px;
+  font-size: 1.05rem;
+}
+
+.upcoming-empty {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .score-status-card {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(110px, auto) minmax(88px, auto) auto;
@@ -2867,6 +2910,10 @@ button:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .upcoming-game-grid {
+    grid-template-columns: 1fr;
+  }
+
   .topbar,
   .game-glass {
     display: grid;
@@ -3894,6 +3941,36 @@ label {
   background:
     radial-gradient(circle at 80% 0%, rgba(245, 189, 33, 0.16), transparent 36%),
     linear-gradient(145deg, rgba(24, 30, 51, 0.92), rgba(12, 16, 31, 0.94));
+}
+
+.home-field-image,
+.upcoming-game-card img {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(145deg, rgba(3, 10, 36, 0.88), rgba(24, 30, 51, 0.92));
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.28);
+}
+
+.home-hero-panel .home-field-image {
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+.upcoming-game-card {
+  border-color: rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at 86% 0%, rgba(245, 189, 33, 0.11), transparent 36%),
+    rgba(255, 255, 255, 0.06);
+  color: var(--white);
+}
+
+.upcoming-game-card h4 {
+  color: var(--white);
+}
+
+.upcoming-empty {
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--text-soft);
 }
 
 .score-status-card,
@@ -5224,6 +5301,10 @@ label {
   }
 
   #scoreView .runner-decision-card {
+    grid-template-columns: 1fr;
+  }
+
+  .upcoming-game-card {
     grid-template-columns: 1fr;
   }
 

@@ -521,12 +521,14 @@ const els = {
   homeScoreGameBtn: document.getElementById("homeScoreGameBtn"),
   homeRecord: document.getElementById("homeRecord"),
   homeRunSummary: document.getElementById("homeRunSummary"),
+  homeMatchupImage: document.getElementById("homeMatchupImage"),
   homeNextGame: document.getElementById("homeNextGame"),
   homeNextGameMeta: document.getElementById("homeNextGameMeta"),
   homeScoutingBtn: document.getElementById("homeScoutingBtn"),
   homeGamesBtn: document.getElementById("homeGamesBtn"),
   homeBattingLeaders: document.getElementById("homeBattingLeaders"),
   homePitchingLeaders: document.getElementById("homePitchingLeaders"),
+  homeUpcomingGames: document.getElementById("homeUpcomingGames"),
   gameTitle: document.getElementById("gameTitle"),
   headerBatterDisplay: document.getElementById("headerBatterDisplay"),
   headerCountDisplay: document.getElementById("headerCountDisplay"),
@@ -3023,17 +3025,26 @@ function render() {
 
 function renderHome() {
   const record = seasonRecord();
-  const next = nextScheduledGame();
+  const upcoming = upcomingScheduledGames(3);
+  const next = upcoming[0] || null;
   els.homeRecord.textContent = `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""}`;
   els.homeRunSummary.textContent = `${record.runsFor} RF | ${record.runsAgainst} RA`;
   if (next) {
     els.homeNextGame.textContent = `vs ${next.opponent}`;
-    els.homeNextGameMeta.textContent = `${next.date || "No date"}${next.time ? ` at ${next.time}` : ""}${next.location ? ` | ${next.location}` : ""}`;
+    els.homeNextGameMeta.textContent = gameScheduleMeta(next);
+    setHomeMatchupImage(next.opponent);
     els.homeScoutingBtn.disabled = false;
   } else {
     els.homeNextGame.textContent = "No upcoming game scheduled";
     els.homeNextGameMeta.textContent = "Create a game from the Games tab.";
+    setHomeMatchupImage("");
     els.homeScoutingBtn.disabled = true;
+  }
+  const nextTwo = upcoming.slice(1, 3);
+  if (els.homeUpcomingGames) {
+    els.homeUpcomingGames.innerHTML = nextTwo.length
+      ? nextTwo.map(renderUpcomingGameCard).join("")
+      : `<div class="upcoming-empty">No additional upcoming games scheduled.</div>`;
   }
 
   const hitterRows = state.roster.map((player) => ({ player, stats: statsForPlayer(player.id) }));
@@ -3068,7 +3079,7 @@ function gameIsFinal(game) {
   return Boolean(game && (game.status === "completed" || game.status === "final" || Number(game.inning || 0) > 7));
 }
 
-function nextScheduledGame() {
+function upcomingScheduledGames(limit = 3) {
   const today = todayValue();
   return [...state.games]
     .filter((game) => !gameIsFinal(game))
@@ -3080,7 +3091,36 @@ function nextScheduledGame() {
       if (dateCompare) return dateCompare;
       return (a.time || "").localeCompare(b.time || "");
     })
-    [0] || null;
+    .slice(0, limit);
+}
+
+function nextScheduledGame() {
+  return upcomingScheduledGames(1)[0] || null;
+}
+
+function getMatchupImage(opponentName) {
+  return window.MatchupImages?.getMatchupImage(opponentName) || "lions-logo.png";
+}
+
+function setHomeMatchupImage(opponentName) {
+  if (!els.homeMatchupImage) return;
+  els.homeMatchupImage.src = getMatchupImage(opponentName);
+  els.homeMatchupImage.alt = opponentName ? `Oakmont Lions vs ${opponentName}` : "Oakmont Lions";
+}
+
+function gameScheduleMeta(game) {
+  return `${game.date || "No date"}${game.time ? ` at ${game.time}` : ""}${game.location ? ` | ${game.location}` : ""}`;
+}
+
+function renderUpcomingGameCard(game) {
+  return `<article class="upcoming-game-card">
+    <img src="${escapeHtml(getMatchupImage(game.opponent))}" alt="Oakmont Lions vs ${escapeHtml(game.opponent)}">
+    <div>
+      <span class="scout-kicker">Upcoming</span>
+      <h4>vs ${escapeHtml(game.opponent)}</h4>
+      <p class="player-meta">${escapeHtml(gameScheduleMeta(game))}</p>
+    </div>
+  </article>`;
 }
 
 function openCurrentGameForScoring() {
