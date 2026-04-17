@@ -3388,6 +3388,10 @@ button:focus-visible {
   font-weight: 900;
 }
 
+#scoreView .pitch-panel.is-runner-decision .batter-face .mini-head::after {
+  content: "Review runners, then resolve the play";
+}
+
 #scoreView .runner-base {
   z-index: 7;
   width: 58px;

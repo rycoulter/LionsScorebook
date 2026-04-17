@@ -506,6 +506,7 @@ let scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
 let scorebookGameId = "";
 let bipOutcomeChosen = false;
 let awaitingSprayLocation = false;
+let awaitingRunnerDecision = false;
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
@@ -562,6 +563,7 @@ const els = {
   stealButtons: [...document.querySelectorAll("[data-steal]")],
   runnerPlayControls: document.getElementById("runnerPlayControls"),
   runnerOutButtons: [...document.querySelectorAll("[data-runner-out-base]")],
+  resolvePlayBtn: document.querySelector("[data-resolve-play]"),
   scoreForm: document.getElementById("scoreForm"),
   choiceButtons: [...document.querySelectorAll("[data-choice-group]")],
   gameForm: document.getElementById("gameForm"),
@@ -1239,19 +1241,38 @@ function bindEvents() {
   });
 
   els.choiceButtons.forEach((button) => {
-    button.addEventListener("click", () => selectChoice(button.dataset.choiceGroup, button.dataset.choiceValue));
+    button.addEventListener("click", () => {
+      const group = button.dataset.choiceGroup;
+      const value = button.dataset.choiceValue;
+      if (group === "result") {
+        if (battedBallResults.has(value)) {
+          applyEvent(activeGame(), { type: "ball_in_play", outcome: value });
+          return;
+        }
+        applyEvent(activeGame(), { type: "resolve_play", result: value });
+        return;
+      }
+      selectChoice(group, value);
+    });
   });
 
   els.stealButtons.forEach((button) => {
-    button.addEventListener("click", () => recordSteal(button.dataset.steal, button.dataset.stealResult));
+    button.addEventListener("click", () => {
+      applyEvent(activeGame(), {
+        type: button.dataset.stealResult === "out" ? "runner_out" : "runner_advance",
+        mode: "steal",
+        target: button.dataset.steal
+      });
+    });
   });
 
   els.runnerOutButtons.forEach((button) => {
-    button.addEventListener("click", () => togglePendingRunnerOut(button.dataset.runnerOutBase));
+    button.addEventListener("click", () => applyEvent(activeGame(), { type: "runner_out", base: button.dataset.runnerOutBase }));
   });
+  els.resolvePlayBtn?.addEventListener("click", () => applyEvent(activeGame(), { type: "resolve_play" }));
 
   els.opponentOutcomeButtons.forEach((button) => {
-    button.addEventListener("click", () => logOpponentOutcome(button.dataset.opponentResult));
+    button.addEventListener("click", () => applyEvent(activeGame(), { type: "resolve_play", result: button.dataset.opponentResult }));
   });
 
   els.opponentInput.addEventListener("input", () => {
@@ -1317,10 +1338,10 @@ function bindEvents() {
   });
 
   els.pitchButtons.forEach((button) => {
-    button.addEventListener("click", () => logPitch(button.dataset.pitch));
+    button.addEventListener("click", () => applyEvent(activeGame(), { type: "pitch", outcome: button.dataset.pitch }));
   });
   els.autoResultButtons.forEach((button) => {
-    button.addEventListener("click", () => autoCompleteResult(button.dataset.autoResult));
+    button.addEventListener("click", () => applyEvent(activeGame(), { type: "resolve_play", result: button.dataset.autoResult }));
   });
 
   els.resetCountBtn.addEventListener("click", () => {
@@ -1332,7 +1353,7 @@ function bindEvents() {
       game.current.balls = 0;
       game.current.strikes = 0;
     }
-    pendingSpray = null;
+    clearPendingPlayState(game, true);
     resetBipChoices();
     saveState();
     renderAtBat();
@@ -1356,8 +1377,7 @@ function bindEvents() {
   els.clearBipBtn.addEventListener("click", () => {
     const game = activeGame();
     if (game.atBat) game.atBat.pendingInPlay = false;
-    pendingSpray = null;
-    awaitingSprayLocation = false;
+    clearPendingPlayState(game, true);
     resetBipChoices();
     saveState();
     renderAtBat();
@@ -1367,7 +1387,7 @@ function bindEvents() {
   els.sprayChart.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      setPendingSpray(50, 45);
+      applyEvent(activeGame(), { type: "spray", x: 50, y: 45 });
     }
   });
   els.sprayFilter.addEventListener("change", renderSprayChart);
@@ -1859,7 +1879,7 @@ function advanceHalfInning(game = activeGame()) {
   game.currentPlateAppearanceId = "";
   game.atBat = makeAtBat();
   commitCurrentToLegacy(game);
-  pendingSpray = null;
+  clearPendingPlayState(game, true);
 }
 
 function addSubstitution(game = activeGame(), substitution = {}) {
@@ -1963,68 +1983,179 @@ function selectChoice(group, value, silent = false) {
   }
 }
 
+function clearPendingPlayState(game = activeGame(), clearAtBat = false) {
+  pendingSpray = null;
+  pendingRunnerOutBases = [];
+  bipOutcomeChosen = false;
+  awaitingSprayLocation = false;
+  awaitingRunnerDecision = false;
+  if (clearAtBat && game?.atBat) game.atBat.pendingInPlay = false;
+}
+
 function resetBipChoices() {
   selectChoice("result", "1B", true);
   selectChoice("contact", "none", true);
   selectChoice("launch", "none", true);
   selectChoice("error", "", true);
-  pendingRunnerOutBases = [];
-  bipOutcomeChosen = false;
-  awaitingSprayLocation = false;
+  clearPendingPlayState(activeGame(), false);
   renderRunnerTracker();
 }
 
-function logPitch(type) {
-  const game = activeGame();
-  const pitch = recordPitch(game, type);
+function applyEvent(game = activeGame(), event = {}) {
+  if (!game || !event.type) return null;
+  syncGameCurrent(game);
+  if (!game.atBat) game.atBat = makeAtBat();
 
-  if (game.half === "bottom") {
-    if (type === "ball" && pitch.ballsAfter >= 4) {
+  if (event.type === "pitch") {
+    const outcome = event.outcome;
+    const pitch = recordPitch(game, outcome);
+    if (game.half === "bottom") {
+      if (outcome === "ball" && pitch.ballsAfter >= 4) {
+        return applyEvent(game, { type: "resolve_play", result: "BB" });
+      }
+      if ((outcome === "called_strike" || outcome === "swinging_strike") && pitch.strikesAfter >= 3) {
+        return applyEvent(game, { type: "resolve_play", result: "K" });
+      }
       saveState();
-      logOpponentOutcome("BB");
-      return;
+      renderAtBat();
+      return pitch;
     }
-    if ((type === "called_strike" || type === "swinging_strike") && pitch.strikesAfter >= 3) {
-      saveState();
-      logOpponentOutcome("K");
-      return;
+    if (outcome === "ball" && pitch.ballsAfter >= 4) return applyEvent(game, { type: "resolve_play", result: "BB" });
+    if ((outcome === "called_strike" || outcome === "swinging_strike") && pitch.strikesAfter >= 3) return applyEvent(game, { type: "resolve_play", result: "K" });
+    if (outcome === "in_play") {
+      clearPendingPlayState(game, true);
+      if (!battedBallResults.has(els.resultSelect.value)) selectChoice("result", "1B", true);
+      els.sprayHint.textContent = "Select the outcome, then tap where the ball landed or was fielded.";
     }
     saveState();
     renderAtBat();
-    return;
+    renderSprayChart();
+    renderRunnerTracker();
+    return pitch;
   }
 
-  if (type === "ball" && pitch.ballsAfter >= 4) {
-    autoCompleteResult("BB");
-    return;
+  if (event.type === "ball_in_play") {
+    const result = normalizeBallInPlayOutcome(event.outcome || event.result);
+    if (!battedBallResults.has(result)) return applyEvent(game, { type: "resolve_play", result });
+    selectChoice("result", result, true);
+    if (result === "HR") selectChoice("launch", "fb", true);
+    else if (els.launchSelect.value === "none") selectChoice("launch", event.launch || "ld", true);
+    clearPendingPlayState(game, true);
+    bipOutcomeChosen = true;
+    awaitingSprayLocation = true;
+    awaitingRunnerDecision = false;
+    if (game.atBat) game.atBat.pendingInPlay = false;
+    els.sprayHint.textContent = "Tap where the ball landed or was fielded.";
+    saveState();
+    renderAtBat();
+    renderSprayChart();
+    renderRunnerTracker();
+    renderAutoScorePreview();
+    return result;
   }
-  if ((type === "called_strike" || type === "swinging_strike") && pitch.strikesAfter >= 3) {
-    autoCompleteResult("K");
-    return;
+
+  if (event.type === "spray") {
+    setPendingSprayState(event.x, event.y);
+    if (els.launchSelect.value === "none") selectChoice("launch", "ld", true);
+    const result = els.resultSelect.value;
+    if (bipOutcomeChosen && battedBallResults.has(result)) {
+      awaitingSprayLocation = false;
+      awaitingRunnerDecision = true;
+      if (game.atBat) game.atBat.pendingInPlay = false;
+      els.sprayHint.textContent = "Review runner outs, then tap Resolve Play.";
+    } else {
+      if (game.atBat) game.atBat.pendingInPlay = true;
+      els.sprayHint.textContent = `Marked ${pendingSpray.zone}. Select the outcome to continue.`;
+    }
+    saveState();
+    renderAtBat();
+    renderRunnerTracker();
+    renderSprayChart();
+    renderAutoScorePreview();
+    return pendingSpray;
   }
-  if (type === "in_play") {
-    bipOutcomeChosen = false;
+
+  if (event.type === "runner_out") {
+    if (event.mode === "steal") {
+      recordSteal(event.target, "out");
+      return null;
+    }
+    togglePendingRunnerOut(event.base);
+    awaitingRunnerDecision = true;
+    renderAutoScorePreview();
+    return pendingRunnerOutBases;
+  }
+
+  if (event.type === "runner_advance") {
+    if (event.mode === "steal") {
+      recordSteal(event.target, "safe");
+      return null;
+    }
+    awaitingRunnerDecision = true;
+    renderRunnerTracker();
+    return null;
+  }
+
+  if (event.type === "resolve_play") {
+    const result = normalizeBallInPlayOutcome(event.result || event.outcome || els.resultSelect.value || "GO");
+    selectChoice("result", result, true);
+    if (game.half === "bottom") {
+      logOpponentOutcome(result);
+      return result;
+    }
+    if (battedBallResults.has(result) && !pendingSpray) {
+      bipOutcomeChosen = true;
+      awaitingSprayLocation = true;
+      awaitingRunnerDecision = false;
+      if (game.atBat) game.atBat.pendingInPlay = false;
+      els.sprayHint.textContent = "Tap where the ball landed or was fielded before resolving.";
+      renderAtBat();
+      renderRunnerTracker();
+      return null;
+    }
     awaitingSprayLocation = false;
-    if (!battedBallResults.has(els.resultSelect.value)) selectChoice("result", "1B", true);
-    els.sprayHint.textContent = "Select the outcome, then tap where the ball landed or was fielded.";
+    awaitingRunnerDecision = false;
+    logPlay();
+    return result;
   }
 
-  saveState();
-  renderAtBat();
-  renderSprayChart();
+  return null;
+}
+
+function normalizeBallInPlayOutcome(value) {
+  const key = String(value || "").toLowerCase();
+  const map = {
+    single: "1B",
+    double: "2B",
+    triple: "3B",
+    home_run: "HR",
+    homerun: "HR",
+    hr: "HR",
+    out: "GO",
+    error: "ROE",
+    roe: "ROE",
+    fielders_choice: "FC",
+    fielder_choice: "FC",
+    fc: "FC",
+    double_play: "DP",
+    dp: "DP",
+    sacrifice: "SAC",
+    sac: "SAC",
+    walk: "BB",
+    bb: "BB",
+    strikeout: "K",
+    k: "K",
+    hbp: "HBP"
+  };
+  return map[key] || String(value || "GO").toUpperCase();
+}
+
+function logPitch(type) {
+  return applyEvent(activeGame(), { type: "pitch", outcome: type });
 }
 
 function autoCompleteResult(result) {
-  const game = activeGame();
-  if (game.half !== "top") return;
-  selectChoice("result", result, true);
-  selectChoice("contact", "none", true);
-  selectChoice("launch", "none", true);
-  pendingSpray = null;
-  pendingRunnerOutBases = [];
-  bipOutcomeChosen = false;
-  awaitingSprayLocation = false;
-  logPlay();
+  return applyEvent(activeGame(), { type: "resolve_play", result });
 }
 
 function maybeAutoCompleteBattedBall() {
@@ -2046,8 +2177,11 @@ function maybeAutoCompleteBattedBall() {
     return;
   }
   awaitingSprayLocation = false;
+  awaitingRunnerDecision = true;
   if (game.atBat) game.atBat.pendingInPlay = false;
-  logPlay();
+  els.sprayHint.textContent = "Review runner outs, then tap Resolve Play.";
+  renderAtBat();
+  renderRunnerTracker();
 }
 
 function undoPitch() {
@@ -2064,9 +2198,7 @@ function undoPitch() {
   game.atBat.strikes = lastPitch?.strikesAfter || 0;
   game.atBat.pendingInPlay = pitches.some((pitch) => pitch.inPlay);
   if (!game.atBat.pendingInPlay) {
-    pendingSpray = null;
-    bipOutcomeChosen = false;
-    awaitingSprayLocation = false;
+    clearPendingPlayState(game, true);
   }
   if (plateAppearance) plateAppearance.pitches = pitches;
   if (game.current) {
@@ -2119,9 +2251,7 @@ function logPlay() {
     notes: els.noteInput.value.trim(),
     snapshotBefore
   });
-  pendingSpray = null;
-  pendingRunnerOutBases = [];
-  awaitingSprayLocation = false;
+  clearPendingPlayState(game, true);
 
   els.runsInput.value = "0";
   els.rbiInput.value = "0";
@@ -2181,9 +2311,7 @@ function suggestRunValues() {
     els.rbiInput.value = String(runs);
     selectChoice("launch", "fb", true);
   } else if (["K", "BB", "HBP", "SB", "CS"].includes(els.resultSelect.value)) {
-    game.atBat.pendingInPlay = false;
-    pendingSpray = null;
-    awaitingSprayLocation = false;
+    clearPendingPlayState(game, true);
     if (["BB", "HBP"].includes(els.resultSelect.value) && game.bases.first && game.bases.second && game.bases.third) {
       els.runsInput.value = "1";
       els.rbiInput.value = "1";
@@ -2406,6 +2534,7 @@ function undoLastPlay() {
       game.lineupEntries = deepClone(event.snapshotBefore.lineupEntries);
       game.lineups.away = deepClone(game.lineupEntries);
     }
+    clearPendingPlayState(game, false);
     pendingSpray = event.spray || null;
     syncGameCurrent(game);
   }
@@ -2418,7 +2547,7 @@ function startNewGame() {
   state.games.push(game);
   state.activeGameId = game.id;
   saveGameToLibrary(game, true);
-  pendingSpray = null;
+  clearPendingPlayState(game, true);
   saveState();
   render();
 }
@@ -2434,7 +2563,7 @@ function scheduleGame() {
   state.games.push(game);
   state.activeGameId = game.id;
   saveGameToLibrary(game, true);
-  pendingSpray = null;
+  clearPendingPlayState(game, true);
   saveState();
   render();
 }
@@ -2444,7 +2573,7 @@ function scoreScheduledGame(gameId) {
   if (!game) return;
   game.status = game.status === "completed" ? "completed" : "active";
   setActiveGame(game.id);
-  pendingSpray = null;
+  clearPendingPlayState(game, true);
   saveState();
   render();
   switchView("score");
@@ -2461,7 +2590,7 @@ function completeScheduledGame(gameId) {
 function finishGame() {
   const current = activeGame();
   current.status = "completed";
-  pendingSpray = null;
+  clearPendingPlayState(current, true);
   saveState();
   render();
   switchView("games");
@@ -2638,7 +2767,7 @@ function renderRunnerTracker() {
     const enabled = target === "second" ? canStealSecond : target === "third" ? canStealThird : canStealHome;
     button.disabled = !enabled;
   });
-  const showRunnerOuts = (Boolean(game.atBat?.pendingInPlay) || awaitingSprayLocation) && game.half === "top";
+  const showRunnerOuts = (Boolean(game.atBat?.pendingInPlay) || awaitingSprayLocation || awaitingRunnerDecision) && game.half === "top";
   els.runnerPlayControls.classList.toggle("is-visible", showRunnerOuts);
   els.runnerOutButtons.forEach((button) => {
     const base = button.dataset.runnerOutBase;
@@ -2712,13 +2841,18 @@ function renderAtBat() {
     : `<span class="player-meta">No pitches in this plate appearance.</span>`;
   els.abCard.classList.toggle("is-opponent", isOpponentHalf);
   els.scorerStack.classList.toggle("is-defense", isOpponentHalf);
-  els.abCard.classList.toggle("is-placing", !isOpponentHalf && awaitingSprayLocation);
-  els.scorerStack.classList.toggle("is-placing", !isOpponentHalf && awaitingSprayLocation);
+  const isResolvingBattedBall = awaitingSprayLocation || awaitingRunnerDecision;
+  els.abCard.classList.toggle("is-placing", !isOpponentHalf && isResolvingBattedBall);
+  els.abCard.classList.toggle("is-runner-decision", !isOpponentHalf && awaitingRunnerDecision);
+  els.scorerStack.classList.toggle("is-placing", !isOpponentHalf && isResolvingBattedBall);
+  els.scorerStack.classList.toggle("is-runner-decision", !isOpponentHalf && awaitingRunnerDecision);
   els.abCard.classList.toggle("is-outcome", !isOpponentHalf && Boolean(game.atBat.pendingInPlay));
   els.bipPanel.classList.toggle("is-visible", Boolean(game.atBat.pendingInPlay));
   els.scoreForm.classList.toggle("is-defense", isOpponentHalf);
   els.sprayChart.closest(".spray-panel").classList.toggle("is-defense", isOpponentHalf);
-  if (awaitingSprayLocation && !pendingSpray) {
+  if (awaitingRunnerDecision) {
+    els.sprayHint.textContent = "Review runner outs, then tap Resolve Play.";
+  } else if (awaitingSprayLocation && !pendingSpray) {
     els.sprayHint.textContent = "Tap the field where the ball landed or was fielded.";
   } else if (!pendingSpray && !game.atBat.pendingInPlay) {
     els.sprayHint.textContent = "Tap the field after a ball is put in play.";
@@ -2811,26 +2945,20 @@ function setSprayFromPointer(event) {
   const rect = els.sprayChart.getBoundingClientRect();
   const x = ((event.clientX - rect.left) / rect.width) * 100;
   const y = ((event.clientY - rect.top) / rect.height) * 100;
-  setPendingSpray(x, y);
+  applyEvent(activeGame(), { type: "spray", x, y });
 }
 
-function setPendingSpray(x, y) {
+function setPendingSprayState(x, y) {
   pendingSpray = {
     x: Math.max(4, Math.min(96, Math.round(x))),
     y: Math.max(4, Math.min(96, Math.round(y))),
     zone: sprayZone(x, y)
   };
-  if (els.launchSelect.value === "none") selectChoice("launch", "ld", true);
-  const game = activeGame();
-  if (game.atBat) game.atBat.pendingInPlay = !bipOutcomeChosen;
-  els.sprayHint.textContent = bipOutcomeChosen
-    ? `Marked ${pendingSpray.zone}. Saving the play.`
-    : `Marked ${pendingSpray.zone}. Select the outcome to save the AB.`;
-  maybeAutoCompleteBattedBall();
-  if (pendingSpray) {
-    renderAtBat();
-    renderSprayChart();
-  }
+  return pendingSpray;
+}
+
+function setPendingSpray(x, y) {
+  return applyEvent(activeGame(), { type: "spray", x, y });
 }
 
 function sprayZone(x, y) {
