@@ -5287,48 +5287,91 @@ label {
   --field-home-x: 50%;
   --field-home-y: 88%;
   --field-pitcher-x: 50%;
-  --field-pitcher-y: 58%;
+  --field-pitcher-y: 64%;
   --field-second-x: 50%;
-  --field-second-y: 28%;
-  --field-first-x: 72%;
-  --field-first-y: 60%;
-  --field-third-x: 28%;
-  --field-third-y: 60%;
-  --runner-first-x: 77%;
-  --runner-first-y: 64%;
-  --runner-second-x: 55%;
-  --runner-second-y: 32%;
-  --runner-third-x: 23%;
-  --runner-third-y: 64%;
+  --field-second-y: 49%;
+  --field-first-x: 66%;
+  --field-first-y: 72%;
+  --field-third-x: 34%;
+  --field-third-y: 72%;
+  --runner-first-x: 70%;
+  --runner-first-y: 75%;
+  --runner-second-x: 54%;
+  --runner-second-y: 46%;
+  --runner-third-x: 30%;
+  --runner-third-y: 75%;
 }
 
 #scoreView .spray-chart {
   position: relative;
+  background:
+    radial-gradient(ellipse at 50% 75%, #f0ad3f 0 16%, transparent 16.4%),
+    radial-gradient(ellipse at 50% 67%, #f0ad3f 0 26%, transparent 26.4%),
+    radial-gradient(ellipse at 50% 100%, #1f5b18 0 64%, #2f7f26 64.4% 100%);
 }
 
 #scoreView .spray-chart::after {
-  inset: 0;
+  left: 31%;
+  top: 49%;
   z-index: 0;
-  width: auto;
-  aspect-ratio: auto;
+  width: 38%;
+  height: 39%;
   transform: none;
-  clip-path: polygon(
-    var(--field-second-x) var(--field-second-y),
-    var(--field-first-x) var(--field-first-y),
-    var(--field-home-x) var(--field-home-y),
-    var(--field-third-x) var(--field-third-y)
-  );
+  clip-path: polygon(50% 0, 100% 57%, 50% 100%, 0 57%);
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 45%),
-    #5a4a30;
+    radial-gradient(circle at 50% 60%, #2f7f26 0 18%, transparent 18.4%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 46%),
+    #f0ad3f;
+  box-shadow:
+    inset 0 0 0 1px rgba(95, 70, 24, 0.18),
+    0 12px 26px rgba(0, 0, 0, 0.18);
 }
 
 #scoreView .spray-chart::before {
   left: var(--field-home-x);
   top: var(--field-home-y);
   bottom: auto;
-  z-index: 6;
+  z-index: 9;
+  width: 22px;
+  height: 22px;
+  border-color: rgba(255, 255, 255, 0.92);
+  border-radius: 3px;
+  background: #fffaf0;
+  box-shadow:
+    0 0 0 3px rgba(240, 173, 63, 0.36),
+    0 8px 18px rgba(0, 0, 0, 0.2);
   transform: translate(-50%, -50%) rotate(45deg);
+}
+
+#scoreView .infield-arc {
+  display: block;
+  left: 50%;
+  top: 48%;
+  bottom: auto;
+  z-index: 2;
+  width: 41%;
+  height: 34%;
+  transform: translate(-50%, 0);
+  border: 0;
+  border-radius: 0 0 999px 999px;
+  background: #f0ad3f;
+  clip-path: ellipse(50% 72% at 50% 100%);
+  opacity: 1;
+}
+
+#scoreView .outfield-arc {
+  display: block;
+  left: 50%;
+  top: 4%;
+  bottom: auto;
+  z-index: 3;
+  width: 84%;
+  height: 44%;
+  transform: translateX(-50%);
+  border: 3px solid rgba(240, 173, 63, 0.82);
+  border-bottom: 0;
+  border-radius: 50% 50% 0 0;
+  opacity: 1;
 }
 
 #scoreView .spray-base,
@@ -5342,8 +5385,16 @@ label {
 }
 
 #scoreView .spray-base {
-  z-index: 7;
+  z-index: 8;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 3px;
+  background: #fffaf0;
   color: transparent;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.28),
+    0 8px 16px rgba(0, 0, 0, 0.22);
 }
 
 #scoreView .spray-first-base {
@@ -5367,18 +5418,28 @@ label {
 
 #scoreView .fielder-icon {
   display: grid;
-  z-index: 4;
+  z-index: 6;
   min-width: 34px;
   min-height: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.26);
-  background: rgba(3, 10, 36, 0.28);
-  color: rgba(255, 255, 255, 0.58);
-  opacity: 0.72;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(3, 10, 36, 0.18);
+  color: rgba(255, 255, 255, 0.48);
+  opacity: 0.58;
 }
 
 #scoreView .fielder-p {
   left: var(--field-pitcher-x);
   top: var(--field-pitcher-y);
+  min-width: 46px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: #f0ad3f;
+  color: rgba(255, 255, 255, 0.82);
+  opacity: 1;
+  box-shadow:
+    inset 0 0 0 1px rgba(139, 91, 22, 0.24),
+    0 8px 16px rgba(0, 0, 0, 0.18);
 }
 
 #scoreView .fielder-c {
@@ -5386,38 +5447,38 @@ label {
 }
 
 #scoreView .fielder-1b {
-  left: 77%;
-  top: 55%;
+  left: 73%;
+  top: 65%;
 }
 
 #scoreView .fielder-2b {
-  left: 60%;
-  top: 42%;
+  left: 59%;
+  top: 53%;
 }
 
 #scoreView .fielder-ss {
-  left: 40%;
-  top: 42%;
+  left: 41%;
+  top: 53%;
 }
 
 #scoreView .fielder-3b {
-  left: 23%;
-  top: 55%;
+  left: 27%;
+  top: 65%;
 }
 
 #scoreView .fielder-lf {
-  left: 22%;
-  top: 30%;
+  left: 21%;
+  top: 35%;
 }
 
 #scoreView .fielder-cf {
   left: 50%;
-  top: 18%;
+  top: 21%;
 }
 
 #scoreView .fielder-rf {
-  left: 78%;
-  top: 30%;
+  left: 79%;
+  top: 35%;
 }
 
 #scoreView .runner-panel,
@@ -5461,23 +5522,24 @@ label {
   bottom: auto;
   left: var(--field-home-x);
   top: var(--field-home-y);
-  height: 92%;
+  z-index: 4;
+  height: 56%;
+  width: 3px;
   transform-origin: top center;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
 #scoreView .left-line {
-  transform: rotate(135deg);
+  transform: rotate(128deg);
 }
 
 #scoreView .right-line {
-  transform: rotate(-135deg);
+  transform: rotate(-128deg);
 }
 
 #scoreView .fence-line {
-  left: 4%;
-  top: 5%;
-  width: 92%;
-  height: 72%;
+  display: none;
 }
 
 .stats-table td,
