@@ -2325,6 +2325,351 @@ button:focus-visible {
   backdrop-filter: none;
 }
 
+#scoreView .score-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.28fr);
+  align-items: start;
+}
+
+#scoreView .scorer-stack {
+  grid-template-areas:
+    "field"
+    "form";
+  gap: 10px;
+  overflow: visible;
+}
+
+#scoreView .spray-panel {
+  position: relative;
+  min-height: 720px;
+  border: 1px solid #1e6e47;
+  border-radius: 8px;
+  background: #1f7a4d;
+  box-shadow: var(--shadow);
+}
+
+#scoreView .spray-chart {
+  min-height: 720px;
+  border-radius: 8px;
+  cursor: crosshair;
+}
+
+#scoreView .spray-panel .mini-head {
+  top: 12px;
+  left: 12px;
+  width: min(320px, calc(100% - 24px));
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(17, 24, 39, 0.88);
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.2);
+}
+
+#scoreView .spray-panel select {
+  max-width: 130px;
+  min-height: 32px;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+}
+
+#scoreView .pitch-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  width: 100%;
+  margin: 0;
+  pointer-events: none;
+}
+
+#scoreView .ab-face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+#scoreView .pitch-panel.is-outcome .batter-face {
+  opacity: 1;
+  transform: none;
+}
+
+#scoreView .pitch-panel.is-outcome .batter-face .pitch-buttons,
+#scoreView .pitch-panel.is-outcome .batter-face .pitch-trail,
+#scoreView .pitch-panel.is-outcome .batter-face > .button-row,
+#scoreView .pitch-panel.is-placing .batter-face .pitch-buttons,
+#scoreView .pitch-panel.is-placing .batter-face .pitch-trail,
+#scoreView .pitch-panel.is-placing .batter-face > .button-row {
+  display: none;
+}
+
+#scoreView .batter-face .mini-head,
+#scoreView .opponent-face .mini-head {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  width: min(520px, calc(100% - 24px));
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+#scoreView .count-pair {
+  align-items: center;
+}
+
+#scoreView .count-display {
+  min-width: 58px;
+  min-height: 36px;
+}
+
+#scoreView .pitch-buttons {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(600px, calc(100% - 24px));
+  pointer-events: auto;
+}
+
+#scoreView .pitch-btn {
+  min-height: 58px;
+}
+
+#scoreView .pitch-trail {
+  position: absolute;
+  left: 50%;
+  bottom: 90px;
+  width: min(520px, calc(100% - 24px));
+  max-height: 54px;
+  overflow: auto;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+#scoreView .batter-face > .button-row,
+#scoreView .opponent-face > .button-row {
+  position: absolute;
+  right: 12px;
+  top: 96px;
+  pointer-events: auto;
+}
+
+#scoreView .batter-face > .button-row .secondary-action,
+#scoreView .opponent-face > .button-row .secondary-action {
+  min-height: 32px;
+  padding: 5px 9px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+#scoreView .outcome-face {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  width: min(620px, calc(100% - 24px));
+  margin: 0;
+  transform: translateX(-50%) translateY(12px);
+  pointer-events: none;
+}
+
+#scoreView .pitch-panel.is-outcome .outcome-face {
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+#scoreView .button-group[aria-label="Select batted ball result"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+#scoreView .button-group[aria-label="Select batted ball result"] > span {
+  display: none;
+}
+
+#scoreView .runner-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  width: 100%;
+  padding: 0;
+}
+
+#scoreView .runner-panel .mini-head {
+  display: none;
+}
+
+#scoreView .base-tracker {
+  position: absolute;
+  inset: 0;
+}
+
+#scoreView .runner-base,
+#scoreView .runner-plate {
+  width: 54px;
+  min-height: 44px;
+  border-color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 8px 16px rgba(14, 27, 19, 0.14);
+  font-size: 0.78rem;
+}
+
+#scoreView .runner-base span {
+  display: none;
+}
+
+#scoreView .runner-base.is-occupied {
+  width: 82px;
+  min-height: 54px;
+  border-color: var(--gold);
+  background: var(--gold);
+}
+
+#scoreView .runner-base.is-occupied span {
+  display: block;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#scoreView .runner-first {
+  right: 32%;
+  bottom: 25%;
+}
+
+#scoreView .runner-second {
+  left: calc(50% - 27px);
+  top: 40%;
+}
+
+#scoreView .runner-third {
+  left: 32%;
+  bottom: 25%;
+}
+
+#scoreView .runner-plate {
+  display: none;
+}
+
+#scoreView .steal-grid {
+  right: 12px;
+  bottom: 90px;
+  left: auto;
+  width: min(220px, calc(100% - 24px));
+  grid-template-columns: 1fr;
+  transform: none;
+}
+
+#scoreView .steal-grid button:disabled {
+  display: none;
+}
+
+#scoreView .steal-grid .secondary-action,
+#scoreView .runner-play-grid .secondary-action {
+  min-height: 32px;
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 0.78rem;
+}
+
+#scoreView .runner-play-grid {
+  left: 12px;
+  bottom: 90px;
+  width: min(310px, calc(100% - 24px));
+  grid-template-columns: 1fr;
+  transform: none;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+#scoreView .score-form {
+  grid-area: form;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--white);
+  box-shadow: none;
+}
+
+#scoreView .score-form .auto-score {
+  grid-column: 1;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+}
+
+#scoreView .score-form label.wide {
+  grid-column: 1;
+}
+
+#scoreView .score-form .button-row.wide {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  justify-content: flex-end;
+}
+
+#scoreView .score-form .button-row.wide .secondary-action {
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+#scoreView .score-form.is-defense {
+  display: grid;
+}
+
+#scoreView .score-form.is-defense label.wide,
+#scoreView .score-form.is-defense .auto-score {
+  display: none;
+}
+
+#scoreView .score-form.is-defense .button-row.wide {
+  grid-column: 1 / -1;
+  grid-row: auto;
+}
+
+#scoreView .spray-panel.is-defense {
+  opacity: 0.75;
+}
+
+#scoreView .opponent-face {
+  position: absolute;
+  inset: 0;
+}
+
+#scoreView .pitch-panel.is-opponent .opponent-face {
+  pointer-events: none;
+}
+
+#scoreView .pitch-panel.is-opponent .opponent-face .mini-head,
+#scoreView .pitch-panel.is-opponent .opponent-face .pitcher-row,
+#scoreView .pitch-panel.is-opponent .opponent-face .pitch-buttons,
+#scoreView .pitch-panel.is-opponent .opponent-face .pitch-trail,
+#scoreView .pitch-panel.is-opponent .opponent-face .button-row,
+#scoreView .pitch-panel.is-opponent .opponent-face .opponent-outcomes {
+  pointer-events: auto;
+}
+
+#scoreView .opponent-face .pitcher-row {
+  position: absolute;
+  top: 96px;
+  left: 12px;
+  width: min(520px, calc(100% - 24px));
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+#scoreView .opponent-face .opponent-outcomes {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  width: min(680px, calc(100% - 24px));
+  transform: translateX(-50%);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
 @media (max-width: 940px) {
   .pitcher-row {
     grid-template-columns: 1fr;
@@ -2519,5 +2864,92 @@ button:focus-visible {
 
   #scoreView .base-tracker {
     min-height: 132px;
+  }
+}
+
+@media (max-width: 940px) {
+  #scoreView .score-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #scoreView .play-panel {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 620px) {
+  #scoreView .spray-panel,
+  #scoreView .spray-chart {
+    min-height: 620px;
+  }
+
+  #scoreView .spray-panel .mini-head {
+    top: 8px;
+    left: 8px;
+    width: calc(100% - 16px);
+  }
+
+  #scoreView .batter-face .mini-head,
+  #scoreView .opponent-face .mini-head {
+    top: 74px;
+    width: calc(100% - 16px);
+  }
+
+  #scoreView .pitch-buttons,
+  #scoreView .button-group[aria-label="Select batted ball result"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #scoreView .pitch-buttons,
+  #scoreView .outcome-face {
+    bottom: 12px;
+    width: calc(100% - 16px);
+  }
+
+  #scoreView .pitch-trail {
+    bottom: 150px;
+    width: calc(100% - 16px);
+  }
+
+  #scoreView .steal-grid,
+  #scoreView .runner-play-grid {
+    bottom: 214px;
+    width: min(220px, calc(50% - 12px));
+  }
+
+  #scoreView .runner-play-grid {
+    left: 8px;
+  }
+
+  #scoreView .steal-grid {
+    right: 8px;
+  }
+
+  #scoreView .score-form {
+    grid-template-columns: 1fr;
+  }
+
+  #scoreView .score-form .auto-score,
+  #scoreView .score-form label.wide,
+  #scoreView .score-form .button-row.wide {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  #scoreView .score-form .button-row.wide {
+    justify-content: flex-start;
+  }
+
+  #scoreView .opponent-face .pitcher-row {
+    top: 150px;
+    left: 8px;
+    width: calc(100% - 16px);
+  }
+
+  #scoreView .opponent-face .opponent-outcomes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    bottom: 12px;
+    width: calc(100% - 16px);
   }
 }

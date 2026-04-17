@@ -2712,6 +2712,8 @@ function renderAtBat() {
     : `<span class="player-meta">No pitches in this plate appearance.</span>`;
   els.abCard.classList.toggle("is-opponent", isOpponentHalf);
   els.scorerStack.classList.toggle("is-defense", isOpponentHalf);
+  els.abCard.classList.toggle("is-placing", !isOpponentHalf && awaitingSprayLocation);
+  els.scorerStack.classList.toggle("is-placing", !isOpponentHalf && awaitingSprayLocation);
   els.abCard.classList.toggle("is-outcome", !isOpponentHalf && Boolean(game.atBat.pendingInPlay));
   els.bipPanel.classList.toggle("is-visible", Boolean(game.atBat.pendingInPlay));
   els.scoreForm.classList.toggle("is-defense", isOpponentHalf);
