@@ -750,27 +750,31 @@
 
     <template id="playerCardTemplate">
       <article class="player-card">
-        <div class="player-topline">
-          <div>
-            <span class="number-pill"></span>
-            <h3></h3>
-            <p></p>
+        <div class="player-card-logo" aria-hidden="true"></div>
+        <div class="player-card-overlay" aria-hidden="true"></div>
+        <div class="player-card-content">
+          <div class="player-topline">
+            <div>
+              <span class="number-pill"></span>
+              <h3></h3>
+              <p></p>
+            </div>
+            <label class="active-toggle">
+              Active
+              <input type="checkbox">
+            </label>
           </div>
-          <label class="active-toggle">
-            Active
-            <input type="checkbox">
-          </label>
-        </div>
-        <div class="player-edit-row">
-          <label>Name <input data-player-edit="name" autocomplete="off"></label>
-          <label>Number <input data-player-edit="number" autocomplete="off" inputmode="numeric"></label>
-        </div>
-        <div class="stat-strip"></div>
-        <div class="grade-row">
-          <label>Contact <input data-grade="contact" type="range" min="20" max="80"></label>
-          <label>Power <input data-grade="power" type="range" min="20" max="80"></label>
-          <label>Speed <input data-grade="speed" type="range" min="20" max="80"></label>
-          <label>Defense <input data-grade="defense" type="range" min="20" max="80"></label>
+          <div class="player-edit-row">
+            <label>Name <input data-player-edit="name" autocomplete="off"></label>
+            <label>Number <input data-player-edit="number" autocomplete="off" inputmode="numeric"></label>
+          </div>
+          <div class="stat-strip"></div>
+          <div class="grade-row">
+            <label>Contact <input data-grade="contact" type="range" min="20" max="80"></label>
+            <label>Power <input data-grade="power" type="range" min="20" max="80"></label>
+            <label>Speed <input data-grade="speed" type="range" min="20" max="80"></label>
+            <label>Defense <input data-grade="defense" type="range" min="20" max="80"></label>
+          </div>
         </div>
       </article>
     </template>
