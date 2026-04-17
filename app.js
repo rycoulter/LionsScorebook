@@ -226,6 +226,8 @@ const pitchLabels = {
   in_play: "Ball in play"
 };
 
+const defensivePositions = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"];
+
 const battedBallResults = new Set(["1B", "2B", "3B", "HR", "ROE", "FC", "DP", "GO", "FO", "LO", "SAC"]);
 
 const PITTSBURGH_NABA_URL = "https://www.pittsburghnaba.org/teams/?s=baseball&u=PITTSBURGHNABA";
@@ -510,6 +512,8 @@ let awaitingSprayLocation = false;
 let awaitingRunnerDecision = false;
 let scoringStep = "pitch";
 let pendingRunnerChoices = {};
+let pendingOutType = "";
+let pendingOutFielder = "";
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
@@ -808,6 +812,15 @@ function createGame(options = {}) {
 
 function makeGame(opponent = "Wildcats") {
   return createGame({ opponent });
+}
+
+function makeUniqueGame(options = {}) {
+  const existingIds = new Set(state?.games?.map((game) => game.id) || []);
+  let game = createGame(options);
+  while (existingIds.has(game.id)) {
+    game = createGame({ ...(typeof options === "string" ? { opponent: options } : options), id: createId("game") });
+  }
+  return game;
 }
 
 function seedState() {
@@ -1199,7 +1212,7 @@ function bindEvents() {
   els.tabs.forEach((tab) => {
     tab.addEventListener("click", () => switchView(tab.dataset.view));
   });
-  els.homeScoreGameBtn.addEventListener("click", () => switchView("score"));
+  els.homeScoreGameBtn.addEventListener("click", openCurrentGameForScoring);
   els.homeGamesBtn.addEventListener("click", () => switchView("games"));
   els.homeScoutingBtn.addEventListener("click", openNextGameScouting);
   els.scorebookGameSelect.addEventListener("change", () => {
@@ -1289,43 +1302,10 @@ function bindEvents() {
     button.addEventListener("click", () => applyEvent(activeGame(), { type: "resolve_play", result: button.dataset.opponentResult }));
   });
 
-  els.opponentInput.addEventListener("input", () => {
-    const game = activeGame();
-    game.opponent = els.opponentInput.value.trim() || "Opponent";
-    if (game.teams?.home) game.teams.home.name = game.opponent;
-    saveState();
-    renderScoreboard();
-    renderGames();
-    renderArchive();
-  });
-
-  els.gameDateInput.addEventListener("change", () => {
-    activeGame().date = els.gameDateInput.value || todayValue();
-    saveState();
-    renderScoreboard();
-    renderGames();
-    renderArchive();
-  });
-
-  els.gameTimeInput.addEventListener("change", () => {
-    activeGame().time = els.gameTimeInput.value || "";
-    saveState();
-    renderScoreboard();
-    renderGames();
-    renderArchive();
-  });
-
-  els.gameLocationInput.addEventListener("input", () => {
-    activeGame().location = els.gameLocationInput.value.trim();
-    saveState();
-    renderGames();
-  });
-
-  els.gameNotesInput.addEventListener("input", () => {
-    activeGame().notes = els.gameNotesInput.value.trim();
-    saveState();
-    renderGames();
-  });
+  [els.opponentInput, els.gameDateInput, els.gameTimeInput, els.gameLocationInput, els.gameNotesInput]
+    .forEach((input) => input.addEventListener("input", () => {
+      input.dataset.dirty = "true";
+    }));
 
   els.scoreOpponentLineupInput.addEventListener("input", () => {
     updateOpponentLineup(els.scoreOpponentLineupInput.value);
@@ -1333,7 +1313,7 @@ function bindEvents() {
 
   els.liveLineup.addEventListener("blur", (event) => {
     const item = event.target.closest("[data-opponent-lineup-index]");
-    if (item) updateOpponentLineupName(Number(item.dataset.opponentLineupIndex), item.textContent.trim());
+    if (item) updateOpponentLineupName(Number(item.dataset.opponentLineupIndex), "value" in item ? item.value.trim() : item.textContent.trim());
   }, true);
 
   els.liveLineup.addEventListener("keydown", (event) => {
@@ -1509,7 +1489,7 @@ function switchView(view) {
 function activeGame() {
   let game = state.games.find((item) => item.id === state.activeGameId);
   if (!game) {
-    game = makeGame();
+    game = makeUniqueGame({ opponent: "Opponent" });
     state.games.push(game);
     state.activeGameId = game.id;
     saveGameToLibrary(game, true);
@@ -1548,9 +1528,31 @@ function parseOpponentLineup(value) {
     .filter(Boolean);
 }
 
-function opponentLineup(game = activeGame()) {
-  if (game.opponentLineup && game.opponentLineup.length) return game.opponentLineup;
+function defaultOpponentNames() {
   return ["Batter 1", "Batter 2", "Batter 3", "Batter 4", "Batter 5", "Batter 6", "Batter 7", "Batter 8", "Batter 9"];
+}
+
+function opponentLineupEntriesForGame(game = activeGame()) {
+  if (!game.lineups) game.lineups = { away: deepClone(game.lineupEntries || []), home: [] };
+  const sourceEntries = Array.isArray(game.lineups.home) && game.lineups.home.length
+    ? game.lineups.home
+    : opponentLineupEntries(game.opponentLineup?.length ? game.opponentLineup : defaultOpponentNames());
+  const entries = sourceEntries.map((entry, index) => {
+    const name = String(entry.name || game.opponentLineup?.[index] || `Batter ${index + 1}`).trim() || `Batter ${index + 1}`;
+    return {
+      id: entry.id || createId("opp"),
+      name,
+      order: index + 1,
+      active: entry.active !== false
+    };
+  });
+  game.lineups.home = entries;
+  game.opponentLineup = entries.map((entry) => entry.name);
+  return entries;
+}
+
+function opponentLineup(game = activeGame()) {
+  return opponentLineupEntriesForGame(game).map((entry) => entry.name);
 }
 
 function currentOpponentBatter(game = activeGame()) {
@@ -1567,6 +1569,7 @@ function nextOpponentBatterIndex(game) {
 function updateOpponentLineup(value) {
   const game = activeGame();
   game.opponentLineup = parseOpponentLineup(value);
+  if (!game.lineups) game.lineups = { away: deepClone(game.lineupEntries || []), home: [] };
   game.lineups.home = opponentLineupEntries(game.opponentLineup);
   game.opponentBatterIndex = Math.min(game.opponentBatterIndex || 0, Math.max(game.opponentLineup.length - 1, 0));
   saveState();
@@ -1577,12 +1580,15 @@ function updateOpponentLineup(value) {
 
 function updateOpponentLineupName(index, name) {
   const game = activeGame();
-  const lineup = opponentLineup(game);
+  const entries = opponentLineupEntriesForGame(game);
   if (!name) name = `Batter ${index + 1}`;
-  lineup[index] = name;
-  game.opponentLineup = lineup;
-  game.lineups.home = opponentLineupEntries(lineup);
-  els.scoreOpponentLineupInput.value = lineup.join("\n");
+  while (entries.length <= index) {
+    entries.push({ id: createId("opp"), name: `Batter ${entries.length + 1}`, order: entries.length + 1, active: true });
+  }
+  entries[index] = { ...entries[index], name, order: index + 1, active: true };
+  game.lineups.home = entries;
+  game.opponentLineup = entries.map((entry) => entry.name);
+  els.scoreOpponentLineupInput.value = game.opponentLineup.join("\n");
   saveState();
   renderAtBat();
   renderLiveLineup();
@@ -1809,6 +1815,7 @@ function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
     pitches: deepClone(plateAppearance.pitches),
     count: `${lastPitch?.ballsAfter ?? 0}-${lastPitch?.strikesAfter ?? 0}`,
     spray: result.sprayChart,
+    fieldedBy: result.fieldedBy,
     errorOnPlay: result.errorOnPlay,
     errorFielderPosition: result.errorFielderPosition,
     runnerAdvancements: deepClone(result.runnerAdvancements),
@@ -2061,6 +2068,8 @@ function clearPendingPlayState(game = activeGame(), clearAtBat = false) {
   pendingSpray = null;
   pendingRunnerOutBases = [];
   pendingRunnerChoices = {};
+  pendingOutType = "";
+  pendingOutFielder = "";
   bipOutcomeChosen = false;
   awaitingSprayLocation = false;
   awaitingRunnerDecision = false;
@@ -2119,12 +2128,38 @@ function applyEvent(game = activeGame(), event = {}) {
   }
 
   if (event.type === "ball_in_play") {
-    const result = normalizeBallInPlayOutcome(event.outcome || event.result);
+    const rawOutcome = event.outcome || event.result;
+    if (String(rawOutcome || "").toUpperCase() === "OUT") {
+      pendingOutType = "";
+      pendingOutFielder = "";
+      if (game.atBat) game.atBat.pendingInPlay = false;
+      scoringStep = "out_type";
+      els.sprayHint.textContent = "Choose the out type before marking the field.";
+      renderAtBat();
+      renderScoringStepPanel();
+      return "OUT";
+    }
+    const result = normalizeBallInPlayOutcome(rawOutcome);
     if (!battedBallResults.has(result)) return applyEvent(game, { type: "resolve_play", result });
+    if (["GO", "FO", "LO"].includes(result)) {
+      pendingOutType = result;
+      pendingOutFielder = event.fieldedBy || pendingOutFielder || "";
+      if (!pendingOutFielder) {
+        if (game.atBat) game.atBat.pendingInPlay = false;
+        scoringStep = "out_fielder";
+        els.sprayHint.textContent = "Choose the defender who recorded the out.";
+        renderAtBat();
+        renderScoringStepPanel();
+        return result;
+      }
+    }
     selectChoice("result", result, true);
     if (result === "HR") selectChoice("launch", "fb", true);
+    else if (eventRules[result]?.launch) selectChoice("launch", eventRules[result].launch, true);
     else if (els.launchSelect.value === "none") selectChoice("launch", event.launch || "ld", true);
     clearPendingPlayState(game, true);
+    pendingOutType = ["GO", "FO", "LO"].includes(result) ? result : "";
+    pendingOutFielder = event.fieldedBy || pendingOutFielder || "";
     bipOutcomeChosen = true;
     awaitingSprayLocation = true;
     awaitingRunnerDecision = false;
@@ -2468,6 +2503,7 @@ function logPlay() {
     contact: els.contactSelect.value,
     launch: rule.launch || els.launchSelect.value,
     sprayChart: battedBallResults.has(result) ? pendingSpray : null,
+    fieldedBy: ["GO", "FO", "LO"].includes(result) ? pendingOutFielder : "",
     runnerAdvancements,
     outsRecorded,
     errorOnPlay: result === "ROE" || Boolean(els.errorFielderSelect.value),
@@ -2862,7 +2898,7 @@ function undoLastPlay() {
 }
 
 function startNewGame() {
-  const game = makeGame("Opponent");
+  const game = makeUniqueGame({ opponent: "Opponent" });
   state.games.push(game);
   state.activeGameId = game.id;
   saveGameToLibrary(game, true);
@@ -2873,7 +2909,7 @@ function startNewGame() {
 
 function scheduleGame() {
   const opponent = els.opponentInput.value.trim() || "Opponent";
-  const game = makeGame(opponent);
+  const game = makeUniqueGame({ opponent });
   game.date = els.gameDateInput.value || todayValue();
   game.time = els.gameTimeInput.value || "";
   game.location = els.gameLocationInput.value.trim();
@@ -2884,7 +2920,20 @@ function scheduleGame() {
   saveGameToLibrary(game, true);
   clearPendingPlayState(game, true);
   saveState();
+  resetGameCreationForm();
   render();
+}
+
+function resetGameCreationForm() {
+  els.opponentInput.value = "";
+  els.gameDateInput.value = todayValue();
+  els.gameTimeInput.value = "";
+  els.gameLocationInput.value = "";
+  els.gameNotesInput.value = "";
+  [els.opponentInput, els.gameDateInput, els.gameTimeInput, els.gameLocationInput, els.gameNotesInput]
+    .forEach((input) => {
+      delete input.dataset.dirty;
+    });
 }
 
 function scoreScheduledGame(gameId) {
@@ -2990,7 +3039,7 @@ function renderHome() {
 }
 
 function seasonRecord() {
-  const completed = state.games.filter((game) => game.status === "completed" || game.inning > 7);
+  const completed = state.games.filter(gameIsFinal);
   const wins = completed.filter((game) => (game.score?.lions || 0) > (game.score?.opponent || 0)).length;
   const losses = completed.filter((game) => (game.score?.lions || 0) < (game.score?.opponent || 0)).length;
   const ties = completed.filter((game) => (game.score?.lions || 0) === (game.score?.opponent || 0)).length;
@@ -3003,10 +3052,15 @@ function seasonRecord() {
   };
 }
 
+function gameIsFinal(game) {
+  return Boolean(game && (game.status === "completed" || game.status === "final" || Number(game.inning || 0) > 7));
+}
+
 function nextScheduledGame() {
   const today = todayValue();
   return [...state.games]
-    .filter((game) => game.status !== "completed")
+    .filter((game) => !gameIsFinal(game))
+    .filter((game) => (game.date || today) >= today)
     .sort((a, b) => {
       const aDate = a.date || today;
       const bDate = b.date || today;
@@ -3014,7 +3068,20 @@ function nextScheduledGame() {
       if (dateCompare) return dateCompare;
       return (a.time || "").localeCompare(b.time || "");
     })
-    .find((game) => (game.date || today) >= today) || state.games.find((game) => game.id === state.activeGameId);
+    [0] || null;
+}
+
+function openCurrentGameForScoring() {
+  const current = activeGame();
+  if (gameIsFinal(current)) {
+    const next = nextScheduledGame();
+    if (next) {
+      setActiveGame(next.id);
+      clearPendingPlayState(next, true);
+      saveState();
+    }
+  }
+  switchView("score");
 }
 
 function openNextGameScouting() {
@@ -3040,12 +3107,7 @@ function renderScoreboard() {
   const game = activeGame();
   if (!game.atBat) game.atBat = makeAtBat();
   syncGameCurrent(game);
-  els.opponentInput.value = game.opponent;
-  els.gameDateInput.value = game.date;
-  els.gameTimeInput.value = game.time || "";
-  els.gameLocationInput.value = game.location || "";
-  els.gameNotesInput.value = game.notes || "";
-  els.scoreOpponentLineupInput.value = (game.opponentLineup || []).join("\n");
+  els.scoreOpponentLineupInput.value = opponentLineup(game).join("\n");
   els.gameTitle.textContent = `Lions vs ${game.opponent}`;
   const inningLabel = game.status === "completed" ? "Final" : `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}`;
   const headerBatter = game.half === "top" ? currentBatterLabel(game) : currentOpponentBatter(game);
@@ -3163,6 +3225,18 @@ function handleScoringPanelClick(event) {
     applyEvent(activeGame(), { type: "ball_in_play", outcome: button.dataset.stepOutcome });
     return;
   }
+  if (button.dataset.outType) {
+    pendingOutType = button.dataset.outType;
+    pendingOutFielder = "";
+    scoringStep = "out_fielder";
+    renderScoringStepPanel();
+    return;
+  }
+  if (button.dataset.outFielder) {
+    pendingOutFielder = button.dataset.outFielder;
+    applyEvent(activeGame(), { type: "ball_in_play", outcome: pendingOutType || "GO", fieldedBy: pendingOutFielder });
+    return;
+  }
   if (button.dataset.runnerChoiceBase) {
     const choice = button.dataset.runnerChoice;
     applyEvent(activeGame(), {
@@ -3193,6 +3267,13 @@ function backScoringStep() {
   } else if (scoringStep === "spray") {
     pendingSpray = null;
     awaitingSprayLocation = false;
+    if (game.atBat) game.atBat.pendingInPlay = !pendingOutType;
+    scoringStep = pendingOutType ? "out_fielder" : "outcome";
+  } else if (scoringStep === "out_fielder") {
+    pendingOutFielder = "";
+    scoringStep = "out_type";
+  } else if (scoringStep === "out_type") {
+    pendingOutType = "";
     if (game.atBat) game.atBat.pendingInPlay = true;
     scoringStep = "outcome";
   } else if (scoringStep === "outcome" || scoringStep === "more") {
@@ -3216,7 +3297,7 @@ function renderScoringStepPanel() {
   }
   if (awaitingRunnerDecision) scoringStep = "runners";
   else if (awaitingSprayLocation) scoringStep = "spray";
-  else if (game.atBat.pendingInPlay) scoringStep = "outcome";
+  else if (game.atBat.pendingInPlay && !["out_type", "out_fielder"].includes(scoringStep)) scoringStep = "outcome";
   const config = scoringStepConfig(game);
   els.scoringStepPanel.dataset.step = scoringStep;
   els.scoringStepEyebrow.textContent = config.eyebrow;
@@ -3252,11 +3333,33 @@ function scoringStepConfig(game) {
         ${stepButton("Double", "step-outcome", "2B", "hit")}
         ${stepButton("Triple", "step-outcome", "3B", "hit")}
         ${stepButton("Home Run", "step-outcome", "HR", "hit")}
-        ${stepButton("Out", "step-outcome", "GO", "out")}
+        ${stepButton("Out", "step-outcome", "OUT", "out")}
         ${stepButton("Error", "step-outcome", "ROE", "error")}
         ${stepButton("Fielder's Choice", "step-outcome", "FC", "out")}
         ${stepButton("Double Play", "step-outcome", "DP", "out")}
         ${stepButton("Sacrifice", "step-outcome", "SAC", "out")}
+      </div>`
+    };
+  }
+  if (scoringStep === "out_type") {
+    return {
+      eyebrow: "Out Detail",
+      title: "Choose Out Type",
+      hint: "Scorebook notation depends on the out type and fielder.",
+      body: `<div class="step-grid step-grid-three">
+        ${stepButton("Ground Out", "out-type", "GO", "out")}
+        ${stepButton("Fly Out", "out-type", "FO", "out")}
+        ${stepButton("Line Out", "out-type", "LO", "out")}
+      </div>`
+    };
+  }
+  if (scoringStep === "out_fielder") {
+    return {
+      eyebrow: "Out Detail",
+      title: `${resultLabel(pendingOutType || "GO")} - Fielder`,
+      hint: "Choose the primary defender who made the play.",
+      body: `<div class="step-grid step-grid-fielders">
+        ${defensivePositions.map((position) => stepButton(position, "out-fielder", position, "neutral")).join("")}
       </div>`
     };
   }
@@ -3633,14 +3736,18 @@ function renderBatterSelect() {
 function renderLiveLineup() {
   const game = activeGame();
   if (game.half === "bottom") {
-    const hitters = opponentLineup(game);
+    const hitters = opponentLineupEntriesForGame(game);
     els.lineupCount.textContent = `${hitters.length} hitters`;
     els.liveLineup.innerHTML = hitters
-      .map((name, index) => {
+      .map((entry, index) => {
         const current = index === (game.opponentBatterIndex || 0) ? " is-current" : "";
-        return `<li class="${current}">
-          <strong contenteditable="true" spellcheck="false" data-opponent-lineup-index="${index}">${escapeHtml(name)}</strong>
-          <div class="player-meta">${escapeHtml(game.opponent)} batting | Click name to edit</div>
+        return `<li class="opponent-lineup-row${current}">
+          <div class="lineup-order">${index + 1}</div>
+          <label>
+            <span>Opponent hitter</span>
+            <input value="${escapeHtml(entry.name)}" spellcheck="false" data-opponent-lineup-index="${index}">
+          </label>
+          <div class="player-meta">${escapeHtml(game.opponent)} batting | Type to edit</div>
         </li>`;
       })
       .join("");
@@ -3819,9 +3926,7 @@ function renderScorebookCell(events) {
 
 function scorebookNotation(event) {
   const result = event.result;
-  if (result === "GO") return "6-3";
-  if (result === "FO") return "F8";
-  if (result === "LO") return "L6";
+  if (["GO", "FO", "LO"].includes(result)) return scorebookOutNotation(result, event.fieldedBy);
   if (result === "K") return "K";
   if (result === "BB") return "BB";
   if (result === "HBP") return "HP";
@@ -3829,6 +3934,18 @@ function scorebookNotation(event) {
   if (result === "FC") return "FC";
   if (result === "DP") return "DP";
   if (result === "SAC") return "SAC";
+  return result;
+}
+
+function scorebookOutNotation(result, fieldedBy = "") {
+  const number = fielderNumber(fieldedBy);
+  if (!number) return result;
+  if (result === "GO") {
+    if (fieldedBy === "1B") return "3A";
+    return `${number}-3`;
+  }
+  if (result === "FO") return `F${number}`;
+  if (result === "LO") return `L${number}`;
   return result;
 }
 
@@ -4032,7 +4149,7 @@ function renderGames() {
 }
 
 function renderRecordSummary() {
-  const completed = state.games.filter((game) => game.status === "completed" || game.inning > 7);
+  const completed = state.games.filter(gameIsFinal);
   const wins = completed.filter((game) => (game.score?.lions || 0) > (game.score?.opponent || 0)).length;
   const losses = completed.filter((game) => (game.score?.lions || 0) < (game.score?.opponent || 0)).length;
   const ties = completed.filter((game) => (game.score?.lions || 0) === (game.score?.opponent || 0)).length;

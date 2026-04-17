@@ -4487,6 +4487,10 @@ label {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+#scoreView .step-grid-fielders {
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+}
+
 #scoreView .step-grid-three {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -4700,6 +4704,37 @@ label {
   color: rgba(255, 255, 255, 0.72);
 }
 
+#scoreView .opponent-lineup-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px 10px;
+  align-items: center;
+}
+
+#scoreView .opponent-lineup-row .player-meta {
+  grid-column: 2;
+}
+
+#scoreView .opponent-lineup-row label {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+#scoreView .opponent-lineup-row input {
+  min-height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: rgba(3, 10, 36, 0.66);
+  color: var(--white);
+  font-weight: 900;
+}
+
 #scoreView .lineup-list .is-current {
   border-color: rgba(245, 189, 33, 0.74);
   background: linear-gradient(135deg, rgba(245, 189, 33, 0.24), rgba(255, 255, 255, 0.08));
@@ -4762,6 +4797,47 @@ label {
   color: #172033;
 }
 
+#scoreView .spray-panel .mini-head {
+  display: none;
+}
+
+.stats-table td,
+.stats-table td:first-child,
+.stats-table th,
+.stats-table th button {
+  color: var(--text-soft);
+}
+
+.stats-table tbody td,
+.stats-table tbody td:first-child {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.stats-table-wrap,
+.stats-spray-shell,
+.leader-card,
+.metric-card,
+.breakdown-card,
+.scouting-card,
+.coach-card {
+  color: var(--white);
+}
+
+.coach-card p,
+.coach-card li,
+.scouting-card p,
+.scouting-card li,
+.scout-plan li {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.coach-card .player-meta,
+.scouting-card .player-meta,
+.stats-subhead,
+.table-note {
+  color: rgba(255, 255, 255, 0.68);
+}
+
 @media (max-width: 940px) {
   #scoreView .score-status-card {
     top: 0;
@@ -4794,7 +4870,8 @@ label {
 
   #scoreView .step-grid-pitches,
   #scoreView .step-grid-outcomes,
-  #scoreView .step-grid-opponent {
+  #scoreView .step-grid-opponent,
+  #scoreView .step-grid-fielders {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
