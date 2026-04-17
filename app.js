@@ -507,6 +507,8 @@ let scorebookGameId = "";
 let bipOutcomeChosen = false;
 let awaitingSprayLocation = false;
 let awaitingRunnerDecision = false;
+let scoringStep = "pitch";
+let pendingRunnerChoices = {};
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
@@ -521,6 +523,8 @@ const els = {
   homeBattingLeaders: document.getElementById("homeBattingLeaders"),
   homePitchingLeaders: document.getElementById("homePitchingLeaders"),
   gameTitle: document.getElementById("gameTitle"),
+  headerBatterDisplay: document.getElementById("headerBatterDisplay"),
+  headerCountDisplay: document.getElementById("headerCountDisplay"),
   gameContext: document.getElementById("gameContext"),
   inningStateDisplay: document.getElementById("inningStateDisplay"),
   outsStateDisplay: document.getElementById("outsStateDisplay"),
@@ -564,6 +568,12 @@ const els = {
   runnerPlayControls: document.getElementById("runnerPlayControls"),
   runnerOutButtons: [...document.querySelectorAll("[data-runner-out-base]")],
   resolvePlayBtn: document.querySelector("[data-resolve-play]"),
+  scoringStepPanel: document.getElementById("scoringStepPanel"),
+  scoringStepEyebrow: document.getElementById("scoringStepEyebrow"),
+  scoringStepTitle: document.getElementById("scoringStepTitle"),
+  scoringStepHint: document.getElementById("scoringStepHint"),
+  scoringStepBody: document.getElementById("scoringStepBody"),
+  panelUndoPitchBtn: document.getElementById("panelUndoPitchBtn"),
   scoreForm: document.getElementById("scoreForm"),
   choiceButtons: [...document.querySelectorAll("[data-choice-group]")],
   gameForm: document.getElementById("gameForm"),
@@ -1200,6 +1210,9 @@ function bindEvents() {
     event.preventDefault();
   });
 
+  els.scoringStepPanel.addEventListener("click", handleScoringPanelClick);
+  els.panelUndoPitchBtn.addEventListener("click", undoPitch);
+
   els.gameForm.addEventListener("submit", (event) => {
     event.preventDefault();
     scheduleGame();
@@ -1358,6 +1371,7 @@ function bindEvents() {
     saveState();
     renderAtBat();
     renderSprayChart();
+    renderScoringStepPanel();
   });
 
   els.undoPitchBtn.addEventListener("click", undoPitch);
@@ -1372,6 +1386,7 @@ function bindEvents() {
     }
     saveState();
     renderAtBat();
+    renderScoringStepPanel();
   });
   els.undoOpponentPitchBtn.addEventListener("click", undoPitch);
   els.clearBipBtn.addEventListener("click", () => {
@@ -1382,6 +1397,7 @@ function bindEvents() {
     saveState();
     renderAtBat();
     renderSprayChart();
+    renderScoringStepPanel();
   });
   els.scorerStack.addEventListener("pointerdown", setSprayFromPointer);
   els.sprayChart.addEventListener("keydown", (event) => {
@@ -1986,10 +2002,17 @@ function selectChoice(group, value, silent = false) {
 function clearPendingPlayState(game = activeGame(), clearAtBat = false) {
   pendingSpray = null;
   pendingRunnerOutBases = [];
+  pendingRunnerChoices = {};
   bipOutcomeChosen = false;
   awaitingSprayLocation = false;
   awaitingRunnerDecision = false;
+  scoringStep = "pitch";
   if (clearAtBat && game?.atBat) game.atBat.pendingInPlay = false;
+}
+
+function setScoringStep(step) {
+  scoringStep = step;
+  renderScoringStepPanel();
 }
 
 function resetBipChoices() {
@@ -2027,11 +2050,13 @@ function applyEvent(game = activeGame(), event = {}) {
       if (game.atBat) game.atBat.pendingInPlay = true;
       if (!battedBallResults.has(els.resultSelect.value)) selectChoice("result", "1B", true);
       els.sprayHint.textContent = "Select the outcome, then tap where the ball landed or was fielded.";
+      scoringStep = "outcome";
     }
     saveState();
     renderAtBat();
     renderSprayChart();
     renderRunnerTracker();
+    renderScoringStepPanel();
     return pitch;
   }
 
@@ -2047,11 +2072,13 @@ function applyEvent(game = activeGame(), event = {}) {
     awaitingRunnerDecision = false;
     if (game.atBat) game.atBat.pendingInPlay = false;
     els.sprayHint.textContent = "Tap where the ball landed or was fielded.";
+    scoringStep = "spray";
     saveState();
     renderAtBat();
     renderSprayChart();
     renderRunnerTracker();
     renderAutoScorePreview();
+    renderScoringStepPanel();
     return result;
   }
 
@@ -2062,21 +2089,21 @@ function applyEvent(game = activeGame(), event = {}) {
     if (bipOutcomeChosen && battedBallResults.has(result)) {
       awaitingSprayLocation = false;
       if (game.atBat) game.atBat.pendingInPlay = false;
-      if (!needsRunnerDecision(game, result)) {
-        els.sprayHint.textContent = `Marked ${pendingSpray.zone}. Resolving the play.`;
-        return applyEvent(game, { type: "resolve_play", result });
-      }
+      initializeRunnerDecisionChoices(game, result);
       awaitingRunnerDecision = true;
       els.sprayHint.textContent = "Review runner outs, then tap Resolve Play.";
+      scoringStep = "runners";
     } else {
       if (game.atBat) game.atBat.pendingInPlay = true;
       els.sprayHint.textContent = `Marked ${pendingSpray.zone}. Select the outcome to continue.`;
+      scoringStep = "outcome";
     }
     saveState();
     renderAtBat();
     renderRunnerTracker();
     renderSprayChart();
     renderAutoScorePreview();
+    renderScoringStepPanel();
     return pendingSpray;
   }
 
@@ -2085,10 +2112,11 @@ function applyEvent(game = activeGame(), event = {}) {
       recordSteal(event.target, "out");
       return null;
     }
-    togglePendingRunnerOut(event.base);
+    if (event.base) setRunnerChoice(event.base, "out");
     awaitingRunnerDecision = true;
     renderAutoScorePreview();
-    return pendingRunnerOutBases;
+    renderScoringStepPanel();
+    return pendingRunnerChoices;
   }
 
   if (event.type === "runner_advance") {
@@ -2096,8 +2124,11 @@ function applyEvent(game = activeGame(), event = {}) {
       recordSteal(event.target, "safe");
       return null;
     }
+    if (event.base && event.to) setRunnerChoice(event.base, event.to);
     awaitingRunnerDecision = true;
     renderRunnerTracker();
+    renderAutoScorePreview();
+    renderScoringStepPanel();
     return null;
   }
 
@@ -2114,12 +2145,15 @@ function applyEvent(game = activeGame(), event = {}) {
       awaitingRunnerDecision = false;
       if (game.atBat) game.atBat.pendingInPlay = false;
       els.sprayHint.textContent = "Tap where the ball landed or was fielded before resolving.";
+      scoringStep = "spray";
       renderAtBat();
       renderRunnerTracker();
+      renderScoringStepPanel();
       return null;
     }
     awaitingSprayLocation = false;
     awaitingRunnerDecision = false;
+    scoringStep = "pitch";
     logPlay();
     return result;
   }
@@ -2159,6 +2193,91 @@ function needsRunnerDecision(game = activeGame(), result = els.resultSelect.valu
   if (result === "HR") return false;
   const bases = game.current?.runners || game.bases || emptyBases(false);
   return ["first", "second", "third"].some((base) => isOccupied(bases[base]));
+}
+
+function setRunnerChoice(base, to) {
+  pendingRunnerChoices = { ...pendingRunnerChoices, [base]: to };
+  if (base !== "batter") {
+    pendingRunnerOutBases = to === "out"
+      ? [...new Set([...pendingRunnerOutBases, base])]
+      : pendingRunnerOutBases.filter((item) => item !== base);
+  }
+}
+
+function initializeRunnerDecisionChoices(game = activeGame(), result = els.resultSelect.value) {
+  const batterId = currentBatterId(game);
+  const bases = deepClone(game.current?.runners || game.bases || emptyBases(false));
+  const defaults = {};
+  defaultRunnerAdvancements(game, result, batterId).forEach((advancement) => {
+    if (advancement.from) defaults[advancement.from] = advancement.out || advancement.remove ? "out" : advancement.to;
+  });
+  pendingRunnerChoices = {};
+  ["third", "second", "first"].forEach((base) => {
+    if (isOccupied(bases[base])) pendingRunnerChoices[base] = defaults[base] || "hold";
+  });
+  pendingRunnerChoices.batter = defaults.batter || defaultBatterDestination(result);
+  pendingRunnerOutBases = Object.entries(pendingRunnerChoices)
+    .filter(([base, to]) => base !== "batter" && to === "out")
+    .map(([base]) => base);
+}
+
+function defaultBatterDestination(result) {
+  if (result === "1B" || result === "ROE" || result === "FC") return "first";
+  if (result === "2B") return "second";
+  if (result === "3B") return "third";
+  if (result === "HR") return "home";
+  return "out";
+}
+
+function runnerDecisionCards(game = activeGame(), result = els.resultSelect.value) {
+  const bases = game.current?.runners || game.bases || emptyBases(false);
+  const cards = [];
+  ["third", "second", "first"].forEach((base) => {
+    if (isOccupied(bases[base])) {
+      cards.push({
+        base,
+        label: runnerName(bases[base]) || baseLabel(base),
+        start: baseLabel(base),
+        options: runnerOptionsForBase(base)
+      });
+    }
+  });
+  cards.push({
+    base: "batter",
+    label: currentBatterLabel(game),
+    start: "Batter",
+    options: runnerOptionsForBase("batter")
+  });
+  cards.forEach((card) => {
+    if (!pendingRunnerChoices[card.base]) {
+      setRunnerChoice(card.base, card.base === "batter" ? defaultBatterDestination(result) : "hold");
+    }
+  });
+  return cards;
+}
+
+function runnerOptionsForBase(base) {
+  if (base === "batter") return ["first", "second", "third", "home", "out"];
+  if (base === "first") return ["hold", "second", "third", "home", "out"];
+  if (base === "second") return ["hold", "third", "home", "out"];
+  return ["hold", "home", "out"];
+}
+
+function baseLabel(base) {
+  return {
+    batter: "Batter",
+    first: "1B",
+    second: "2B",
+    third: "3B",
+    home: "Home",
+    hold: "Hold",
+    out: "Out"
+  }[base] || base;
+}
+
+function currentBatterLabel(game = activeGame()) {
+  const player = state.roster.find((item) => item.id === currentBatterId(game));
+  return player ? `#${player.number} ${player.name}` : "Batter";
 }
 
 function logPitch(type) {
@@ -2218,6 +2337,7 @@ function undoPitch() {
   }
   saveState();
   renderAtBat();
+  renderScoringStepPanel();
 }
 
 function logPlay() {
@@ -2280,6 +2400,8 @@ function automaticRbiForPlay(result, runs) {
 }
 
 function runnerAdvancementsForPlay(game, result, batterId) {
+  const choiceKeys = Object.keys(pendingRunnerChoices);
+  if (choiceKeys.length) return runnerAdvancementsFromChoices(game, batterId, result);
   const advancements = defaultRunnerAdvancements(game, result, batterId);
   const bases = deepClone(game.current?.runners || game.bases || emptyBases(false));
   if (result === "DP") {
@@ -2299,6 +2421,27 @@ function runnerAdvancementsForPlay(game, result, batterId) {
     if (existingIndex >= 0) advancements.splice(existingIndex, 1);
     advancements.push({ runnerId, from: base, out: true });
   });
+  return advancements;
+}
+
+function runnerAdvancementsFromChoices(game, batterId, result) {
+  const bases = deepClone(game.current?.runners || game.bases || emptyBases(false));
+  const advancements = [];
+  ["third", "second", "first"].forEach((base) => {
+    const runnerId = bases[base];
+    if (!isOccupied(runnerId)) return;
+    const choice = pendingRunnerChoices[base] || "hold";
+    if (choice === "hold") return;
+    advancements.push(choice === "out"
+      ? { runnerId, from: base, out: true }
+      : { runnerId, from: base, to: choice });
+  });
+  const batterChoice = pendingRunnerChoices.batter || "out";
+  if (batterChoice === "out") {
+    if (!eventRules[result]?.out) advancements.push({ runnerId: batterId, from: "batter", out: true });
+  } else {
+    advancements.push({ runnerId: batterId, from: "batter", to: batterChoice });
+  }
   return advancements;
 }
 
@@ -2630,6 +2773,7 @@ function render() {
   renderHome();
   renderScoreboard();
   renderAtBat();
+  renderScoringStepPanel();
   renderRunnerTracker();
   renderSprayChart();
   renderBatterSelect();
@@ -2739,7 +2883,10 @@ function renderScoreboard() {
   els.scoreOpponentLineupInput.value = (game.opponentLineup || []).join("\n");
   els.gameTitle.textContent = `Lions vs ${game.opponent}`;
   const inningLabel = game.status === "completed" ? "Final" : `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}`;
+  const headerBatter = game.half === "top" ? currentBatterLabel(game) : currentOpponentBatter(game);
+  els.headerBatterDisplay.textContent = game.half === "top" ? `${headerBatter} batting` : `${headerBatter} batting for ${game.opponent}`;
   els.inningStateDisplay.textContent = inningLabel;
+  els.headerCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   els.outsStateDisplay.textContent = String(game.outs);
   els.gameContext.textContent = game.status === "completed"
     ? `Final after ${Math.min(game.inning, 7)} innings`
@@ -2818,6 +2965,215 @@ function renderAutoScorePreview() {
   els.runsInput.value = String(runs);
   els.rbiInput.value = String(rbi);
   els.autoScorePreview.textContent = `Auto: ${runs} run${runs === 1 ? "" : "s"}, ${rbi} RBI, ${extraOuts} out${extraOuts === 1 ? "" : "s"} on this result.`;
+}
+
+function handleScoringPanelClick(event) {
+  const button = event.target.closest("button");
+  if (!button) return;
+  if (button.dataset.scoreStepBack !== undefined) {
+    backScoringStep();
+    return;
+  }
+  if (button.dataset.stepPitch) {
+    applyEvent(activeGame(), { type: "pitch", outcome: button.dataset.stepPitch });
+    return;
+  }
+  if (button.dataset.stepAutoResult) {
+    applyEvent(activeGame(), { type: "resolve_play", result: button.dataset.stepAutoResult });
+    return;
+  }
+  if (button.dataset.stepMore !== undefined) {
+    setScoringStep("more");
+    return;
+  }
+  if (button.dataset.stepOutcome) {
+    applyEvent(activeGame(), { type: "ball_in_play", outcome: button.dataset.stepOutcome });
+    return;
+  }
+  if (button.dataset.runnerChoiceBase) {
+    const choice = button.dataset.runnerChoice;
+    applyEvent(activeGame(), {
+      type: choice === "out" ? "runner_out" : "runner_advance",
+      base: button.dataset.runnerChoiceBase,
+      to: choice
+    });
+    return;
+  }
+  if (button.dataset.confirmPlay !== undefined) {
+    applyEvent(activeGame(), { type: "resolve_play" });
+    return;
+  }
+  if (button.dataset.opponentResult) {
+    applyEvent(activeGame(), { type: "resolve_play", result: button.dataset.opponentResult });
+  }
+}
+
+function backScoringStep() {
+  const game = activeGame();
+  if (scoringStep === "runners") {
+    pendingRunnerChoices = {};
+    pendingRunnerOutBases = [];
+    pendingSpray = null;
+    awaitingRunnerDecision = false;
+    awaitingSprayLocation = true;
+    scoringStep = "spray";
+  } else if (scoringStep === "spray") {
+    pendingSpray = null;
+    awaitingSprayLocation = false;
+    if (game.atBat) game.atBat.pendingInPlay = true;
+    scoringStep = "outcome";
+  } else if (scoringStep === "outcome" || scoringStep === "more") {
+    clearPendingPlayState(game, true);
+    scoringStep = "pitch";
+  }
+  saveState();
+  renderAtBat();
+  renderRunnerTracker();
+  renderSprayChart();
+  renderScoringStepPanel();
+}
+
+function renderScoringStepPanel() {
+  if (!els.scoringStepPanel) return;
+  const game = activeGame();
+  if (!game.atBat) game.atBat = makeAtBat();
+  if (game.half === "bottom") {
+    renderOpponentScoringStepPanel(game);
+    return;
+  }
+  if (awaitingRunnerDecision) scoringStep = "runners";
+  else if (awaitingSprayLocation) scoringStep = "spray";
+  else if (game.atBat.pendingInPlay) scoringStep = "outcome";
+  const config = scoringStepConfig(game);
+  els.scoringStepPanel.dataset.step = scoringStep;
+  els.scoringStepEyebrow.textContent = config.eyebrow;
+  els.scoringStepTitle.textContent = config.title;
+  els.scoringStepHint.textContent = config.hint;
+  els.panelUndoPitchBtn.hidden = !["pitch", "more"].includes(scoringStep);
+  const backButton = els.scoringStepPanel.querySelector("[data-score-step-back]");
+  if (backButton) backButton.hidden = scoringStep === "pitch";
+  els.scoringStepBody.innerHTML = config.body;
+}
+
+function scoringStepConfig(game) {
+  if (scoringStep === "more") {
+    return {
+      eyebrow: "More",
+      title: "Quick Result",
+      hint: "Use when the plate appearance ends without a ball in play.",
+      body: `<div class="step-grid step-grid-three">
+        ${stepButton("Walk", "step-auto-result", "BB", "neutral")}
+        ${stepButton("Strikeout", "step-auto-result", "K", "out")}
+        ${stepButton("HBP", "step-auto-result", "HBP", "hbp")}
+      </div>`
+    };
+  }
+  if (scoringStep === "outcome") {
+    return {
+      eyebrow: "Ball In Play",
+      title: "Select Outcome",
+      hint: "Choose result, then tap field location.",
+      body: `<div class="step-grid step-grid-outcomes">
+        ${stepButton("Single", "step-outcome", "1B", "hit")}
+        ${stepButton("Double", "step-outcome", "2B", "hit")}
+        ${stepButton("Triple", "step-outcome", "3B", "hit")}
+        ${stepButton("Home Run", "step-outcome", "HR", "hit")}
+        ${stepButton("Out", "step-outcome", "GO", "out")}
+        ${stepButton("Error", "step-outcome", "ROE", "error")}
+        ${stepButton("Fielder's Choice", "step-outcome", "FC", "out")}
+        ${stepButton("Double Play", "step-outcome", "DP", "out")}
+        ${stepButton("Sacrifice", "step-outcome", "SAC", "out")}
+      </div>`
+    };
+  }
+  if (scoringStep === "spray") {
+    return {
+      eyebrow: "Spray Chart",
+      title: `${resultLabel(els.resultSelect.value)} Selected`,
+      hint: pendingSpray ? `Marked ${pendingSpray.zone}.` : "Tap the field where the ball landed or was fielded.",
+      body: `<div class="spray-instruction-card">
+        <strong>${escapeHtml(resultLabel(els.resultSelect.value))}</strong>
+        <span>Keep the field clear. Tap the landing or fielded spot on the diamond.</span>
+      </div>`
+    };
+  }
+  if (scoringStep === "runners") {
+    const result = els.resultSelect.value;
+    if (!Object.keys(pendingRunnerChoices).length) initializeRunnerDecisionChoices(game, result);
+    return {
+      eyebrow: "Runner Decisions",
+      title: "Set Advancements",
+      hint: "Choose where each involved runner ended, then confirm.",
+      body: `${runnerDecisionCards(game, result).map(renderRunnerDecisionCard).join("")}
+        <div class="confirm-play-row">
+          <button type="button" class="secondary-action" data-score-step-back>Back</button>
+          <button type="button" class="primary-action confirm-play-button" data-confirm-play>Confirm Play</button>
+        </div>`
+    };
+  }
+  return {
+    eyebrow: "Pitch Mode",
+    title: "Record Pitch",
+    hint: "Choose the pitch result.",
+    body: `<div class="step-grid step-grid-pitches">
+      ${stepButton("Ball", "step-pitch", "ball", "ball")}
+      ${stepButton("Called Strike", "step-pitch", "called_strike", "strike")}
+      ${stepButton("Swinging Strike", "step-pitch", "swinging_strike", "strike")}
+      ${stepButton("Foul", "step-pitch", "foul", "foul")}
+      ${stepButton("In Play", "step-pitch", "in_play", "inplay")}
+      <button type="button" class="step-button step-button-more" data-step-more>More</button>
+    </div>`
+  };
+}
+
+function renderOpponentScoringStepPanel(game) {
+  els.scoringStepPanel.dataset.step = "opponent";
+  els.scoringStepEyebrow.textContent = "Opponent";
+  els.scoringStepTitle.textContent = currentOpponentBatter(game);
+  els.scoringStepHint.textContent = "Track count, then choose the simple AB result.";
+  els.panelUndoPitchBtn.hidden = false;
+  const backButton = els.scoringStepPanel.querySelector("[data-score-step-back]");
+  if (backButton) backButton.hidden = true;
+  els.scoringStepBody.innerHTML = `<div class="step-grid step-grid-pitches">
+      ${stepButton("Ball", "step-pitch", "ball", "ball")}
+      ${stepButton("Called Strike", "step-pitch", "called_strike", "strike")}
+      ${stepButton("Swinging Strike", "step-pitch", "swinging_strike", "strike")}
+      ${stepButton("Foul", "step-pitch", "foul", "foul")}
+      ${stepButton("In Play", "step-pitch", "in_play", "inplay")}
+    </div>
+    <div class="step-grid step-grid-opponent">
+      ${["1B", "2B", "3B", "HR", "BB", "HBP", "ROE", "FC", "DP", "K", "GO", "FO", "LO", "SAC"]
+        .map((result) => `<button type="button" class="step-button ${stepToneForResult(result)}" data-opponent-result="${result}">${escapeHtml(resultLabel(result))}</button>`)
+        .join("")}
+    </div>`;
+}
+
+function stepButton(label, dataName, value, tone) {
+  return `<button type="button" class="step-button step-${tone}" data-${dataName}="${escapeHtml(value)}">${escapeHtml(label)}</button>`;
+}
+
+function renderRunnerDecisionCard(card) {
+  const selected = pendingRunnerChoices[card.base] || "hold";
+  return `<article class="runner-decision-card">
+    <div>
+      <strong>${escapeHtml(card.label)}</strong>
+      <span>${escapeHtml(card.start)}</span>
+    </div>
+    <div class="runner-choice-group">
+      ${card.options.map((option) => `<button type="button" class="runner-choice ${selected === option ? "is-selected" : ""} ${option === "out" ? "is-out" : ""}" data-runner-choice-base="${card.base}" data-runner-choice="${option}">${escapeHtml(baseLabel(option))}</button>`).join("")}
+    </div>
+  </article>`;
+}
+
+function resultLabel(result) {
+  return eventRules[result]?.label || result || "Result";
+}
+
+function stepToneForResult(result) {
+  if (["1B", "2B", "3B", "HR"].includes(result)) return "step-hit";
+  if (["ROE", "HBP"].includes(result)) return "step-error";
+  if (["BB"].includes(result)) return "step-neutral";
+  return "step-out";
 }
 
 function renderAtBat() {

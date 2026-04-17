@@ -95,10 +95,15 @@
             <div>
               <p class="eyebrow">Game State</p>
               <h3 id="gameTitle">Lions vs Wildcats</h3>
+              <p class="player-meta game-state-batter" id="headerBatterDisplay">Current batter</p>
             </div>
             <div class="game-state-focus">
               <span>Inning</span>
               <strong id="inningStateDisplay">Top 1</strong>
+            </div>
+            <div class="game-state-focus">
+              <span>Count</span>
+              <strong id="headerCountDisplay">0-0</strong>
             </div>
             <div class="game-state-focus">
               <span>Outs</span>
@@ -317,6 +322,21 @@
                   <button type="button" class="secondary-action" data-runner-out-base="third">Runner from 3B Out</button>
                   <button type="button" class="primary-action" data-resolve-play>Resolve Play</button>
                 </div>
+              </section>
+
+              <section class="scoring-step-panel" id="scoringStepPanel" aria-label="Step-based scoring controls">
+                <div class="scoring-step-head">
+                  <div>
+                    <p class="eyebrow" id="scoringStepEyebrow">Pitch Mode</p>
+                    <h3 id="scoringStepTitle">Record Pitch</h3>
+                    <span id="scoringStepHint">Choose the pitch result.</span>
+                  </div>
+                  <div class="scoring-step-actions">
+                    <button type="button" class="secondary-action compact-action" data-score-step-back>Back</button>
+                    <button type="button" class="secondary-action compact-action" id="panelUndoPitchBtn">Undo Pitch</button>
+                  </div>
+                </div>
+                <div class="scoring-step-body" id="scoringStepBody"></div>
               </section>
 
               <form class="score-form" id="scoreForm">

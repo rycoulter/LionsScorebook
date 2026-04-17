@@ -4163,7 +4163,31 @@ label {
 }
 
 #scoreView .scorer-stack {
-  gap: 10px;
+  grid-template-areas:
+    "field"
+    "panel"
+    "form";
+  gap: 12px;
+}
+
+#scoreView .score-status-card {
+  position: sticky;
+  top: 72px;
+  z-index: 12;
+  grid-template-columns: minmax(240px, 1fr) repeat(3, minmax(92px, auto)) auto;
+  border: 1px solid rgba(245, 189, 33, 0.24);
+  background: linear-gradient(135deg, rgba(7, 20, 55, 0.98), rgba(3, 10, 36, 0.96));
+  color: var(--white);
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.28);
+}
+
+#scoreView .score-status-card h3,
+#scoreView .game-state-batter {
+  color: var(--white);
+}
+
+#scoreView .game-state-batter {
+  margin: 4px 0 0;
 }
 
 #scoreView .spray-panel,
@@ -4227,6 +4251,17 @@ label {
 #scoreView .pitch-panel {
   background: transparent;
   box-shadow: none;
+}
+
+#scoreView .batter-face .pitch-buttons,
+#scoreView .opponent-face .pitch-buttons,
+#scoreView .outcome-face,
+#scoreView .opponent-face .opponent-outcomes,
+#scoreView .batter-face > .button-row,
+#scoreView .opponent-face > .button-row,
+#scoreView .steal-grid,
+#scoreView .runner-play-grid {
+  display: none;
 }
 
 #scoreView .batter-face .mini-head,
@@ -4295,6 +4330,7 @@ label {
 }
 
 #scoreView .pitch-trail {
+  display: none;
   bottom: 112px;
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(3, 10, 36, 0.72);
@@ -4390,6 +4426,197 @@ label {
   background: linear-gradient(145deg, rgba(10, 21, 52, 0.96), rgba(3, 10, 36, 0.94));
   color: var(--white);
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+}
+
+#scoreView .scoring-step-panel {
+  grid-area: panel;
+  position: sticky;
+  bottom: 12px;
+  z-index: 11;
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(245, 189, 33, 0.28);
+  border-radius: 8px;
+  padding: 14px;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(245, 189, 33, 0.14), transparent 38%),
+    linear-gradient(145deg, rgba(10, 21, 52, 0.98), rgba(3, 10, 36, 0.98));
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.34);
+}
+
+#scoreView .scoring-step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+#scoreView .scoring-step-head h3 {
+  color: var(--white);
+  font-size: 1.12rem;
+}
+
+#scoreView .scoring-step-head span,
+#scoreView .scoring-step-head .eyebrow {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+#scoreView .scoring-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+#scoreView .scoring-step-body {
+  display: grid;
+  gap: 10px;
+}
+
+#scoreView .step-grid {
+  display: grid;
+  gap: 10px;
+}
+
+#scoreView .step-grid-pitches {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+#scoreView .step-grid-outcomes,
+#scoreView .step-grid-opponent {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+#scoreView .step-grid-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#scoreView .step-button {
+  min-height: 62px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--white);
+  font-weight: 900;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 24px rgba(0, 0, 0, 0.22);
+}
+
+#scoreView .step-ball {
+  background: linear-gradient(180deg, #48c774, #229455);
+}
+
+#scoreView .step-strike {
+  background: linear-gradient(180deg, #f1797d, #c7434a);
+}
+
+#scoreView .step-foul {
+  background: linear-gradient(180deg, #f4b17f, #cf7843);
+}
+
+#scoreView .step-inplay {
+  border-color: rgba(245, 189, 33, 0.72);
+  background: linear-gradient(180deg, #ffd867, var(--lion-gold));
+  color: var(--lion-navy);
+}
+
+#scoreView .step-hit {
+  background: linear-gradient(180deg, #43c4a5, #207f71);
+}
+
+#scoreView .step-out {
+  background: linear-gradient(180deg, #5b6476, #2d3444);
+}
+
+#scoreView .step-error,
+#scoreView .step-hbp {
+  background: linear-gradient(180deg, #f2b05d, #c56d25);
+}
+
+#scoreView .step-neutral,
+#scoreView .step-button-more {
+  background: linear-gradient(180deg, #445575, #202a42);
+}
+
+#scoreView .spray-instruction-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 70px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.76);
+}
+
+#scoreView .spray-instruction-card strong {
+  color: var(--lion-gold);
+  font-size: 1.15rem;
+}
+
+#scoreView .runner-decision-card {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.34fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+#scoreView .runner-decision-card strong {
+  display: block;
+  color: var(--white);
+}
+
+#scoreView .runner-decision-card span {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+#scoreView .runner-choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: flex-end;
+}
+
+#scoreView .runner-choice {
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--white);
+  font-weight: 900;
+}
+
+#scoreView .runner-choice.is-selected {
+  border-color: var(--lion-gold);
+  background: var(--lion-gold);
+  color: var(--lion-navy);
+}
+
+#scoreView .runner-choice.is-out:not(.is-selected) {
+  border-color: rgba(255, 138, 143, 0.32);
+  color: #ffb0b4;
+}
+
+#scoreView .confirm-play-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+#scoreView .confirm-play-button {
+  min-width: 180px;
+  min-height: 46px;
 }
 
 #scoreView .score-form .auto-score {
@@ -4505,6 +4732,11 @@ label {
 }
 
 @media (max-width: 940px) {
+  #scoreView .score-status-card {
+    top: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   #scoreView .spray-panel,
   #scoreView .spray-chart,
   #scoreView .pitch-panel {
@@ -4527,5 +4759,21 @@ label {
 
   #scoreView .pitch-trail {
     bottom: 108px;
+  }
+
+  #scoreView .step-grid-pitches,
+  #scoreView .step-grid-outcomes,
+  #scoreView .step-grid-opponent {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #scoreView .runner-decision-card {
+    grid-template-columns: 1fr;
+  }
+
+  #scoreView .runner-choice-group,
+  #scoreView .confirm-play-row,
+  #scoreView .scoring-step-head {
+    justify-content: stretch;
   }
 }
