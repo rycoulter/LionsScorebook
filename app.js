@@ -2106,8 +2106,14 @@ function applyEvent(game = activeGame(), event = {}) {
       if ((outcome === "called_strike" || outcome === "swinging_strike") && pitch.strikesAfter >= 3) {
         return applyEvent(game, { type: "resolve_play", result: "K" });
       }
+      if (outcome === "in_play") {
+        clearPendingPlayState(game, true);
+        if (game.atBat) game.atBat.pendingInPlay = true;
+        scoringStep = "outcome";
+      }
       saveState();
       renderAtBat();
+      renderScoringStepPanel();
       return pitch;
     }
     if (outcome === "ball" && pitch.ballsAfter >= 4) return applyEvent(game, { type: "resolve_play", result: "BB" });
@@ -2152,6 +2158,10 @@ function applyEvent(game = activeGame(), event = {}) {
         renderScoringStepPanel();
         return result;
       }
+    }
+    if (game.half === "bottom") {
+      if (["GO", "FO", "LO"].includes(result)) pendingOutFielder = event.fieldedBy || pendingOutFielder || "";
+      return applyEvent(game, { type: "resolve_play", result, fieldedBy: pendingOutFielder });
     }
     selectChoice("result", result, true);
     if (result === "HR") selectChoice("launch", "fb", true);
@@ -2238,7 +2248,7 @@ function applyEvent(game = activeGame(), event = {}) {
     const result = normalizeBallInPlayOutcome(event.result || event.outcome || els.resultSelect.value || "GO");
     selectChoice("result", result, true);
     if (game.half === "bottom") {
-      logOpponentOutcome(result);
+      logOpponentOutcome(result, { fieldedBy: event.fieldedBy || pendingOutFielder });
       return result;
     }
     if (battedBallResults.has(result) && !pendingSpray) {
@@ -2817,7 +2827,7 @@ function tagUpMovement(target) {
   return null;
 }
 
-function logOpponentOutcome(result) {
+function logOpponentOutcome(result, options = {}) {
   const game = activeGame();
   if (game.status !== "completed") game.status = "active";
   const batter = currentOpponentBatter(game);
@@ -2841,12 +2851,14 @@ function logOpponentOutcome(result) {
     runsScored: runs,
     rbi: 0,
     contact: "none",
-    launch: "none",
+    launch: eventRules[result]?.launch || "none",
+    fieldedBy: options.fieldedBy || "",
     pitcherId,
     outsRecorded: result === "DP" ? 2 : undefined,
     notes: "Opponent plate appearance",
     snapshotBefore
   });
+  clearPendingPlayState(game, true);
   saveState();
   render();
 }
@@ -3407,26 +3419,71 @@ function renderOpponentScoringStepPanel(game) {
   els.scoringStepPanel.dataset.step = "opponent";
   els.scoringStepEyebrow.textContent = "Opponent";
   els.scoringStepTitle.textContent = currentOpponentBatter(game);
-  els.scoringStepHint.textContent = "Track count, then choose the simple AB result.";
-  els.panelUndoPitchBtn.hidden = false;
+  els.panelUndoPitchBtn.hidden = !["pitch", "more"].includes(scoringStep);
   const backButton = els.scoringStepPanel.querySelector("[data-score-step-back]");
-  if (backButton) backButton.hidden = true;
-  els.scoringStepBody.innerHTML = `<div class="step-grid step-grid-pitches">
-      ${stepButton("Ball", "step-pitch", "ball", "ball")}
-      ${stepButton("Called Strike", "step-pitch", "called_strike", "strike")}
-      ${stepButton("Swinging Strike", "step-pitch", "swinging_strike", "strike")}
-      ${stepButton("Foul", "step-pitch", "foul", "foul")}
-      ${stepButton("In Play", "step-pitch", "in_play", "inplay")}
-    </div>
-    <div class="step-grid step-grid-opponent">
-      ${["1B", "2B", "3B", "HR", "BB", "HBP", "ROE", "FC", "DP", "K", "GO", "FO", "LO", "SAC"]
-        .map((result) => `<button type="button" class="step-button ${stepToneForResult(result)}" data-opponent-result="${result}">${escapeHtml(resultLabel(result))}</button>`)
-        .join("")}
+  if (backButton) backButton.hidden = scoringStep === "pitch";
+
+  if (scoringStep === "out_type") {
+    els.scoringStepHint.textContent = "Choose the type of out.";
+    els.scoringStepBody.innerHTML = `<div class="step-grid step-grid-three">
+      ${stepButton("Ground Out", "out-type", "GO", "out")}
+      ${stepButton("Fly Out", "out-type", "FO", "out")}
+      ${stepButton("Line Out", "out-type", "LO", "out")}
     </div>`;
+    return;
+  }
+
+  if (scoringStep === "out_fielder") {
+    els.scoringStepHint.textContent = "Choose the primary defender who made the play.";
+    els.scoringStepBody.innerHTML = `<div class="step-grid step-grid-fielders">
+      ${defensivePositions.map((position) => stepButton(position, "out-fielder", position, "neutral")).join("")}
+    </div>`;
+    return;
+  }
+
+  if (scoringStep === "outcome" || game.atBat.pendingInPlay) {
+    scoringStep = "outcome";
+    els.scoringStepHint.textContent = "Choose the ball-in-play result to complete this opponent AB.";
+    els.scoringStepBody.innerHTML = opponentOutcomeGrid();
+    return;
+  }
+
+  if (scoringStep === "more") {
+    els.scoringStepHint.textContent = "Use quick opponent results without a ball in play.";
+    els.scoringStepBody.innerHTML = `<div class="step-grid step-grid-three">
+      ${stepButton("Walk", "step-auto-result", "BB", "neutral")}
+      ${stepButton("Strikeout", "step-auto-result", "K", "out")}
+      ${stepButton("HBP", "step-auto-result", "HBP", "hbp")}
+    </div>`;
+    return;
+  }
+
+  scoringStep = "pitch";
+  els.scoringStepHint.textContent = "Track the count. In Play opens the outcome choices.";
+  els.scoringStepBody.innerHTML = `<div class="step-grid step-grid-pitches">
+    ${stepButton("Ball", "step-pitch", "ball", "ball")}
+    ${stepButton("Called Strike", "step-pitch", "called_strike", "strike")}
+    ${stepButton("Swinging Strike", "step-pitch", "swinging_strike", "strike")}
+    ${stepButton("Foul", "step-pitch", "foul", "foul")}
+    ${stepButton("In Play", "step-pitch", "in_play", "inplay")}
+    <button type="button" class="step-button step-button-more" data-step-more>More</button>
+  </div>`;
 }
 
 function stepButton(label, dataName, value, tone) {
   return `<button type="button" class="step-button step-${tone}" data-${dataName}="${escapeHtml(value)}">${escapeHtml(label)}</button>`;
+}
+
+function opponentOutcomeGrid() {
+  return `<div class="step-grid step-grid-opponent">
+    ${["1B", "2B", "3B", "HR", "OUT", "ROE", "FC", "DP", "SAC"]
+      .map((result) => {
+        const label = result === "OUT" ? "Out" : resultLabel(result);
+        const tone = result === "OUT" ? "step-out" : stepToneForResult(result);
+        return `<button type="button" class="step-button ${tone}" data-step-outcome="${result}">${escapeHtml(label)}</button>`;
+      })
+      .join("")}
+  </div>`;
 }
 
 function renderSpecialActionGrid(game = activeGame()) {

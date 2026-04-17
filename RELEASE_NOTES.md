@@ -12,7 +12,9 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 - Added scorebook notation generation for common outs, including groundouts like `6-3`, flyouts like `F8`, and lineouts like `L6`.
 
 ### Changed
+- Updated opponent scoring so `In Play` opens the same step-based outcome flow used for Oakmont at-bats, including out type and fielder selection.
 - Moved pitcher information into the top game-state header and restyled it as a compact dark card so it no longer floats over the field.
+- Realigned the score header so the pitcher card spans a clean second-row area and its stat tiles no longer crowd the score.
 - Separated the Games tab create-game form from the active game so typing schedule details does not mutate the currently active game.
 - Updated homepage game context logic to prefer the next upcoming non-final game.
 - Updated Home -> Score behavior to move from a final active game to the next upcoming game when available.
