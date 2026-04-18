@@ -4308,7 +4308,7 @@ label {
   position: sticky;
   top: 72px;
   z-index: 12;
-  grid-template-columns: minmax(260px, 1.1fr) repeat(3, minmax(92px, 0.34fr)) minmax(210px, 0.7fr);
+  grid-template-columns: minmax(280px, 1.18fr) repeat(3, minmax(110px, 0.38fr)) minmax(220px, 0.76fr);
   gap: 10px 14px;
   align-items: stretch;
   border: 1px solid rgba(245, 189, 33, 0.24);
@@ -4317,13 +4317,46 @@ label {
   box-shadow: 0 20px 46px rgba(0, 0, 0, 0.28);
 }
 
+#scoreView .score-status-card > div:first-child {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid rgba(245, 189, 33, 0.22);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(245, 189, 33, 0.12), transparent 42%),
+    rgba(3, 10, 36, 0.68);
+}
+
 #scoreView .score-status-card h3,
 #scoreView .game-state-batter {
   color: var(--white);
 }
 
+#scoreView .score-status-card h3 {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #scoreView .game-state-batter {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
   margin: 4px 0 0;
+  border: 1px solid rgba(245, 189, 33, 0.28);
+  border-radius: 8px;
+  padding: 5px 9px;
+  background: rgba(245, 189, 33, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #scoreView .score-status-card .game-state-context {
@@ -4335,6 +4368,32 @@ label {
 #scoreView .score-status-card .game-state-focus,
 #scoreView .score-status-card .clean-scoreline {
   align-self: stretch;
+}
+
+#scoreView .score-status-card .game-state-focus {
+  display: grid;
+  align-content: center;
+  border-color: rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025)),
+    rgba(13, 24, 57, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+#scoreView .score-status-card .game-state-focus span {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+#scoreView .score-status-card .game-state-focus strong {
+  color: var(--white);
+}
+
+#scoreView #headerCountDisplay {
+  color: #65e88e;
+}
+
+#scoreView #outsStateDisplay {
+  color: #ff8e96;
 }
 
 #scoreView .game-pitcher-card {
@@ -5305,9 +5364,16 @@ label {
 #scoreView .spray-chart {
   position: relative;
   background:
-    radial-gradient(ellipse at 50% 75%, #f0ad3f 0 16%, transparent 16.4%),
-    radial-gradient(ellipse at 50% 67%, #f0ad3f 0 26%, transparent 26.4%),
-    radial-gradient(ellipse at 50% 100%, #1f5b18 0 64%, #2f7f26 64.4% 100%);
+    radial-gradient(ellipse at 50% 75%, #f2b64b 0 16%, transparent 16.4%),
+    radial-gradient(ellipse at 50% 67%, #f2b64b 0 26%, transparent 26.4%),
+    radial-gradient(ellipse at 50% 100%, #2b7a22 0 64%, #43a136 64.4% 100%);
+}
+
+#scoreView .spray-panel {
+  border-color: rgba(245, 189, 33, 0.28);
+  background:
+    linear-gradient(180deg, #48a83a 0%, #33882d 58%, #247225 100%);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.24);
 }
 
 #scoreView .spray-chart::after {
@@ -5321,7 +5387,7 @@ label {
   background:
     radial-gradient(circle at 50% 60%, #2f7f26 0 18%, transparent 18.4%),
     linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 46%),
-    #f0ad3f;
+    #f2b64b;
   box-shadow:
     inset 0 0 0 1px rgba(95, 70, 24, 0.18),
     0 12px 26px rgba(0, 0, 0, 0.18);
@@ -5354,7 +5420,7 @@ label {
   transform: translate(-50%, 0);
   border: 0;
   border-radius: 0 0 999px 999px;
-  background: #f0ad3f;
+  background: #f2b64b;
   clip-path: ellipse(50% 72% at 50% 100%);
   opacity: 1;
 }
@@ -5368,7 +5434,7 @@ label {
   width: 84%;
   height: 44%;
   transform: translateX(-50%);
-  border: 3px solid rgba(240, 173, 63, 0.82);
+  border: 3px solid rgba(255, 224, 128, 0.86);
   border-bottom: 0;
   border-radius: 50% 50% 0 0;
   opacity: 1;
@@ -5395,6 +5461,17 @@ label {
   box-shadow:
     0 0 0 2px rgba(255, 255, 255, 0.28),
     0 8px 16px rgba(0, 0, 0, 0.22);
+}
+
+#scoreView .batter-face .mini-head,
+#scoreView .opponent-face .mini-head {
+  display: none;
+}
+
+#scoreView .pitch-panel.is-placing .batter-face .mini-head::after,
+#scoreView .pitch-panel.is-runner-decision .batter-face .mini-head::after {
+  content: none;
+  display: none;
 }
 
 #scoreView .spray-first-base {
