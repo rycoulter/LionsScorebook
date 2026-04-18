@@ -63,6 +63,7 @@
                 <p class="player-meta" id="homeNextGameMeta">Create a game from the Games tab.</p>
                 <div class="weather-chip" id="homeNextGameWeather">Add date and field location for weather.</div>
                 <div class="button-row">
+                  <button type="button" class="primary-action" id="homeStartGameBtn">Start Game</button>
                   <button type="button" class="secondary-action" id="homeScoutingBtn">View Scouting Report</button>
                   <button type="button" class="secondary-action" id="homeGamesBtn">Manage Games</button>
                 </div>
@@ -103,7 +104,7 @@
           <section class="score-status-card" aria-label="Current game status">
             <div>
               <p class="eyebrow">Game State</p>
-              <h3 id="gameTitle">Lions vs Wildcats</h3>
+              <h3 id="gameTitle">Oakmont Lions @ Opponent</h3>
             </div>
             <div class="game-state-focus">
               <span>Inning</span>
@@ -119,11 +120,11 @@
             </div>
             <div class="scoreline clean-scoreline" aria-label="Current score">
               <div>
-                <span>Oakmont</span>
+                <span id="lionsScoreLabel">Away Oakmont</span>
                 <strong id="lionsScore">0</strong>
               </div>
               <div>
-                <span>Opponent</span>
+                <span id="opponentScoreLabel">Home Opponent</span>
                 <strong id="opponentScore">0</strong>
               </div>
             </div>
@@ -381,7 +382,7 @@
                   <div class="button-row wide">
                   <button type="button" class="secondary-action" id="undoBtn">Undo Last Play</button>
                   <button type="button" class="secondary-action" id="endHalfBtn">End Half</button>
-                  <button type="button" class="secondary-action" id="finishGameBtn">Finish Game</button>
+                  <button type="button" class="secondary-action" id="finishGameBtn">Complete Game</button>
                 </div>
               </form>
             </div>
@@ -412,7 +413,7 @@
                 <button type="button" class="secondary-action" id="applySubBtn">Apply</button>
               </div>
               <label class="opponent-lineup-editor">
-                Opponent lineup paste
+                Home lineup paste
                 <textarea id="scoreOpponentLineupInput" rows="5" placeholder="One hitter per line"></textarea>
               </label>
               <div class="mini-head">
@@ -473,9 +474,20 @@
             <button class="primary-action" id="scheduleGameBtn">Create Game</button>
           </div>
           <form class="game-form" id="gameForm">
+            <div class="team-side-card wide" id="gameSetupTeamIndicator">
+              <span>Away: Oakmont Lions</span>
+              <strong>Home: Opponent</strong>
+            </div>
             <label>
               Opponent
               <input id="opponentInput" name="opponent" autocomplete="off" placeholder="Opponent name">
+            </label>
+            <label>
+              Lions are
+              <select id="gameLionsSideInput" name="lionsSide">
+                <option value="home">Home team</option>
+                <option value="away">Away team</option>
+              </select>
             </label>
             <label>
               Date
@@ -487,7 +499,18 @@
             </label>
             <label>
               Location
-              <input id="gameLocationInput" name="location" autocomplete="off" placeholder="Home, away, field name">
+              <select id="gameLocationInput" name="location">
+                <option value="">Select field location</option>
+                <option value="Oakmont, PA - Home Field">Oakmont, PA - Home Field</option>
+                <option value="Pittsburgh, PA - Away Field">Pittsburgh, PA - Away Field</option>
+                <option value="Plum, PA">Plum, PA</option>
+                <option value="Monroeville, PA">Monroeville, PA</option>
+                <option value="Murrysville, PA">Murrysville, PA</option>
+                <option value="North Park, PA">North Park, PA</option>
+                <option value="South Park, PA">South Park, PA</option>
+                <option value="Boyce Park, PA">Boyce Park, PA</option>
+                <option value="Field TBD">Field TBD</option>
+              </select>
             </label>
             <label class="wide">
               Game notes
@@ -495,6 +518,12 @@
             </label>
           </form>
           <div class="record-summary" id="recordSummary"></div>
+          <div class="game-filter-row" id="gameFilterRow" aria-label="Filter games">
+            <button type="button" class="secondary-action is-active" data-game-filter="all">All</button>
+            <button type="button" class="secondary-action" data-game-filter="future">Future</button>
+            <button type="button" class="secondary-action" data-game-filter="active">In Progress</button>
+            <button type="button" class="secondary-action" data-game-filter="completed">Completed</button>
+          </div>
           <div class="games-grid" id="gamesGrid"></div>
           <section class="lineup-builder" id="gameEditPanel">
             <div class="mini-head">
@@ -505,10 +534,33 @@
               <button type="button" class="secondary-action" id="closeGameEditBtn">Close</button>
             </div>
             <div class="game-edit-grid">
+              <div class="team-side-card wide" id="editTeamIndicator">
+                <span>Away: Oakmont Lions</span>
+                <strong>Home: Opponent</strong>
+              </div>
               <label>Opponent <input id="editOpponentInput" autocomplete="off"></label>
+              <label>Lions are
+                <select id="editLionsSideInput">
+                  <option value="home">Home team</option>
+                  <option value="away">Away team</option>
+                </select>
+              </label>
               <label>Date <input id="editDateInput" type="date"></label>
               <label>Time <input id="editTimeInput" type="time"></label>
-              <label>Location <input id="editLocationInput" autocomplete="off"></label>
+              <label>Location
+                <select id="editLocationInput">
+                  <option value="">Select field location</option>
+                  <option value="Oakmont, PA - Home Field">Oakmont, PA - Home Field</option>
+                  <option value="Pittsburgh, PA - Away Field">Pittsburgh, PA - Away Field</option>
+                  <option value="Plum, PA">Plum, PA</option>
+                  <option value="Monroeville, PA">Monroeville, PA</option>
+                  <option value="Murrysville, PA">Murrysville, PA</option>
+                  <option value="North Park, PA">North Park, PA</option>
+                  <option value="South Park, PA">South Park, PA</option>
+                  <option value="Boyce Park, PA">Boyce Park, PA</option>
+                  <option value="Field TBD">Field TBD</option>
+                </select>
+              </label>
               <label class="wide">Notes <input id="editNotesInput" autocomplete="off"></label>
               <button type="button" class="primary-action" id="saveGameEditBtn">Save Game Details</button>
             </div>

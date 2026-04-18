@@ -44,7 +44,7 @@ function createFallbackScorebookStorage(global) {
 
     normalized.activeGameId = library.activeGameId && normalized.gamesById[library.activeGameId]
       ? library.activeGameId
-      : normalized.gameOrder[0] || "";
+      : "";
     return normalized;
   }
 
@@ -55,7 +55,7 @@ function createFallbackScorebookStorage(global) {
       library.gamesById[game.id] = clone(game);
       if (!library.gameOrder.includes(game.id)) library.gameOrder.push(game.id);
     });
-    library.activeGameId = activeGameId && library.gamesById[activeGameId] ? activeGameId : library.gameOrder[0] || "";
+    library.activeGameId = activeGameId && library.gamesById[activeGameId] ? activeGameId : "";
     return library;
   }
 
@@ -100,7 +100,7 @@ function createFallbackScorebookStorage(global) {
     const library = loadLibrary();
     library.gamesById[game.id] = clone(game);
     if (!library.gameOrder.includes(game.id)) library.gameOrder.push(game.id);
-    if (setActive || !library.activeGameId) library.activeGameId = game.id;
+    if (setActive) library.activeGameId = game.id;
     return saveLibrary(library);
   }
 
@@ -132,7 +132,7 @@ function createFallbackScorebookStorage(global) {
     if (!library.gamesById[gameId]) return library;
     delete library.gamesById[gameId];
     library.gameOrder = library.gameOrder.filter((id) => id !== gameId);
-    if (library.activeGameId === gameId) library.activeGameId = library.gameOrder[0] || "";
+    if (library.activeGameId === gameId) library.activeGameId = "";
     return saveLibrary(library);
   }
 
@@ -153,8 +153,6 @@ function createFallbackScorebookStorage(global) {
       });
       if (setActive && incomingLibrary.activeGameId) {
         currentLibrary.activeGameId = incomingLibrary.activeGameId;
-      } else if (!currentLibrary.activeGameId) {
-        currentLibrary.activeGameId = currentLibrary.gameOrder[0] || "";
       }
       return saveLibrary(currentLibrary);
     }
@@ -163,7 +161,7 @@ function createFallbackScorebookStorage(global) {
     return clone(payload);
   }
 
-  return {
+  const game = {
     loadLibrary,
     saveLibrary,
     saveGame,
@@ -528,6 +526,7 @@ let scoringStep = "pitch";
 let pendingRunnerChoices = {};
 let pendingOutType = "";
 let pendingOutFielder = "";
+let gameFilter = "all";
 const weatherCache = {};
 const weatherRequests = {};
 
@@ -535,6 +534,7 @@ const els = {
   tabs: [...document.querySelectorAll(".tab")],
   views: [...document.querySelectorAll(".view")],
   homeScoreGameBtn: document.getElementById("homeScoreGameBtn"),
+  homeStartGameBtn: document.getElementById("homeStartGameBtn"),
   homeRecord: document.getElementById("homeRecord"),
   homeRunSummary: document.getElementById("homeRunSummary"),
   homeMatchupImage: document.getElementById("homeMatchupImage"),
@@ -553,6 +553,8 @@ const els = {
   gameContext: document.getElementById("gameContext"),
   inningStateDisplay: document.getElementById("inningStateDisplay"),
   outsStateDisplay: document.getElementById("outsStateDisplay"),
+  lionsScoreLabel: document.getElementById("lionsScoreLabel"),
+  opponentScoreLabel: document.getElementById("opponentScoreLabel"),
   lionsScore: document.getElementById("lionsScore"),
   opponentScore: document.getElementById("opponentScore"),
   bases: [...document.querySelectorAll(".base")],
@@ -603,6 +605,8 @@ const els = {
   choiceButtons: [...document.querySelectorAll("[data-choice-group]")],
   gameForm: document.getElementById("gameForm"),
   scheduleGameBtn: document.getElementById("scheduleGameBtn"),
+  gameSetupTeamIndicator: document.getElementById("gameSetupTeamIndicator"),
+  gameFilterRow: document.getElementById("gameFilterRow"),
   gamesGrid: document.getElementById("gamesGrid"),
   scorebookGameSelect: document.getElementById("scorebookGameSelect"),
   scorebookGameMeta: document.getElementById("scorebookGameMeta"),
@@ -617,6 +621,7 @@ const els = {
   resetGameLineupBtn: document.getElementById("resetGameLineupBtn"),
   closeLineupBuilderBtn: document.getElementById("closeLineupBuilderBtn"),
   opponentInput: document.getElementById("opponentInput"),
+  gameLionsSideInput: document.getElementById("gameLionsSideInput"),
   gameDateInput: document.getElementById("gameDateInput"),
   gameTimeInput: document.getElementById("gameTimeInput"),
   gameLocationInput: document.getElementById("gameLocationInput"),
@@ -672,7 +677,9 @@ const els = {
   recordSummary: document.getElementById("recordSummary"),
   gameEditPanel: document.getElementById("gameEditPanel"),
   gameEditTitle: document.getElementById("gameEditTitle"),
+  editTeamIndicator: document.getElementById("editTeamIndicator"),
   editOpponentInput: document.getElementById("editOpponentInput"),
+  editLionsSideInput: document.getElementById("editLionsSideInput"),
   editDateInput: document.getElementById("editDateInput"),
   editTimeInput: document.getElementById("editTimeInput"),
   editLocationInput: document.getElementById("editLocationInput"),
@@ -818,9 +825,105 @@ function emptyBases(value = null) {
   return { first: value, second: value, third: value };
 }
 
+function normalizeLionsSide(value = "home") {
+  return value === "away" ? "away" : "home";
+}
+
+function lionsSide(game) {
+  if (game?.lionsSide) return normalizeLionsSide(game.lionsSide);
+  if (game?.teams?.home?.id === "oakmont-lions") return "home";
+  return "away";
+}
+
+function opponentSide(game) {
+  return lionsSide(game) === "home" ? "away" : "home";
+}
+
+function sideForHalf(game) {
+  return game?.half === "bottom" ? "home" : "away";
+}
+
+function isLionsAtBat(game) {
+  return sideForHalf(game) === lionsSide(game);
+}
+
+function isOpponentAtBat(game) {
+  return !isLionsAtBat(game);
+}
+
+function teamsForGame(opponent = "Opponent", nextLionsSide = "home") {
+  const side = normalizeLionsSide(nextLionsSide);
+  const opponentTeam = { id: "opponent", name: opponent || "Opponent" };
+  const lionsTeam = { id: "oakmont-lions", name: "Oakmont Lions" };
+  return side === "home"
+    ? { away: opponentTeam, home: lionsTeam }
+    : { away: lionsTeam, home: opponentTeam };
+}
+
+function syncGameTeams(game, nextLionsSide = lionsSide(game)) {
+  if (!game) return;
+  game.lionsSide = normalizeLionsSide(nextLionsSide);
+  game.teams = teamsForGame(game.opponent, game.lionsSide);
+  syncScoreBySide(game);
+}
+
+function syncScoreBySide(game) {
+  if (!game?.score) return;
+  if (lionsSide(game) === "home") {
+    game.score.away = game.score.opponent ?? game.score.away ?? 0;
+    game.score.home = game.score.lions ?? game.score.home ?? 0;
+  } else {
+    game.score.away = game.score.lions ?? game.score.away ?? 0;
+    game.score.home = game.score.opponent ?? game.score.home ?? 0;
+  }
+}
+
+function scoreForSide(game, side) {
+  return side === lionsSide(game) ? game.score?.lions ?? 0 : game.score?.opponent ?? 0;
+}
+
+function addRunsForBattingTeam(game, runs = 0) {
+  if (!runs) return;
+  if (isLionsAtBat(game)) game.score.lions += runs;
+  else game.score.opponent += runs;
+  syncScoreBySide(game);
+}
+
+function awayTeamName(game) {
+  return game?.teams?.away?.name || "Oakmont Lions";
+}
+
+function homeTeamName(game) {
+  return game?.teams?.home?.name || game?.opponent || "Opponent";
+}
+
+function gameMatchupLabel(game) {
+  return `${awayTeamName(game)} @ ${homeTeamName(game)}`;
+}
+
+function gameTeamMeta(game) {
+  return `Away: ${awayTeamName(game)} | Home: ${homeTeamName(game)}`;
+}
+
+function gameScoreLabel(game) {
+  return `${awayTeamName(game)} ${scoreForSide(game, "away")} - ${scoreForSide(game, "home")} ${homeTeamName(game)}`;
+}
+
+function setSelectValueWithLegacy(select, value = "") {
+  if (!select) return;
+  const cleaned = String(value || "");
+  if (cleaned && ![...select.options].some((option) => option.value === cleaned)) {
+    const option = new Option(cleaned, cleaned);
+    option.dataset.legacy = "true";
+    select.append(option);
+  }
+  select.value = cleaned;
+}
+
 function createGame(options = {}) {
   const config = typeof options === "string" ? { opponent: options } : options;
   const opponent = config.opponent || "Wildcats";
+  const gameLionsSide = normalizeLionsSide(config.lionsSide || "home");
   const awayLineup = config.awayLineup || config.lineupEntries || lineupEntriesFromRoster(defaultRoster.filter((player) => player.active).map((player) => player.id));
   const homeLineup = config.homeLineup || opponentLineupEntries(config.opponentLineup || []);
   const batterId = awayLineup[0]?.playerId || awayLineup[0]?.id || "";
@@ -834,10 +937,8 @@ function createGame(options = {}) {
     location: config.location || "",
     notes: config.notes || "",
     status: config.status || "active",
-    teams: {
-      away: { id: "oakmont-lions", name: "Oakmont Lions" },
-      home: { id: "opponent", name: opponent }
-    },
+    lionsSide: gameLionsSide,
+    teams: teamsForGame(opponent, gameLionsSide),
     lineups: {
       away: deepClone(awayLineup),
       home: deepClone(homeLineup)
@@ -862,10 +963,10 @@ function createGame(options = {}) {
     opponentLineup: homeLineup.map((entry) => entry.name),
     pitcherId,
     score: {
-      lions: config.score?.lions ?? config.score?.away ?? 0,
-      opponent: config.score?.opponent ?? config.score?.home ?? 0,
-      away: config.score?.away ?? config.score?.lions ?? 0,
-      home: config.score?.home ?? config.score?.opponent ?? 0
+      lions: config.score?.lions ?? (gameLionsSide === "away" ? config.score?.away : config.score?.home) ?? 0,
+      opponent: config.score?.opponent ?? (gameLionsSide === "away" ? config.score?.home : config.score?.away) ?? 0,
+      away: config.score?.away ?? 0,
+      home: config.score?.home ?? 0
     },
     plateAppearances: [],
     currentPlateAppearanceId: "",
@@ -873,10 +974,12 @@ function createGame(options = {}) {
     events: [],
     atBat: makeAtBat()
   };
+  syncScoreBySide(game);
+  return game;
 }
 
 function makeGame(opponent = "Wildcats") {
-  return createGame({ opponent });
+  return createGame({ opponent, lionsSide: "away" });
 }
 
 function makeUniqueGame(options = {}) {
@@ -962,7 +1065,16 @@ function loadState() {
     const normalized = normalizeState(nextState);
     const activeFromLibrary = normalized.games.find((game) => game.id === library.activeGameId);
     if (activeFromLibrary) normalized.activeGameId = activeFromLibrary.id;
-    if (!normalized.activeGameId && normalized.games.length) normalized.activeGameId = normalized.games[0].id;
+    if (!normalized.activeGameId && normalized.games.length) {
+      normalized.activeGameId = normalized.games.find((game) => game.status === "active" && !gameIsFinal(game))?.id || "";
+    }
+    const active = normalized.games.find((game) => game.id === normalized.activeGameId);
+    if (gameIsFinal(active)) {
+      const nextOpen = normalized.games
+        .filter((game) => !gameIsFinal(game) && game.status === "active")
+        .sort((a, b) => (a.date || todayValue()).localeCompare(b.date || todayValue()) || (a.time || "").localeCompare(b.time || ""))[0];
+      normalized.activeGameId = nextOpen?.id || "";
+    }
     return normalized;
   } catch (error) {
     console.warn("Unable to load saved scorebook.", error);
@@ -1031,11 +1143,12 @@ function normalizeGame(game, nextState = state) {
     active: entry.active !== false
   }));
   const atBat = game.atBat || makeAtBat();
+  const normalizedLionsSide = normalizeLionsSide(game.lionsSide || (game.teams?.home?.id === "oakmont-lions" ? "home" : "away"));
   const score = {
-    lions: game.score?.lions ?? game.score?.away ?? 0,
-    opponent: game.score?.opponent ?? game.score?.home ?? 0,
-    away: game.score?.away ?? game.score?.lions ?? 0,
-    home: game.score?.home ?? game.score?.opponent ?? 0
+    lions: game.score?.lions ?? (normalizedLionsSide === "away" ? game.score?.away : game.score?.home) ?? 0,
+    opponent: game.score?.opponent ?? (normalizedLionsSide === "away" ? game.score?.home : game.score?.away) ?? 0,
+    away: game.score?.away ?? 0,
+    home: game.score?.home ?? 0
   };
   const normalized = {
     ...game,
@@ -1044,10 +1157,8 @@ function normalizeGame(game, nextState = state) {
     location: game.location || "",
     notes: game.notes || "",
     status: game.status || "active",
-    teams: {
-      away: game.teams?.away || { id: "oakmont-lions", name: "Oakmont Lions" },
-      home: { id: game.teams?.home?.id || "opponent", name: game.opponent || game.teams?.home?.name || "Opponent" }
-    },
+    lionsSide: normalizedLionsSide,
+    teams: teamsForGame(game.opponent || game.teams?.home?.name || "Opponent", normalizedLionsSide),
     lineups: {
       away: lineupEntries,
       home: homeLineup
@@ -1086,6 +1197,7 @@ function normalizeGame(game, nextState = state) {
   };
   normalized.plateAppearances = normalizePlateAppearances(game.plateAppearances, normalized);
   normalized.currentPlateAppearanceId = game.currentPlateAppearanceId || "";
+  syncGameTeams(normalized, normalized.lionsSide);
   syncGameCurrent(normalized);
   return normalized;
 }
@@ -1318,6 +1430,7 @@ function bindEvents() {
     tab.addEventListener("click", () => switchView(tab.dataset.view));
   });
   els.homeScoreGameBtn.addEventListener("click", openCurrentGameForScoring);
+  els.homeStartGameBtn?.addEventListener("click", startNextGameFromHome);
   els.homeGamesBtn.addEventListener("click", () => switchView("games"));
   els.homeScoutingBtn.addEventListener("click", openNextGameScouting);
   els.homeUpcomingGames?.addEventListener("click", (event) => {
@@ -1345,11 +1458,17 @@ function bindEvents() {
   els.gamesGrid.addEventListener("click", (event) => {
     const button = event.target.closest("[data-game-action]");
     if (!button) return;
-    if (button.dataset.gameAction === "score") scoreScheduledGame(button.dataset.gameId);
+    if (button.dataset.gameAction === "score" || button.dataset.gameAction === "start") scoreScheduledGame(button.dataset.gameId);
     if (button.dataset.gameAction === "complete") completeScheduledGame(button.dataset.gameId);
     if (button.dataset.gameAction === "lineup") openLineupBuilder(button.dataset.gameId);
     if (button.dataset.gameAction === "edit") openGameEditor(button.dataset.gameId);
     if (button.dataset.gameAction === "delete") removeScheduledGame(button.dataset.gameId);
+  });
+  els.gameFilterRow?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-game-filter]");
+    if (!button) return;
+    gameFilter = button.dataset.gameFilter || "all";
+    renderGames();
   });
 
   els.closeGameEditBtn.addEventListener("click", () => {
@@ -1358,6 +1477,8 @@ function bindEvents() {
   });
 
   els.saveGameEditBtn.addEventListener("click", saveGameEdits);
+  els.editOpponentInput?.addEventListener("input", renderGameEditorPreview);
+  els.editLionsSideInput?.addEventListener("change", renderGameEditorPreview);
 
   els.lineupBuilderRows.addEventListener("change", (event) => {
     const row = event.target.closest("[data-lineup-entry]");
@@ -1412,10 +1533,13 @@ function bindEvents() {
     button.addEventListener("click", () => applyEvent(activeGame(), { type: "resolve_play", result: button.dataset.opponentResult }));
   });
 
-  [els.opponentInput, els.gameDateInput, els.gameTimeInput, els.gameLocationInput, els.gameNotesInput]
-    .forEach((input) => input.addEventListener("input", () => {
-      input.dataset.dirty = "true";
-    }));
+  [els.opponentInput, els.gameLionsSideInput, els.gameDateInput, els.gameTimeInput, els.gameLocationInput, els.gameNotesInput]
+    .forEach((input) => {
+      ["input", "change"].forEach((eventName) => input.addEventListener(eventName, () => {
+        input.dataset.dirty = "true";
+        if (input === els.opponentInput) renderGameSetupPreview();
+      }));
+    });
 
   els.scoreOpponentLineupInput.addEventListener("input", () => {
     updateOpponentLineup(els.scoreOpponentLineupInput.value);
@@ -1436,7 +1560,9 @@ function bindEvents() {
   });
 
   els.pitcherSelect.addEventListener("change", () => {
-    activeGame().pitcherId = els.pitcherSelect.value;
+    const game = activeGame();
+    if (gameIsScoreLocked(game)) return;
+    game.pitcherId = els.pitcherSelect.value;
     saveState();
     renderAtBat();
   });
@@ -1450,6 +1576,7 @@ function bindEvents() {
 
   els.resetCountBtn.addEventListener("click", () => {
     const game = activeGame();
+    if (gameIsScoreLocked(game)) return;
     game.atBat = makeAtBat();
     const plateAppearance = getCurrentPlateAppearance(game, false);
     if (plateAppearance) plateAppearance.pitches = [];
@@ -1468,6 +1595,7 @@ function bindEvents() {
   els.undoPitchBtn.addEventListener("click", undoPitch);
   els.resetOpponentCountBtn.addEventListener("click", () => {
     const game = activeGame();
+    if (gameIsScoreLocked(game)) return;
     game.atBat = makeAtBat();
     const plateAppearance = getCurrentPlateAppearance(game, false);
     if (plateAppearance) plateAppearance.pitches = [];
@@ -1482,6 +1610,7 @@ function bindEvents() {
   els.undoOpponentPitchBtn.addEventListener("click", undoPitch);
   els.clearBipBtn.addEventListener("click", () => {
     const game = activeGame();
+    if (gameIsScoreLocked(game)) return;
     if (game.atBat) game.atBat.pendingInPlay = false;
     clearPendingPlayState(game, true);
     resetBipChoices();
@@ -1505,7 +1634,9 @@ function bindEvents() {
   els.newGameBtn.addEventListener("click", () => switchView("games"));
   els.undoBtn.addEventListener("click", undoLastPlay);
   els.endHalfBtn.addEventListener("click", () => {
-    advanceHalfInning(activeGame());
+    const game = activeGame();
+    if (gameIsScoreLocked(game)) return;
+    advanceHalfInning(game);
     saveState();
     render();
   });
@@ -1598,11 +1729,15 @@ function switchView(view) {
 
 function activeGame() {
   let game = state.games.find((item) => item.id === state.activeGameId);
+  if (!game || gameIsFinal(game) || game.status !== "active") {
+    game = state.games.find((item) => item.status === "active" && !gameIsFinal(item));
+    if (game) state.activeGameId = game.id;
+  }
+  if (!game) game = state.games.find((item) => !gameIsFinal(item)) || state.games[0];
   if (!game) {
-    game = makeUniqueGame({ opponent: "Opponent" });
+    game = makeUniqueGame({ opponent: "Opponent", status: "scheduled" });
     state.games.push(game);
-    state.activeGameId = game.id;
-    saveGameToLibrary(game, true);
+    saveGameToLibrary(game, false);
   }
   return game;
 }
@@ -1678,6 +1813,7 @@ function nextOpponentBatterIndex(game) {
 
 function updateOpponentLineup(value) {
   const game = activeGame();
+  if (gameIsFinal(game)) return;
   game.opponentLineup = parseOpponentLineup(value);
   if (!game.lineups) game.lineups = { away: deepClone(game.lineupEntries || []), home: [] };
   game.lineups.home = opponentLineupEntries(game.opponentLineup);
@@ -1690,6 +1826,7 @@ function updateOpponentLineup(value) {
 
 function updateOpponentLineupName(index, name) {
   const game = activeGame();
+  if (gameIsFinal(game)) return;
   const entries = opponentLineupEntriesForGame(game);
   if (!name) name = `Batter ${index + 1}`;
   while (entries.length <= index) {
@@ -1717,7 +1854,7 @@ function battingSide(game = activeGame()) {
 }
 
 function currentBatterModelId(game = activeGame()) {
-  return battingSide(game) === "away" ? currentBatterId(game) : `opp:${currentOpponentBatter(game)}`;
+  return isLionsAtBat(game) ? currentBatterId(game) : `opp:${currentOpponentBatter(game)}`;
 }
 
 function syncGameCurrent(game = activeGame()) {
@@ -1731,10 +1868,7 @@ function syncGameCurrent(game = activeGame()) {
   game.current.batterId = currentBatterModelId(game);
   game.current.pitcherId = game.pitcherId || game.current.pitcherId || "";
   game.current.runners = deepClone(game.bases || game.current.runners || emptyBases(false));
-  if (game.score) {
-    game.score.away = game.score.lions ?? game.score.away ?? 0;
-    game.score.home = game.score.opponent ?? game.score.home ?? 0;
-  }
+  syncScoreBySide(game);
   return game.current;
 }
 
@@ -1749,8 +1883,7 @@ function commitCurrentToLegacy(game = activeGame()) {
   game.atBat.balls = game.current.balls;
   game.atBat.strikes = game.current.strikes;
   if (game.score) {
-    game.score.lions = game.score.away ?? game.score.lions ?? 0;
-    game.score.opponent = game.score.home ?? game.score.opponent ?? 0;
+    syncScoreBySide(game);
   }
 }
 
@@ -1869,13 +2002,7 @@ function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
     atBat: cloneAtBat(game.atBat || makeAtBat())
   };
 
-  if (game.current.half === "top") {
-    game.score.lions += runsScored;
-    game.score.away = game.score.lions;
-  } else {
-    game.score.opponent += runsScored;
-    game.score.home = game.score.opponent;
-  }
+  addRunsForBattingTeam(game, runsScored);
   game.current.outs += outsRecorded;
   commitCurrentToLegacy(game);
 
@@ -1906,7 +2033,7 @@ function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
     plateAppearanceId: plateAppearance.id,
     gameId: game.id,
     playerId: plateAppearance.batterId,
-    opponentBatter: game.half === "bottom" ? currentOpponentBatter(game) : undefined,
+    opponentBatter: isOpponentAtBat(game) ? currentOpponentBatter(game) : undefined,
     result: type,
     runs: runsScored,
     rbi,
@@ -1919,7 +2046,7 @@ function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
     outsAfter: plateAppearance.outsAfter,
     basesBefore: deepClone(plateAppearance.basesBefore),
     basesAfter: deepClone(plateAppearance.basesAfter),
-    scope: plateAppearance.half === "top" ? "offense" : "defense",
+    scope: plateAppearance.battingSide === lionsSide(game) ? "offense" : "defense",
     pitcherId: plateAppearance.pitcherId,
     note: result.notes,
     pitches: deepClone(plateAppearance.pitches),
@@ -2061,15 +2188,19 @@ function advanceHalfInning(game = activeGame()) {
   if (game.current.half === "top") {
     game.current.half = "bottom";
   } else {
+    const completedInning = game.current.inning;
     game.current.half = "top";
     game.current.inning += 1;
-    if (game.current.inning > 7) game.status = "completed";
+    if (completedInning >= 7 && !gameIsTied(game)) {
+      game.status = "completed";
+    }
   }
   game.current.batterId = currentBatterModelId(game);
   game.current.pitcherId = game.pitcherId || game.current.pitcherId || "";
   game.currentPlateAppearanceId = "";
   game.atBat = makeAtBat();
   commitCurrentToLegacy(game);
+  if (gameIsFinal(game)) moveActiveGameOffFinal(game.id);
   clearPendingPlayState(game, true);
 }
 
@@ -2203,13 +2334,14 @@ function resetBipChoices() {
 
 function applyEvent(game = activeGame(), event = {}) {
   if (!game || !event.type) return null;
+  if (gameIsScoreLocked(game)) return null;
   syncGameCurrent(game);
   if (!game.atBat) game.atBat = makeAtBat();
 
   if (event.type === "pitch") {
     const outcome = event.outcome;
     const pitch = recordPitch(game, outcome);
-    if (game.half === "bottom") {
+    if (isOpponentAtBat(game)) {
       if (outcome === "ball" && pitch.ballsAfter >= 4) {
         return applyEvent(game, { type: "resolve_play", result: "BB" });
       }
@@ -2271,7 +2403,7 @@ function applyEvent(game = activeGame(), event = {}) {
         return result;
       }
     }
-    if (game.half === "bottom") {
+    if (isOpponentAtBat(game)) {
       if (["GO", "FO", "LO"].includes(result)) pendingOutFielder = event.fieldedBy || pendingOutFielder || "";
       return applyEvent(game, { type: "resolve_play", result, fieldedBy: pendingOutFielder });
     }
@@ -2359,7 +2491,7 @@ function applyEvent(game = activeGame(), event = {}) {
   if (event.type === "resolve_play") {
     const result = normalizeBallInPlayOutcome(event.result || event.outcome || els.resultSelect.value || "GO");
     selectChoice("result", result, true);
-    if (game.half === "bottom") {
+    if (isOpponentAtBat(game)) {
       logOpponentOutcome(result, { fieldedBy: event.fieldedBy || pendingOutFielder });
       return result;
     }
@@ -2541,7 +2673,7 @@ function autoCompleteResult(result) {
 function maybeAutoCompleteBattedBall() {
   const game = activeGame();
   const result = els.resultSelect.value;
-  if (game.half !== "top") return;
+  if (!isLionsAtBat(game)) return;
   if (!game.atBat?.pendingInPlay && !awaitingSprayLocation) return;
   if (!battedBallResults.has(result)) return;
   if (!bipOutcomeChosen) {
@@ -2566,6 +2698,7 @@ function maybeAutoCompleteBattedBall() {
 
 function undoPitch() {
   const game = activeGame();
+  if (gameIsScoreLocked(game)) return;
   const plateAppearance = getCurrentPlateAppearance(game, false);
   if (!game.atBat || !game.atBat.pitches.length) return;
   game.atBat.pitches.pop();
@@ -2592,7 +2725,8 @@ function undoPitch() {
 
 function logPlay() {
   const game = activeGame();
-  if (game.half === "bottom") {
+  if (gameIsScoreLocked(game)) return;
+  if (isOpponentAtBat(game)) {
     logOpponentOutcome(els.resultSelect.value || "GO");
     return;
   }
@@ -2810,6 +2944,7 @@ function baseKeyForSteal(target) {
 
 function recordSteal(target, outcome) {
   const game = activeGame();
+  if (gameIsScoreLocked(game)) return;
   if (game.status !== "completed") game.status = "active";
   const steal = baseKeyForSteal(target);
   const runner = game.bases[steal.from];
@@ -2832,13 +2967,7 @@ function recordSteal(target, outcome) {
       : { runnerId: runner, from: steal.from, out: true }
   ]);
   if (outcome === "safe" && movement.runsScored) {
-    if (game.half === "top") {
-      game.score.lions += movement.runsScored;
-      game.score.away = game.score.lions;
-    } else {
-      game.score.opponent += movement.runsScored;
-      game.score.home = game.score.opponent;
-    }
+    addRunsForBattingTeam(game, movement.runsScored);
   }
   if (outcome === "out") {
     game.current.outs += movement.outsRecorded;
@@ -2859,7 +2988,7 @@ function recordSteal(target, outcome) {
     half: game.half,
     outsBefore: snapshotBefore.outs,
     basesBefore: { ...snapshotBefore.bases },
-    scope: game.half === "top" ? "offense" : "defense",
+    scope: isLionsAtBat(game) ? "offense" : "defense",
     note: `${outcome === "safe" ? "Safe steal of" : "Caught stealing"} ${steal.label}`,
     pitches: [],
     count: game.atBat ? `${game.atBat.balls}-${game.atBat.strikes}` : "0-0",
@@ -2875,6 +3004,7 @@ function recordSteal(target, outcome) {
 
 function recordTagUp(target) {
   const game = activeGame();
+  if (gameIsScoreLocked(game)) return;
   if (game.status !== "completed") game.status = "active";
   const tag = tagUpMovement(target);
   if (!tag) return;
@@ -2893,20 +3023,14 @@ function recordTagUp(target) {
   };
   const movement = applyRunnerAdvancements(game, [{ runnerId: runner, from: tag.from, to: tag.to }]);
   if (movement.runsScored) {
-    if (game.half === "top") {
-      game.score.lions += movement.runsScored;
-      game.score.away = game.score.lions;
-    } else {
-      game.score.opponent += movement.runsScored;
-      game.score.home = game.score.opponent;
-    }
+    addRunsForBattingTeam(game, movement.runsScored);
   }
   const createdAt = new Date().toISOString();
   game.events.push({
     id: createId("event"),
     gameId: game.id,
-    playerId: game.half === "top" ? runner : undefined,
-    opponentBatter: game.half === "bottom" ? currentOpponentBatter(game) : undefined,
+    playerId: isLionsAtBat(game) ? runner : undefined,
+    opponentBatter: isOpponentAtBat(game) ? currentOpponentBatter(game) : undefined,
     result: "TAG",
     runs: movement.runsScored,
     rbi: 0,
@@ -2919,6 +3043,7 @@ function recordTagUp(target) {
     outsAfter: game.outs,
     basesBefore: snapshotBefore.bases,
     basesAfter: deepClone(game.bases),
+    scope: isLionsAtBat(game) ? "offense" : "defense",
     note: `${runnerName(runner) || "Runner"} tagged up to ${baseLabel(tag.to)}`,
     pitches: [],
     count: `${game.atBat?.balls || 0}-${game.atBat?.strikes || 0}`,
@@ -2941,6 +3066,7 @@ function tagUpMovement(target) {
 
 function logOpponentOutcome(result, options = {}) {
   const game = activeGame();
+  if (gameIsScoreLocked(game)) return;
   if (game.status !== "completed") game.status = "active";
   const batter = currentOpponentBatter(game);
   const pitcherId = currentPitcherId(game);
@@ -2991,6 +3117,7 @@ function advanceHalf(game) {
 
 function undoLastPlay() {
   const game = activeGame();
+  if (gameIsScoreLocked(game)) return;
   const event = game.events.pop();
   if (!event) return;
   if (event.plateAppearanceId) {
@@ -3033,37 +3160,49 @@ function startNewGame() {
 
 function scheduleGame() {
   const opponent = els.opponentInput.value.trim() || "Opponent";
-  const game = makeUniqueGame({ opponent });
+  const game = makeUniqueGame({ opponent, lionsSide: els.gameLionsSideInput.value || "home" });
   game.date = els.gameDateInput.value || todayValue();
   game.time = els.gameTimeInput.value || "";
-  game.location = els.gameLocationInput.value.trim();
+  game.location = els.gameLocationInput.value || "";
   game.notes = els.gameNotesInput.value.trim();
   game.status = "scheduled";
+  syncGameTeams(game, game.lionsSide);
   state.games.push(game);
-  state.activeGameId = game.id;
-  saveGameToLibrary(game, true);
+  saveGameToLibrary(game, false);
   clearPendingPlayState(game, true);
   saveState();
   resetGameCreationForm();
   render();
 }
 
+function renderGameSetupPreview() {
+  if (!els.gameSetupTeamIndicator) return;
+  const opponent = els.opponentInput.value.trim() || "Opponent";
+  const side = normalizeLionsSide(els.gameLionsSideInput?.value || "home");
+  const away = side === "away" ? "Oakmont Lions" : opponent;
+  const home = side === "home" ? "Oakmont Lions" : opponent;
+  els.gameSetupTeamIndicator.innerHTML = `<span>Away: ${escapeHtml(away)}</span><strong>Home: ${escapeHtml(home)}</strong>`;
+}
+
 function resetGameCreationForm() {
   els.opponentInput.value = "";
+  if (els.gameLionsSideInput) els.gameLionsSideInput.value = "home";
   els.gameDateInput.value = todayValue();
   els.gameTimeInput.value = "";
   els.gameLocationInput.value = "";
   els.gameNotesInput.value = "";
-  [els.opponentInput, els.gameDateInput, els.gameTimeInput, els.gameLocationInput, els.gameNotesInput]
+  [els.opponentInput, els.gameLionsSideInput, els.gameDateInput, els.gameTimeInput, els.gameLocationInput, els.gameNotesInput]
     .forEach((input) => {
       delete input.dataset.dirty;
     });
+  renderGameSetupPreview();
 }
 
 function scoreScheduledGame(gameId) {
   const game = state.games.find((item) => item.id === gameId);
   if (!game) return;
-  game.status = game.status === "completed" ? "completed" : "active";
+  if (gameIsFinal(game)) return;
+  game.status = "active";
   setActiveGame(game.id);
   clearPendingPlayState(game, true);
   saveState();
@@ -3071,18 +3210,29 @@ function scoreScheduledGame(gameId) {
   switchView("score");
 }
 
+function startNextGameFromHome() {
+  const next = nextScheduledGame();
+  if (!next) return;
+  scoreScheduledGame(next.id);
+}
+
 function completeScheduledGame(gameId) {
   const game = state.games.find((item) => item.id === gameId);
   if (!game) return;
+  if (game.status !== "active") return;
   game.status = "completed";
+  clearPendingPlayState(game, true);
+  moveActiveGameOffFinal(game.id);
   saveState();
   render();
 }
 
 function finishGame() {
   const current = activeGame();
+  if (gameIsScoreLocked(current)) return;
   current.status = "completed";
   clearPendingPlayState(current, true);
+  moveActiveGameOffFinal(current.id);
   saveState();
   render();
   switchView("games");
@@ -3120,6 +3270,7 @@ function render() {
   renderRoster();
   renderArchive();
   renderAnalysis();
+  renderGameSetupPreview();
   renderGames();
   renderGameEditor();
   renderSeasonStats();
@@ -3131,16 +3282,26 @@ function render() {
   renderTraditionalScorebook();
   if (!optimizedIds.length) optimizedIds = buildOptimizedLineup();
   renderOptimizedLineup();
+  if (gameIsScoreLocked(activeGame())) setScoreGameLocked(true);
 }
 
 function renderHome() {
   const record = seasonRecord();
   const upcoming = upcomingScheduledGames(3);
   const next = upcoming[0] || null;
+  const inProgress = inProgressGames()[0] || null;
   els.homeRecord.textContent = `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""}`;
   els.homeRunSummary.textContent = `${record.runsFor} RF | ${record.runsAgainst} RA`;
+  if (els.homeScoreGameBtn) {
+    els.homeScoreGameBtn.disabled = !inProgress;
+    els.homeScoreGameBtn.textContent = inProgress ? "Score Active Game" : "No Game In Progress";
+  }
+  if (els.homeStartGameBtn) {
+    els.homeStartGameBtn.disabled = !next;
+    els.homeStartGameBtn.hidden = !next;
+  }
   if (next) {
-    els.homeNextGame.textContent = `vs ${next.opponent}`;
+    els.homeNextGame.textContent = gameMatchupLabel(next);
     els.homeNextGameMeta.textContent = gameScheduleMeta(next);
     if (els.homeNextGameWeather) {
       els.homeNextGameWeather.dataset.weatherGameId = next.id;
@@ -3195,13 +3356,72 @@ function seasonRecord() {
 }
 
 function gameIsFinal(game) {
-  return Boolean(game && (game.status === "completed" || game.status === "final" || Number(game.inning || 0) > 7));
+  return Boolean(game && (game.status === "completed" || game.status === "final"));
+}
+
+function gameIsScoreLocked(game) {
+  return gameIsFinal(game) || game?.status !== "active";
+}
+
+function gameIsTied(game) {
+  return Number(game?.score?.lions || 0) === Number(game?.score?.opponent || 0);
+}
+
+function gameLifecycle(game) {
+  if (gameIsFinal(game)) return "completed";
+  if (game?.status === "active") return "active";
+  return "future";
+}
+
+function gameStatusLabel(game) {
+  const lifecycle = gameLifecycle(game);
+  if (lifecycle === "completed") return "Final";
+  if (lifecycle === "active") return "In progress";
+  return "Future";
+}
+
+function completedInningCount(game) {
+  if (!game) return 0;
+  if (gameIsFinal(game) && game.half === "top" && Number(game.outs || 0) === 0 && Number(game.inning || 0) > 1) {
+    return Number(game.inning) - 1;
+  }
+  return Number(game.inning || 1);
+}
+
+function scoreableGames(excludeGameId = "") {
+  const today = todayValue();
+  return [...state.games]
+    .filter((game) => !gameIsFinal(game) && game.id !== excludeGameId)
+    .sort((a, b) => {
+      const aDate = a.date || today;
+      const bDate = b.date || today;
+      const dateCompare = aDate.localeCompare(bDate);
+      if (dateCompare) return dateCompare;
+      return (a.time || "").localeCompare(b.time || "");
+    });
+}
+
+function inProgressGames() {
+  return scoreableGames().filter((game) => gameLifecycle(game) === "active");
+}
+
+function moveActiveGameOffFinal(finalGameId = "") {
+  const current = state.games.find((game) => game.id === state.activeGameId);
+  if (state.activeGameId !== finalGameId && !gameIsFinal(current)) return;
+  const next = inProgressGames().filter((game) => game.id !== finalGameId)[0];
+  if (next) {
+    state.activeGameId = next.id;
+    storage.setActiveGame(next.id);
+  } else {
+    state.activeGameId = "";
+  }
 }
 
 function upcomingScheduledGames(limit = 3) {
   const today = todayValue();
   return [...state.games]
     .filter((game) => !gameIsFinal(game))
+    .filter((game) => gameLifecycle(game) === "future")
     .filter((game) => (game.date || today) >= today)
     .sort((a, b) => {
       const aDate = a.date || today;
@@ -3228,7 +3448,7 @@ function setHomeMatchupImage(opponentName) {
 }
 
 function gameScheduleMeta(game) {
-  return `${game.date || "No date"}${game.time ? ` at ${game.time}` : ""}${game.location ? ` | ${game.location}` : ""}`;
+  return `${gameTeamMeta(game)} | ${game.date || "No date"}${game.time ? ` at ${game.time}` : ""}${game.location ? ` | ${game.location}` : ""}`;
 }
 
 function renderUpcomingGameCard(game) {
@@ -3236,7 +3456,7 @@ function renderUpcomingGameCard(game) {
     <img src="${escapeHtml(getMatchupImage(game.opponent))}" alt="Oakmont Lions vs ${escapeHtml(game.opponent)}">
     <div>
       <span class="scout-kicker">Upcoming</span>
-      <h4>vs ${escapeHtml(game.opponent)}</h4>
+      <h4>${escapeHtml(gameMatchupLabel(game))}</h4>
       <p class="player-meta">${escapeHtml(gameScheduleMeta(game))}</p>
       <div class="weather-chip" data-weather-game-id="${escapeHtml(game.id)}">${renderWeatherChip(game)}</div>
       <button type="button" class="secondary-action upcoming-scout-button" data-home-scout-opponent="${escapeHtml(game.opponent)}">View Scouting Report</button>
@@ -3339,15 +3559,14 @@ function weatherCondition(code) {
 }
 
 function openCurrentGameForScoring() {
-  const current = activeGame();
-  if (gameIsFinal(current)) {
-    const next = nextScheduledGame();
-    if (next) {
-      setActiveGame(next.id);
-      clearPendingPlayState(next, true);
-      saveState();
-    }
+  const current = inProgressGames()[0] || null;
+  if (!current) {
+    switchView("games");
+    return;
   }
+  setActiveGame(current.id);
+  clearPendingPlayState(current, true);
+  saveState();
   switchView("score");
 }
 
@@ -3400,26 +3619,38 @@ function renderScoreboard() {
   if (!game.atBat) game.atBat = makeAtBat();
   syncGameCurrent(game);
   els.scoreOpponentLineupInput.value = opponentLineup(game).join("\n");
-  els.gameTitle.textContent = `Lions vs ${game.opponent}`;
-  const inningLabel = game.status === "completed" ? "Final" : `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}`;
-  const headerBatter = game.half === "top" ? currentBatterLabel(game) : currentOpponentBatter(game);
-  els.headerBatterDisplay.textContent = game.half === "top" ? headerBatter : `${headerBatter} (${game.opponent})`;
+  els.gameTitle.textContent = gameMatchupLabel(game);
+  const inningLabel = gameIsFinal(game) ? "Final" : `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}`;
+  const headerBatter = isLionsAtBat(game) ? currentBatterLabel(game) : currentOpponentBatter(game);
+  els.headerBatterDisplay.textContent = isLionsAtBat(game) ? headerBatter : `${headerBatter} (${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent})`;
   if (els.currentBatterAvgDisplay) {
-    const batterStats = game.half === "top" ? statsForPlayer(currentBatterId(game)) : null;
+    const batterStats = isLionsAtBat(game) ? statsForPlayer(currentBatterId(game)) : null;
     els.currentBatterAvgDisplay.textContent = batterStats ? formatRate(batterStats.avg) : "--";
   }
   els.inningStateDisplay.textContent = inningLabel;
   els.headerCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   els.outsStateDisplay.textContent = String(game.outs);
-  els.gameContext.textContent = game.status === "completed"
-    ? `Final after ${Math.min(game.inning, 7)} innings`
-    : `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}, ${game.outs} ${game.outs === 1 ? "out" : "outs"}`;
+  els.gameContext.textContent = gameIsFinal(game)
+    ? `${gameTeamMeta(game)} | Final after ${completedInningCount(game)} innings`
+    : `${gameTeamMeta(game)} | ${game.half === "top" ? "Top" : "Bottom"} ${game.inning}, ${game.outs} ${game.outs === 1 ? "out" : "outs"}`;
+  if (els.lionsScoreLabel) els.lionsScoreLabel.textContent = `${lionsSide(game) === "home" ? "Home" : "Away"} Oakmont`;
+  if (els.opponentScoreLabel) els.opponentScoreLabel.textContent = `${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent || "Opponent"}`;
   els.lionsScore.textContent = game.score.lions;
   els.opponentScore.textContent = game.score.opponent;
+  setScoreGameLocked(gameIsScoreLocked(game));
   els.bases.forEach((base) => {
     const key = base.dataset.base === "1" ? "first" : base.dataset.base === "2" ? "second" : "third";
     base.classList.toggle("is-filled", Boolean(game.bases[key]));
   });
+}
+
+function setScoreGameLocked(locked) {
+  document.querySelectorAll("#scoreView button, #scoreView input, #scoreView select, #scoreView textarea")
+    .forEach((control) => {
+      if (control === els.newGameBtn) return;
+      control.disabled = locked;
+    });
+  if (els.finishGameBtn) els.finishGameBtn.textContent = gameIsFinal(activeGame()) ? "Game Final" : "Complete Game";
 }
 
 function renderRunnerTracker() {
@@ -3458,7 +3689,7 @@ function renderRunnerTracker() {
     const enabled = target === "second" ? canStealSecond : target === "third" ? canStealThird : canStealHome;
     button.disabled = !enabled;
   });
-  const showRunnerOuts = (Boolean(game.atBat?.pendingInPlay) || awaitingSprayLocation || awaitingRunnerDecision) && game.half === "top";
+  const showRunnerOuts = (Boolean(game.atBat?.pendingInPlay) || awaitingSprayLocation || awaitingRunnerDecision) && isLionsAtBat(game);
   els.runnerPlayControls.classList.toggle("is-visible", showRunnerOuts);
   els.runnerOutButtons.forEach((button) => {
     const base = button.dataset.runnerOutBase;
@@ -3488,7 +3719,7 @@ function togglePendingRunnerOut(base) {
 
 function renderAutoScorePreview() {
   const game = activeGame();
-  if (!els.autoScorePreview || game.half === "bottom") return;
+  if (!els.autoScorePreview || isOpponentAtBat(game)) return;
   const result = els.resultSelect.value || "1B";
   const batterId = currentBatterId(game);
   const runnerAdvancements = runnerAdvancementsForPlay(game, result, batterId);
@@ -3597,7 +3828,25 @@ function renderScoringStepPanel() {
   if (!els.scoringStepPanel) return;
   const game = activeGame();
   if (!game.atBat) game.atBat = makeAtBat();
-  if (game.half === "bottom") {
+  if (gameIsFinal(game)) {
+    els.scoringStepPanel.dataset.step = "final";
+    els.scoringStepEyebrow.textContent = "Final";
+    els.scoringStepTitle.textContent = "Game complete";
+    els.scoringStepHint.textContent = "This game is locked. Completed games remain available in past games and reports.";
+    els.panelUndoPitchBtn.hidden = true;
+    els.scoringStepBody.innerHTML = `<div class="auto-score">Final score: ${escapeHtml(gameScoreLabel(game))}</div>`;
+    return;
+  }
+  if (game.status !== "active") {
+    els.scoringStepPanel.dataset.step = "scheduled";
+    els.scoringStepEyebrow.textContent = "Future";
+    els.scoringStepTitle.textContent = "Game not started";
+    els.scoringStepHint.textContent = "Start this game from the Home or Games tab before scoring.";
+    els.panelUndoPitchBtn.hidden = true;
+    els.scoringStepBody.innerHTML = `<div class="auto-score">${escapeHtml(gameMatchupLabel(game))}</div>`;
+    return;
+  }
+  if (isOpponentAtBat(game)) {
     renderOpponentScoringStepPanel(game);
     return;
   }
@@ -3870,11 +4119,11 @@ function stepToneForResult(result) {
 function renderAtBat() {
   const game = activeGame();
   if (!game.atBat) game.atBat = makeAtBat();
-  const isOpponentHalf = game.half === "bottom";
+  const isOpponentHalf = isOpponentAtBat(game);
   const currentPlayer = state.roster.find((player) => player.id === currentBatterId(game));
   els.currentBatterName.textContent = currentPlayer ? `#${currentPlayer.number} ${currentPlayer.name}` : "Current batter";
   els.currentBatterMeta.textContent = currentPlayer
-    ? `${formatPositions(currentPlayer.positions)} | ${game.half === "top" ? "Oakmont hitting" : "Opponent half"}`
+    ? `${formatPositions(currentPlayer.positions)} | ${lionsSide(game) === "home" ? "Home" : "Away"} Oakmont Lions hitting`
     : "Set an active lineup to begin.";
   renderCurrentBatterSummary(game, currentPlayer);
   els.countDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
@@ -3882,7 +4131,7 @@ function renderAtBat() {
   const opponentBatter = currentOpponentBatter(game);
   renderPitcherSelect(game);
   els.opponentBatterName.textContent = opponentBatter;
-  els.opponentBatterMeta.textContent = `${game.opponent} lineup | Batter ${(game.opponentBatterIndex || 0) + 1} of ${opponentLineup(game).length}`;
+  els.opponentBatterMeta.textContent = `${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent} lineup | Batter ${(game.opponentBatterIndex || 0) + 1} of ${opponentLineup(game).length}`;
   renderOpponentBatterSummary(game, opponentBatter);
   els.opponentCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   els.opponentOutsDisplay.textContent = `${game.outs} ${game.outs === 1 ? "out" : "outs"}`;
@@ -3968,7 +4217,7 @@ function addPitchToPitcherStats(stats, pitch) {
 function pitcherStatsWithCurrentAtBat(game = activeGame()) {
   const pitcherId = currentPitcherId(game);
   const stats = pitcherStats(pitcherId, game.id);
-  if (game.half === "bottom" && Array.isArray(game.atBat?.pitches) && game.atBat.pitches.length) {
+  if (isOpponentAtBat(game) && Array.isArray(game.atBat?.pitches) && game.atBat.pitches.length) {
     game.atBat.pitches.forEach((pitch) => addPitchToPitcherStats(stats, pitch));
     stats.strikeRate = divide(stats.strikes, stats.pitches);
   }
@@ -4016,7 +4265,7 @@ function batterSummaryMarkup(events, emptyLabel) {
 
 function setSprayFromPointer(event) {
   const game = activeGame();
-  if (game.half === "bottom") return;
+  if (isOpponentAtBat(game)) return;
   if (!awaitingSprayLocation && !game.atBat?.pendingInPlay) return;
   if (event.target.closest?.("button, input, select, textarea, [contenteditable='true']")) return;
   const rect = els.sprayChart.getBoundingClientRect();
@@ -4087,7 +4336,7 @@ function renderSprayDot({ event, game }) {
 
 function renderBatterSelect() {
   const game = activeGame();
-  if (game.half === "bottom") {
+  if (isOpponentAtBat(game)) {
     els.batterSelect.innerHTML = `<option>${escapeHtml(currentOpponentBatter(game))}</option>`;
     els.batterSelect.disabled = true;
     return;
@@ -4108,7 +4357,7 @@ function renderBatterSelect() {
 
 function renderLiveLineup() {
   const game = activeGame();
-  if (game.half === "bottom") {
+  if (isOpponentAtBat(game)) {
     const hitters = opponentLineupEntriesForGame(game);
     els.lineupCount.textContent = `${hitters.length} hitters`;
     els.liveLineup.innerHTML = hitters
@@ -4117,10 +4366,10 @@ function renderLiveLineup() {
         return `<li class="opponent-lineup-row${current}">
           <div class="lineup-order">${index + 1}</div>
           <label>
-            <span>Opponent hitter</span>
+            <span>Home hitter</span>
             <input value="${escapeHtml(entry.name)}" spellcheck="false" data-opponent-lineup-index="${index}">
           </label>
-          <div class="player-meta">${escapeHtml(game.opponent)} batting | Type to edit</div>
+          <div class="player-meta">${opponentSide(game) === "home" ? "Home" : "Away"} ${escapeHtml(game.opponent)} batting | Type to edit</div>
         </li>`;
       })
       .join("");
@@ -4133,10 +4382,10 @@ function renderLiveLineup() {
       const player = state.roster.find((item) => item.id === entry.playerId);
       if (!player) return "";
       const stats = statsForPlayer(player.id);
-      const current = index === game.batterIndex && game.half === "top" ? " is-current" : "";
+      const current = index === game.batterIndex && isLionsAtBat(game) ? " is-current" : "";
       return `<li class="${current}">
         <strong>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</strong>
-        <div class="player-meta">${escapeHtml(entry.role)} | ${escapeHtml(formatPositions(player.positions))} | OPS ${formatRate(stats.ops)} | Contact ${Math.round(contactQuality(stats) * 100)}</div>
+        <div class="player-meta">${lionsSide(game) === "home" ? "Home" : "Away"} Oakmont Lions | ${escapeHtml(entry.role)} | ${escapeHtml(formatPositions(player.positions))} | OPS ${formatRate(stats.ops)} | Contact ${Math.round(contactQuality(stats) * 100)}</div>
       </li>`;
     })
     .join("");
@@ -4144,8 +4393,8 @@ function renderLiveLineup() {
 
 function renderSubControls() {
   const game = activeGame();
-  els.subPanel.classList.toggle("is-hidden", game.half === "bottom");
-  if (game.half === "bottom") {
+  els.subPanel.classList.toggle("is-hidden", isOpponentAtBat(game));
+  if (isOpponentAtBat(game)) {
     els.subSpotSelect.innerHTML = "";
     els.subPlayerSelect.innerHTML = "";
     return;
@@ -4217,11 +4466,11 @@ function renderTraditionalScorebook() {
   if (!scorebookGameId || !state.games.some((game) => game.id === scorebookGameId)) scorebookGameId = active.id;
   els.scorebookGameSelect.innerHTML = [...state.games]
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
-    .map((game) => `<option value="${game.id}" ${game.id === scorebookGameId ? "selected" : ""}>${escapeHtml(game.date || "No date")} vs ${escapeHtml(game.opponent)}</option>`)
+    .map((game) => `<option value="${game.id}" ${game.id === scorebookGameId ? "selected" : ""}>${escapeHtml(game.date || "No date")} ${escapeHtml(gameMatchupLabel(game))}</option>`)
     .join("");
   const game = state.games.find((item) => item.id === scorebookGameId) || active;
-  els.scorebookGameMeta.textContent = `${game.date || "No date"} | Oakmont ${game.score.lions} - ${game.score.opponent} ${game.opponent}`;
-  const innings = [1, 2, 3, 4, 5, 6, 7];
+  els.scorebookGameMeta.textContent = `${game.date || "No date"} | ${gameTeamMeta(game)} | ${gameScoreLabel(game)}`;
+  const innings = scorebookInnings(game);
   const head = `<tr><th>Lineup</th>${innings.map((inning) => `<th>${inning}</th>`).join("")}<th>R</th><th>H</th><th>RBI</th></tr>`;
   els.scorebookHead.innerHTML = head;
   els.opponentScorebookHead.innerHTML = head.replace("Lineup", "Opponent");
@@ -4250,6 +4499,12 @@ function renderTraditionalScorebook() {
     })),
     innings
   );
+}
+
+function scorebookInnings(game) {
+  const highestEventInning = Math.max(0, ...(game.events || []).map((event) => Number(event.inning || 0)));
+  const highest = Math.max(7, Number(game.inning || 1), highestEventInning);
+  return Array.from({ length: highest }, (_, index) => index + 1);
 }
 
 function renderScorebookRows(rows, innings) {
@@ -4443,7 +4698,7 @@ function statCell(label, value) {
 function renderArchive() {
   const query = els.archiveSearch.value.trim().toLowerCase();
   const games = state.games
-    .filter((game) => game.status === "completed" || game.events.length)
+    .filter((game) => gameIsFinal(game) || game.events.length)
     .filter((game) => {
       if (!query) return true;
       const haystack = [
@@ -4481,9 +4736,9 @@ function renderArchiveCard(game) {
   return `<article class="archive-card">
     <div class="archive-score">
       <span>${escapeHtml(game.date)}</span>
-      <span>Oakmont ${game.score.lions} - ${game.score.opponent} ${escapeHtml(game.opponent)}</span>
+      <span>${escapeHtml(gameScoreLabel(game))}</span>
     </div>
-    <div class="archive-meta">${game.events.length} tracked events | ${game.status}</div>
+    <div class="archive-meta">${escapeHtml(gameTeamMeta(game))} | ${game.events.length} tracked events | ${escapeHtml(gameStatusLabel(game))}</div>
     ${topEvents || `<div class="archive-meta">No offensive events logged.</div>`}
   </article>`;
 }
@@ -4491,34 +4746,49 @@ function renderArchiveCard(game) {
 function renderGames() {
   const activeId = activeGame().id;
   renderRecordSummary();
+  if (els.gameFilterRow) {
+    els.gameFilterRow.querySelectorAll("[data-game-filter]").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.gameFilter === gameFilter);
+    });
+  }
   const sorted = [...state.games].sort((a, b) => {
     const dateCompare = (b.date || "").localeCompare(a.date || "");
     if (dateCompare) return dateCompare;
     return a.opponent.localeCompare(b.opponent);
   });
-  els.gamesGrid.innerHTML = sorted
+  const filtered = sorted.filter((game) => gameFilter === "all" || gameLifecycle(game) === gameFilter);
+  els.gamesGrid.innerHTML = filtered.length ? filtered
     .map((game) => {
-      const active = game.id === activeId ? " is-active" : "";
-      const score = game.events.length ? `Oakmont ${game.score.lions} - ${game.score.opponent} ${escapeHtml(game.opponent)}` : `Oakmont vs ${escapeHtml(game.opponent)}`;
-      const status = game.status === "active" ? "Ready to score" : game.status;
+      const locked = gameIsFinal(game);
+      const lifecycle = gameLifecycle(game);
+      const active = game.id === activeId && lifecycle === "active" ? " is-active" : "";
+      const score = game.events.length || locked ? gameScoreLabel(game) : gameMatchupLabel(game);
+      const status = gameStatusLabel(game);
+      const primaryAction = lifecycle === "active"
+        ? `<button type="button" class="primary-action" data-game-action="score" data-game-id="${game.id}">${game.id === activeId ? "Continue Scoring" : "Open In Progress"}</button>`
+        : lifecycle === "future"
+          ? `<button type="button" class="primary-action" data-game-action="start" data-game-id="${game.id}">Start Game</button>`
+          : "";
+      const canComplete = lifecycle === "active";
       return `<article class="game-card${active}">
         <div>
+          <span class="player-meta">${escapeHtml(gameTeamMeta(game))}</span>
+          <h3>${escapeHtml(score)}</h3>
           <span class="player-meta">${escapeHtml(game.date || "No date")} ${game.time ? `| ${escapeHtml(game.time)}` : ""} ${game.location ? `| ${escapeHtml(game.location)}` : ""}</span>
-          <h3>${score}</h3>
         </div>
         <div class="archive-meta">${escapeHtml(status)} | ${game.events.length} tracked events</div>
         <div class="archive-meta">${opponentLineup(game).length} opponent hitters loaded</div>
         ${game.notes ? `<div class="archive-meta">${escapeHtml(game.notes)}</div>` : ""}
         <div class="game-actions">
-          <button type="button" class="primary-action" data-game-action="score" data-game-id="${game.id}">${game.id === activeId ? "Continue Scoring" : "Score This Game"}</button>
-          <button type="button" class="secondary-action" data-game-action="lineup" data-game-id="${game.id}">Lineup</button>
-          <button type="button" class="secondary-action" data-game-action="edit" data-game-id="${game.id}">Edit</button>
-          <button type="button" class="secondary-action" data-game-action="complete" data-game-id="${game.id}">Mark Final</button>
+          ${primaryAction}
+          <button type="button" class="secondary-action" data-game-action="lineup" data-game-id="${game.id}" ${locked ? "disabled" : ""}>Lineup</button>
+          <button type="button" class="secondary-action" data-game-action="edit" data-game-id="${game.id}" ${locked ? "disabled" : ""}>Edit</button>
+          <button type="button" class="secondary-action" data-game-action="complete" data-game-id="${game.id}" ${canComplete ? "" : "disabled"}>Mark Final</button>
           <button type="button" class="secondary-action danger-action" data-game-action="delete" data-game-id="${game.id}">Remove</button>
         </div>
       </article>`;
     })
-    .join("");
+    .join("") : `<p class="player-meta">No ${escapeHtml(gameFilter)} games found.</p>`;
 }
 
 function renderRecordSummary() {
@@ -4537,11 +4807,13 @@ function renderRecordSummary() {
 function openGameEditor(gameId) {
   const game = state.games.find((item) => item.id === gameId);
   if (!game) return;
+  if (gameIsFinal(game)) return;
   gameEditId = gameId;
   els.editOpponentInput.value = game.opponent || "";
+  els.editLionsSideInput.value = lionsSide(game);
   els.editDateInput.value = game.date || todayValue();
   els.editTimeInput.value = game.time || "";
-  els.editLocationInput.value = game.location || "";
+  setSelectValueWithLegacy(els.editLocationInput, game.location || "");
   els.editNotesInput.value = game.notes || "";
   renderGameEditor();
 }
@@ -4550,17 +4822,30 @@ function renderGameEditor() {
   const game = state.games.find((item) => item.id === gameEditId);
   els.gameEditPanel.classList.toggle("is-visible", Boolean(game));
   if (!game) return;
-  els.gameEditTitle.textContent = `Edit ${game.opponent}`;
+  els.gameEditTitle.textContent = `Edit ${gameMatchupLabel(game)}`;
+  renderGameEditorPreview();
+}
+
+function renderGameEditorPreview() {
+  if (!els.editTeamIndicator) return;
+  const game = state.games.find((item) => item.id === gameEditId);
+  if (!game) return;
+  const opponent = els.editOpponentInput.value.trim() || game.opponent || "Opponent";
+  const side = normalizeLionsSide(els.editLionsSideInput.value || lionsSide(game));
+  const away = side === "away" ? "Oakmont Lions" : opponent;
+  const home = side === "home" ? "Oakmont Lions" : opponent;
+  els.editTeamIndicator.innerHTML = `<span>Away: ${escapeHtml(away)}</span><strong>Home: ${escapeHtml(home)}</strong>`;
 }
 
 function saveGameEdits() {
   const game = state.games.find((item) => item.id === gameEditId);
   if (!game) return;
+  if (gameIsFinal(game)) return;
   game.opponent = els.editOpponentInput.value.trim() || "Opponent";
-  if (game.teams?.home) game.teams.home.name = game.opponent;
+  syncGameTeams(game, els.editLionsSideInput.value || lionsSide(game));
   game.date = els.editDateInput.value || todayValue();
   game.time = els.editTimeInput.value || "";
-  game.location = els.editLocationInput.value.trim();
+  game.location = els.editLocationInput.value || "";
   game.notes = els.editNotesInput.value.trim();
   saveState();
   render();
@@ -4581,6 +4866,11 @@ function removeScheduledGame(gameId) {
 function openLineupBuilder(gameId) {
   lineupBuilderGameId = gameId;
   const game = state.games.find((item) => item.id === gameId);
+  if (gameIsFinal(game)) {
+    lineupBuilderGameId = null;
+    renderLineupBuilder();
+    return;
+  }
   if (game && (!game.lineupEntries || !game.lineupEntries.length)) game.lineupEntries = makeLineupEntries(state.lineup);
   renderLineupBuilder();
 }
@@ -4589,7 +4879,7 @@ function renderLineupBuilder() {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   els.lineupBuilderPanel.classList.toggle("is-visible", Boolean(game));
   if (!game) return;
-  els.lineupBuilderTitle.textContent = `Lineup vs ${game.opponent}`;
+  els.lineupBuilderTitle.textContent = `Lineup: ${gameMatchupLabel(game)}`;
   els.lineupBuilderRows.innerHTML = gameLineupEntries(game)
     .map((entry, index) => `<div class="lineup-builder-row" data-lineup-entry="${entry.id}">
       <div class="lineup-order">${index + 1}</div>
@@ -4614,6 +4904,7 @@ function roleSelectMarkup(selected = "EH") {
 function updateLineupEntry(entryId, playerId, role) {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   if (!game) return;
+  if (gameIsFinal(game)) return;
   game.lineupEntries = gameLineupEntries(game).map((entry) => (entry.id === entryId ? { ...entry, playerId, role } : entry));
   game.lineups.away = deepClone(game.lineupEntries);
   saveState();
@@ -4624,6 +4915,7 @@ function updateLineupEntry(entryId, playerId, role) {
 function addLineupEntry() {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   if (!game) return;
+  if (gameIsFinal(game)) return;
   const used = new Set(gameLineupPlayerIds(game));
   const player = state.roster.find((item) => !used.has(item.id)) || state.roster[0];
   if (!player) return;
@@ -4636,6 +4928,7 @@ function addLineupEntry() {
 function removeLineupEntry(entryId) {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   if (!game) return;
+  if (gameIsFinal(game)) return;
   game.lineupEntries = gameLineupEntries(game).filter((entry) => entry.id !== entryId);
   game.lineups.away = deepClone(game.lineupEntries);
   game.batterIndex = Math.min(game.batterIndex, Math.max(game.lineupEntries.length - 1, 0));
@@ -4647,6 +4940,7 @@ function removeLineupEntry(entryId) {
 function resetBuilderLineup() {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   if (!game) return;
+  if (gameIsFinal(game)) return;
   game.lineupEntries = makeLineupEntries(state.lineup);
   game.lineups.away = deepClone(game.lineupEntries);
   game.batterIndex = 0;
@@ -4691,8 +4985,8 @@ function renderGameBreakdown() {
       return `<article class="breakdown-card">
         <div class="mini-head">
           <div>
-            <h3>${escapeHtml(game.date || "No date")} vs ${escapeHtml(game.opponent)}</h3>
-            <span class="player-meta">Oakmont ${game.score.lions} - ${game.score.opponent} | ${game.status}</span>
+            <h3>${escapeHtml(game.date || "No date")} ${escapeHtml(gameMatchupLabel(game))}</h3>
+            <span class="player-meta">${escapeHtml(gameScoreLabel(game))} | ${escapeHtml(gameStatusLabel(game))}</span>
           </div>
           <span class="player-meta">${offensiveEvents.length} PA</span>
         </div>
@@ -5212,7 +5506,7 @@ function renderStatsSprayControls() {
     ...state.games
       .filter((game) => game.events.some((event) => event.spray))
       .sort((a, b) => b.date.localeCompare(a.date))
-      .map((game) => `<option value="${game.id}" ${game.id === selectedGame ? "selected" : ""}>${escapeHtml(game.date)} vs ${escapeHtml(game.opponent)}</option>`)
+      .map((game) => `<option value="${game.id}" ${game.id === selectedGame ? "selected" : ""}>${escapeHtml(game.date)} ${escapeHtml(gameMatchupLabel(game))}</option>`)
   ].join("");
   if (selectedPlayer) els.statsSprayPlayerSelect.value = selectedPlayer;
   if ([...els.statsSprayGameSelect.options].some((option) => option.value === selectedGame)) els.statsSprayGameSelect.value = selectedGame;

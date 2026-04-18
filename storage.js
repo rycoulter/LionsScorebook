@@ -37,7 +37,7 @@
 
     normalized.activeGameId = library.activeGameId && normalized.gamesById[library.activeGameId]
       ? library.activeGameId
-      : normalized.gameOrder[0] || "";
+      : "";
     return normalized;
   }
 
@@ -48,7 +48,7 @@
       library.gamesById[game.id] = deepClone(game);
       if (!library.gameOrder.includes(game.id)) library.gameOrder.push(game.id);
     });
-    library.activeGameId = activeGameId && library.gamesById[activeGameId] ? activeGameId : library.gameOrder[0] || "";
+    library.activeGameId = activeGameId && library.gamesById[activeGameId] ? activeGameId : "";
     return library;
   }
 
@@ -95,7 +95,7 @@
     const library = loadLibrary();
     library.gamesById[game.id] = deepClone(game);
     if (!library.gameOrder.includes(game.id)) library.gameOrder.push(game.id);
-    if (setActive || !library.activeGameId) library.activeGameId = game.id;
+    if (setActive) library.activeGameId = game.id;
     return saveLibrary(library);
   }
 
@@ -127,7 +127,7 @@
     if (!library.gamesById[gameId]) return library;
     delete library.gamesById[gameId];
     library.gameOrder = library.gameOrder.filter((id) => id !== gameId);
-    if (library.activeGameId === gameId) library.activeGameId = library.gameOrder[0] || "";
+    if (library.activeGameId === gameId) library.activeGameId = "";
     return saveLibrary(library);
   }
 
@@ -148,8 +148,6 @@
       });
       if (setActive && incomingLibrary.activeGameId) {
         currentLibrary.activeGameId = incomingLibrary.activeGameId;
-      } else if (!currentLibrary.activeGameId) {
-        currentLibrary.activeGameId = currentLibrary.gameOrder[0] || "";
       }
       return saveLibrary(currentLibrary);
     }

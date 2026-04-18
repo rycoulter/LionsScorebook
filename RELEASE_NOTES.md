@@ -7,6 +7,9 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-18
 
 ### Added
+- Added clearer home/away game setup labels, field-location dropdowns, Games tab lifecycle filters, and final-game locking.
+- Added a Lions home/away selector and Start Game flow so scheduled games stay future until explicitly started.
+- Added extra-inning support so tied games can continue after the seventh inning.
 - Added a visible app build badge to help confirm which version Safari/iPad has loaded.
 - Added a temporary service-worker disable path for stale-build debugging with `?no-sw=1`, a localStorage flag, or a code constant.
 - Added weather chips to the homepage Next Game and Upcoming Games cards using scheduled game date and field location.
