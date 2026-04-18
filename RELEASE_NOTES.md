@@ -12,6 +12,9 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 - Added weather chips to the homepage Next Game and Upcoming Games cards using scheduled game date and field location.
 
 ### Changed
+- Added iPad Air 5th gen responsive tuning for 820x1180 portrait and 1180x820 landscape layouts across app pages.
+- Cleaned up the viewport metadata for iPad Safari safe-area handling.
+- Refreshed the PWA cache version for the iPad layout pass.
 - Refreshed the PWA cache version for the build-debugging update.
 - Redesigned the scoring area below the existing game-state header into an iPad landscape dashboard with a sidebar lineup, centered field, and bottom scoring dock.
 - Updated the scoring header to refresh count and pitcher pitch totals immediately after each pitch.

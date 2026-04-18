@@ -502,7 +502,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.18-build-35";
+const APP_VERSION = "2026.04.18-build-36";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 

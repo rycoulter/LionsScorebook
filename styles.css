@@ -6020,3 +6020,307 @@ label {
     padding: 6px 10px;
   }
 }
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  html,
+  body {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .app-shell {
+    min-height: 100dvh;
+  }
+
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(220px, auto) auto;
+    grid-template-areas:
+      "brand version"
+      "tabs tabs";
+    align-items: center;
+    gap: 9px 14px;
+    padding: 10px max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left));
+  }
+
+  .brand-block {
+    grid-area: brand;
+    min-width: 0;
+  }
+
+  .app-version {
+    grid-area: version;
+    justify-self: end;
+  }
+
+  .tabs {
+    grid-area: tabs;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 3px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .tab {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 7px 11px;
+    font-size: 0.88rem;
+  }
+
+  main {
+    gap: 18px;
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+  }
+
+  .view,
+  .game-glass {
+    width: min(100% - 22px, 1180px);
+  }
+
+  .section-head {
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .section-head .button-row,
+  .mini-head .button-row {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .game-form,
+  .player-form,
+  .scouting-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-hero-panel {
+    grid-column: 1 / -1;
+  }
+
+  .games-grid,
+  .archive-grid,
+  .metrics-grid,
+  .scouting-grid,
+  .upcoming-game-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lab-grid,
+  .analysis-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-table-wrap,
+  .scorebook-table-wrap {
+    max-width: 100%;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .stats-spray-shell,
+  .scorebook-panel,
+  .lineup-builder,
+  .game-form,
+  .player-form {
+    max-width: 100%;
+  }
+
+  .stats-table {
+    min-width: 980px;
+  }
+
+  .scorebook-table {
+    min-width: 980px;
+  }
+
+  .scorebook-table th,
+  .scorebook-table td {
+    min-width: 120px;
+  }
+
+  input,
+  select,
+  textarea {
+    min-height: 42px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) and (orientation: portrait) {
+  .home-grid,
+  .games-grid,
+  .archive-grid,
+  .metrics-grid,
+  .scouting-grid,
+  .upcoming-game-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .roster-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .player-card-content {
+    padding: 18px;
+  }
+
+  .player-card {
+    min-height: 520px;
+  }
+
+  .lineup-builder-row {
+    grid-template-columns: 44px minmax(0, 1fr) minmax(88px, 0.3fr);
+  }
+
+  .lineup-builder-row .secondary-action {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+
+  .upcoming-game-card {
+    grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  }
+
+  #scoreView .spray-panel,
+  #scoreView .spray-chart,
+  #scoreView .pitch-panel {
+    min-height: 540px;
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1199px) and (orientation: landscape) {
+  #scoreView.is-visible {
+    width: min(100% - 16px, 1180px);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px;
+    height: calc(100dvh - 112px);
+  }
+
+  #scoreView > .section-head {
+    display: none;
+  }
+
+  #scoreView .score-status-card {
+    margin-bottom: 0;
+    position: relative;
+    top: auto;
+  }
+
+  #scoreView .score-grid {
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  #scoreView .spray-panel,
+  #scoreView .spray-chart,
+  #scoreView .pitch-panel {
+    min-height: 0;
+  }
+
+  #scoreView .play-panel {
+    padding: 10px;
+  }
+
+  #scoreView .lineup-list li {
+    min-height: 38px;
+    padding: 7px 8px;
+  }
+
+  #scoreView .sub-panel {
+    padding: 8px;
+  }
+
+  #scoreView .scorer-stack {
+    gap: 8px;
+  }
+
+  #scoreView .scoring-step-panel {
+    max-height: 188px;
+    padding: 10px;
+  }
+
+  #scoreView .scoring-step-head {
+    align-items: center;
+  }
+
+  #scoreView .scoring-step-head h3 {
+    font-size: 0.94rem;
+  }
+
+  #scoreView .scoring-step-body {
+    max-height: 118px;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #scoreView .step-grid-pitches,
+  #scoreView .step-grid-outcomes,
+  #scoreView .step-grid-opponent {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  #scoreView .step-grid-fielders {
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+  }
+
+  #scoreView .step-button {
+    min-height: 44px;
+    padding: 7px 8px;
+    font-size: 0.86rem;
+  }
+
+  #scoreView .runner-decision-card {
+    grid-template-columns: minmax(140px, 0.3fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  #scoreView .score-form {
+    grid-template-columns: minmax(220px, 1fr) auto;
+    padding: 7px 9px;
+  }
+
+  #scoreView .score-form .auto-score {
+    min-height: 30px;
+    padding: 5px 8px;
+  }
+
+  #scoreView .score-form label.wide input {
+    min-height: 30px;
+  }
+
+  #scoreView .score-form .button-row.wide .secondary-action {
+    min-height: 32px;
+    padding: 5px 9px;
+    font-size: 0.82rem;
+  }
+
+  .roster-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .player-card-content {
+    padding: 18px;
+  }
+
+  .player-card .stat-strip {
+    gap: 7px;
+  }
+
+  .game-form {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .lineup-builder-row {
+    grid-template-columns: 44px minmax(0, 1fr) 92px auto;
+  }
+}
