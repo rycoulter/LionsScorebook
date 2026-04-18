@@ -5856,3 +5856,155 @@ label {
     grid-template-columns: 1fr;
   }
 }
+
+@media (min-width: 900px) {
+  #scoreView.is-visible {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 10px;
+    height: calc(100dvh - 82px);
+    margin-bottom: 0;
+    overflow: hidden;
+  }
+
+  #scoreView .section-head {
+    margin-bottom: 0;
+  }
+
+  #scoreView .score-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+    grid-template-areas: "sidebar main";
+    align-items: stretch;
+    gap: 14px;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #scoreView .play-panel {
+    grid-area: sidebar;
+    position: relative;
+    top: auto;
+    display: block;
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+  }
+
+  #scoreView .lineup-list {
+    margin-bottom: 12px;
+  }
+
+  #scoreView .play-feed {
+    max-height: none;
+  }
+
+  #scoreView .scorer-stack {
+    grid-area: main;
+    display: grid;
+    grid-template-areas:
+      "field"
+      "panel"
+      "form";
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    gap: 10px;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #scoreView .spray-panel,
+  #scoreView .pitch-panel,
+  #scoreView .runner-panel {
+    grid-area: field;
+    min-height: 0;
+    height: 100%;
+  }
+
+  #scoreView .spray-chart {
+    min-height: 0;
+    height: 100%;
+  }
+
+  #scoreView .pitch-panel {
+    pointer-events: none;
+  }
+
+  #scoreView .scoring-step-panel {
+    grid-area: panel;
+    position: relative;
+    bottom: auto;
+    z-index: 11;
+    min-height: 0;
+    max-height: 220px;
+  }
+
+  #scoreView .scoring-step-head {
+    gap: 10px;
+  }
+
+  #scoreView .scoring-step-head h3 {
+    font-size: 0.98rem;
+  }
+
+  #scoreView .scoring-step-head span {
+    font-size: 0.78rem;
+  }
+
+  #scoreView .step-button {
+    min-height: 50px;
+    padding: 8px 10px;
+  }
+
+  #scoreView .runner-decision-card {
+    padding: 8px;
+  }
+
+  #scoreView .runner-choice {
+    min-height: 36px;
+    padding: 6px 9px;
+  }
+
+  #scoreView .score-form {
+    grid-area: form;
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    min-height: 0;
+    margin-top: 0;
+    padding: 8px 10px;
+  }
+
+  #scoreView .score-form .auto-score {
+    grid-column: 1;
+    min-height: 32px;
+    padding: 6px 9px;
+    font-size: 0.78rem;
+  }
+
+  #scoreView .score-form label.wide {
+    grid-column: 1;
+  }
+
+  #scoreView .score-form label.wide input {
+    min-height: 32px;
+    padding: 6px 9px;
+  }
+
+  #scoreView .score-form .button-row.wide {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: stretch;
+    justify-content: flex-end;
+  }
+
+  #scoreView .score-form .button-row.wide .secondary-action {
+    min-height: 34px;
+    padding: 6px 10px;
+  }
+}
