@@ -4,6 +4,17 @@ Track user-facing changes to the Oakmont Lions baseball scorebook app here.
 
 Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA assets, or data handling changes. Keep the newest entry at the top.
 
+## 2026-04-18
+
+### Added
+- Added weather chips to the homepage Next Game and Upcoming Games cards using scheduled game date and field location.
+
+### Changed
+- Updated the scoring header to refresh count and pitcher pitch totals immediately after each pitch.
+- Restored the roster grid to a three-card desktop layout while preserving the current premium card design.
+- Improved dark-theme styling for roster, stats spray chart, and scorebook dropdowns.
+- Refreshed the PWA cache version so the latest scoring, weather, and layout updates are picked up after deployment.
+
 ## 2026-04-17
 
 ### Added

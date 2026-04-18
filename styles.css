@@ -5789,3 +5789,70 @@ label {
     justify-content: stretch;
   }
 }
+
+.weather-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05)),
+    rgba(3, 10, 36, 0.52);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.weather-chip strong {
+  color: var(--white);
+}
+
+.weather-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: rgba(245, 189, 33, 0.16);
+  color: var(--lion-gold);
+  font-size: 1rem;
+}
+
+#rosterView select,
+#statsView .stats-spray-shell select,
+#scorebookView select {
+  border-color: rgba(255, 255, 255, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05)),
+    rgba(3, 10, 36, 0.82);
+  color: var(--white);
+  font-weight: 850;
+}
+
+#rosterView select option,
+#statsView .stats-spray-shell select option,
+#scorebookView select option {
+  background: #151a2d;
+  color: var(--white);
+}
+
+.roster-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 1220px) {
+  .roster-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 780px) {
+  .roster-grid {
+    grid-template-columns: 1fr;
+  }
+}

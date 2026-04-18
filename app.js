@@ -524,6 +524,8 @@ let scoringStep = "pitch";
 let pendingRunnerChoices = {};
 let pendingOutType = "";
 let pendingOutFielder = "";
+const weatherCache = {};
+const weatherRequests = {};
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
@@ -534,6 +536,7 @@ const els = {
   homeMatchupImage: document.getElementById("homeMatchupImage"),
   homeNextGame: document.getElementById("homeNextGame"),
   homeNextGameMeta: document.getElementById("homeNextGameMeta"),
+  homeNextGameWeather: document.getElementById("homeNextGameWeather"),
   homeScoutingBtn: document.getElementById("homeScoutingBtn"),
   homeGamesBtn: document.getElementById("homeGamesBtn"),
   homeBattingLeaders: document.getElementById("homeBattingLeaders"),
@@ -2215,6 +2218,7 @@ function applyEvent(game = activeGame(), event = {}) {
         scoringStep = "outcome";
       }
       saveState();
+      renderScoreboard();
       renderAtBat();
       renderScoringStepPanel();
       return pitch;
@@ -2229,6 +2233,7 @@ function applyEvent(game = activeGame(), event = {}) {
       scoringStep = "outcome";
     }
     saveState();
+    renderScoreboard();
     renderAtBat();
     renderSprayChart();
     renderRunnerTracker();
@@ -3133,11 +3138,19 @@ function renderHome() {
   if (next) {
     els.homeNextGame.textContent = `vs ${next.opponent}`;
     els.homeNextGameMeta.textContent = gameScheduleMeta(next);
+    if (els.homeNextGameWeather) {
+      els.homeNextGameWeather.dataset.weatherGameId = next.id;
+      els.homeNextGameWeather.innerHTML = renderWeatherChip(next);
+    }
     setHomeMatchupImage(next.opponent);
     els.homeScoutingBtn.disabled = false;
   } else {
     els.homeNextGame.textContent = "No upcoming game scheduled";
     els.homeNextGameMeta.textContent = "Create a game from the Games tab.";
+    if (els.homeNextGameWeather) {
+      delete els.homeNextGameWeather.dataset.weatherGameId;
+      els.homeNextGameWeather.textContent = "Add date and field location for weather.";
+    }
     setHomeMatchupImage("");
     els.homeScoutingBtn.disabled = true;
   }
@@ -3147,6 +3160,7 @@ function renderHome() {
       ? nextTwo.map(renderUpcomingGameCard).join("")
       : `<div class="upcoming-empty">No additional upcoming games scheduled.</div>`;
   }
+  hydrateHomeWeather(upcoming);
 
   const hitterRows = state.roster.map((player) => ({ player, stats: statsForPlayer(player.id) }));
   const pitcherRows = state.roster.map((player) => ({ player, stats: pitcherStats(player.id) }));
@@ -3220,9 +3234,104 @@ function renderUpcomingGameCard(game) {
       <span class="scout-kicker">Upcoming</span>
       <h4>vs ${escapeHtml(game.opponent)}</h4>
       <p class="player-meta">${escapeHtml(gameScheduleMeta(game))}</p>
+      <div class="weather-chip" data-weather-game-id="${escapeHtml(game.id)}">${renderWeatherChip(game)}</div>
       <button type="button" class="secondary-action upcoming-scout-button" data-home-scout-opponent="${escapeHtml(game.opponent)}">View Scouting Report</button>
     </div>
   </article>`;
+}
+
+function weatherKey(game) {
+  return `${game.date || ""}|${game.location || ""}`.trim().toLowerCase();
+}
+
+function renderWeatherChip(game) {
+  if (!game?.date || !game?.location) return "Add date and field location for weather.";
+  const cached = weatherCache[weatherKey(game)];
+  if (!cached) return "Checking weather...";
+  if (cached.error) return cached.error;
+  return `<span class="weather-icon" aria-hidden="true">${cached.icon}</span><strong>${cached.temp}</strong><span>${escapeHtml(cached.label)}</span>`;
+}
+
+function hydrateHomeWeather(games) {
+  games.forEach((game) => {
+    const key = weatherKey(game);
+    if (!game.date || !game.location || weatherCache[key] || weatherRequests[key]) return;
+    weatherRequests[key] = fetchGameWeather(game)
+      .then((weather) => {
+        weatherCache[key] = weather;
+        updateWeatherChips(game);
+      })
+      .catch(() => {
+        weatherCache[key] = { error: "Weather unavailable." };
+        updateWeatherChips(game);
+      })
+      .finally(() => {
+        delete weatherRequests[key];
+      });
+  });
+}
+
+function updateWeatherChips(game) {
+  document.querySelectorAll("[data-weather-game-id]").forEach((node) => {
+    if (node.dataset.weatherGameId === game.id) node.innerHTML = renderWeatherChip(game);
+  });
+}
+
+async function fetchGameWeather(game) {
+  if (typeof fetch !== "function") return { error: "Weather unavailable." };
+  const location = await geocodeGameLocation(game.location);
+  if (!location) return { error: "Location not found." };
+  const forecastUrl = [
+    "https://api.open-meteo.com/v1/forecast",
+    `?latitude=${encodeURIComponent(location.latitude)}`,
+    `&longitude=${encodeURIComponent(location.longitude)}`,
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min",
+    "&temperature_unit=fahrenheit",
+    "&timezone=auto",
+    `&start_date=${encodeURIComponent(game.date)}`,
+    `&end_date=${encodeURIComponent(game.date)}`
+  ].join("");
+  const forecastResponse = await fetch(forecastUrl);
+  if (!forecastResponse.ok) return { error: "Forecast closer to game day." };
+  const forecast = await forecastResponse.json();
+  const daily = forecast.daily || {};
+  const code = Number(daily.weather_code?.[0]);
+  const high = Math.round(Number(daily.temperature_2m_max?.[0]));
+  const low = Math.round(Number(daily.temperature_2m_min?.[0]));
+  const condition = weatherCondition(code);
+  return {
+    icon: condition.icon,
+    label: condition.label,
+    temp: Number.isFinite(high) && Number.isFinite(low) ? `${high}/${low}°F` : "--"
+  };
+}
+
+async function geocodeGameLocation(locationText) {
+  const queries = [
+    locationText,
+    String(locationText || "").replace(/,/g, " "),
+    String(locationText || "").split(",")[0]
+  ]
+    .map((query) => query.trim())
+    .filter(Boolean)
+    .filter((query, index, list) => list.indexOf(query) === index);
+  for (const query of queries) {
+    const geocodeUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
+    const geoResponse = await fetch(geocodeUrl);
+    if (!geoResponse.ok) continue;
+    const geo = await geoResponse.json();
+    if (geo.results?.[0]) return geo.results[0];
+  }
+  return null;
+}
+
+function weatherCondition(code) {
+  if ([0, 1].includes(code)) return { icon: "☀", label: "Sunny" };
+  if ([2, 3, 45, 48].includes(code)) return { icon: "☁", label: "Cloudy" };
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return { icon: "☔", label: "Rain" };
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return { icon: "❄", label: "Snow" };
+  if ([95, 96, 99].includes(code)) return { icon: "⚡", label: "Storms" };
+  return { icon: "◐", label: "Weather" };
 }
 
 function openCurrentGameForScoring() {
@@ -3846,8 +3955,24 @@ function pitcherStats(playerId, gameId = null) {
   return stats;
 }
 
+function addPitchToPitcherStats(stats, pitch) {
+  stats.pitches += 1;
+  if (pitch.type === "ball") stats.balls += 1;
+  if (["called_strike", "swinging_strike", "foul", "in_play"].includes(pitch.type)) stats.strikes += 1;
+}
+
+function pitcherStatsWithCurrentAtBat(game = activeGame()) {
+  const pitcherId = currentPitcherId(game);
+  const stats = pitcherStats(pitcherId, game.id);
+  if (game.half === "bottom" && Array.isArray(game.atBat?.pitches) && game.atBat.pitches.length) {
+    game.atBat.pitches.forEach((pitch) => addPitchToPitcherStats(stats, pitch));
+    stats.strikeRate = divide(stats.strikes, stats.pitches);
+  }
+  return stats;
+}
+
 function renderPitcherStatStrip(game = activeGame()) {
-  const stats = pitcherStats(currentPitcherId(game), game.id);
+  const stats = pitcherStatsWithCurrentAtBat(game);
   els.pitcherStatStrip.innerHTML = [
     statCell("Pitches", stats.pitches),
     statCell("Balls", stats.balls),
