@@ -103,7 +103,6 @@
             <div>
               <p class="eyebrow">Game State</p>
               <h3 id="gameTitle">Lions vs Wildcats</h3>
-              <p class="player-meta game-state-batter" id="headerBatterDisplay">Current batter</p>
             </div>
             <div class="game-state-focus">
               <span>Inning</span>
@@ -127,6 +126,16 @@
                 <strong id="opponentScore">0</strong>
               </div>
             </div>
+            <div class="current-batter-card" aria-label="Current batter">
+              <div>
+                <span>Current batter</span>
+                <strong id="headerBatterDisplay">Current batter</strong>
+              </div>
+              <div class="current-batter-avg">
+                <span>AVG</span>
+                <strong id="currentBatterAvgDisplay">.000</strong>
+              </div>
+            </div>
             <div class="pitcher-row game-pitcher-card">
               <label>
                 Lions pitcher
@@ -134,7 +143,7 @@
               </label>
               <div class="pitcher-stat-strip" id="pitcherStatStrip"></div>
             </div>
-            <p class="player-meta game-state-context" id="gameContext">Top 1, 0 outs</p>
+            <p class="player-meta game-state-context" id="gameContext" hidden>Top 1, 0 outs</p>
           </section>
 
           <div class="score-grid">

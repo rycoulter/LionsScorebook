@@ -541,6 +541,7 @@ const els = {
   homeUpcomingGames: document.getElementById("homeUpcomingGames"),
   gameTitle: document.getElementById("gameTitle"),
   headerBatterDisplay: document.getElementById("headerBatterDisplay"),
+  currentBatterAvgDisplay: document.getElementById("currentBatterAvgDisplay"),
   headerCountDisplay: document.getElementById("headerCountDisplay"),
   gameContext: document.getElementById("gameContext"),
   inningStateDisplay: document.getElementById("inningStateDisplay"),
@@ -3289,7 +3290,11 @@ function renderScoreboard() {
   els.gameTitle.textContent = `Lions vs ${game.opponent}`;
   const inningLabel = game.status === "completed" ? "Final" : `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}`;
   const headerBatter = game.half === "top" ? currentBatterLabel(game) : currentOpponentBatter(game);
-  els.headerBatterDisplay.textContent = game.half === "top" ? `${headerBatter} batting` : `${headerBatter} batting for ${game.opponent}`;
+  els.headerBatterDisplay.textContent = game.half === "top" ? headerBatter : `${headerBatter} (${game.opponent})`;
+  if (els.currentBatterAvgDisplay) {
+    const batterStats = game.half === "top" ? statsForPlayer(currentBatterId(game)) : null;
+    els.currentBatterAvgDisplay.textContent = batterStats ? formatRate(batterStats.avg) : "--";
+  }
   els.inningStateDisplay.textContent = inningLabel;
   els.headerCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   els.outsStateDisplay.textContent = String(game.outs);

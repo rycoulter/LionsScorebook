@@ -4331,7 +4331,7 @@ label {
 }
 
 #scoreView .score-status-card h3,
-#scoreView .game-state-batter {
+#scoreView .current-batter-card strong {
   color: var(--white);
 }
 
@@ -4360,9 +4360,7 @@ label {
 }
 
 #scoreView .score-status-card .game-state-context {
-  grid-column: 1 / 2;
-  align-self: center;
-  margin: 0;
+  display: none;
 }
 
 #scoreView .score-status-card .game-state-focus,
@@ -4394,6 +4392,63 @@ label {
 
 #scoreView #outsStateDisplay {
   color: #ff8e96;
+}
+
+#scoreView .current-batter-card {
+  grid-column: 1 / 2;
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(74px, 0.28fr);
+  gap: 8px;
+  align-items: stretch;
+  min-width: 0;
+  border: 1px solid rgba(245, 189, 33, 0.24);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(245, 189, 33, 0.14), transparent 42%),
+    rgba(3, 10, 36, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 12px 26px rgba(0, 0, 0, 0.24);
+}
+
+#scoreView .current-batter-card > div {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+}
+
+#scoreView .current-batter-card span {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+#scoreView .current-batter-card strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+  line-height: 1.05;
+}
+
+#scoreView .current-batter-card .current-batter-avg {
+  justify-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  text-align: center;
+}
+
+#scoreView .current-batter-card .current-batter-avg strong {
+  color: #65e88e;
+  font-size: 1rem;
 }
 
 #scoreView .game-pitcher-card {
@@ -5663,6 +5718,7 @@ label {
   }
 
   #scoreView .game-pitcher-card,
+  #scoreView .current-batter-card,
   #scoreView .game-state-context {
     grid-column: 1 / -1;
   }
@@ -5690,6 +5746,10 @@ label {
   #scoreView .game-pitcher-card {
     min-width: 0;
     grid-template-columns: 1fr;
+  }
+
+  #scoreView .current-batter-card {
+    grid-template-columns: 1fr minmax(72px, 0.35fr);
   }
 
   #scoreView .pitch-trail {

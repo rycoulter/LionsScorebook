@@ -16,6 +16,9 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 - Added scorebook notation generation for common outs, including groundouts like `6-3`, flyouts like `F8`, and lineouts like `L6`.
 
 ### Changed
+- Added a Current Batter card beside the Lions pitcher header with a season AVG tile.
+- Removed the duplicate inning/outs context line from the lower-left of the scoring header.
+- Refreshed the PWA cache version so the scoring-header layout update is picked up after deployment.
 - Brightened the scoring field so it reads as a cleaner baseball surface instead of a dark overlay panel.
 - Moved the active batter/count tracker responsibility into the top game-state header and hid the duplicate field overlay card from the spray chart.
 - Refreshed the PWA cache version so the scoring-screen styling update is picked up after deployment.
