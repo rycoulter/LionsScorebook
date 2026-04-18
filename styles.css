@@ -36,6 +36,14 @@ button {
   cursor: pointer;
 }
 
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .app-shell {
   min-height: 100vh;
 }
@@ -321,7 +329,8 @@ main {
   margin: 10px 0 0;
 }
 
-.home-upcoming-panel {
+.home-upcoming-panel,
+.home-past-panel {
   grid-column: 1 / -1;
 }
 
@@ -354,6 +363,26 @@ main {
 .upcoming-game-card h4 {
   margin: 2px 0 4px;
   font-size: 1.05rem;
+}
+
+.result-score {
+  display: block;
+  margin: 4px 0;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  font-weight: 900;
+}
+
+.result-score.is-win {
+  color: #55d987;
+}
+
+.result-score.is-loss {
+  color: #ff6b6b;
+}
+
+.result-score.is-tie {
+  color: var(--lion-gold);
 }
 
 .upcoming-scout-button {
@@ -504,10 +533,43 @@ main {
 
 .game-form {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(220px, 1.25fr) minmax(150px, 0.75fr) minmax(150px, 0.75fr) minmax(240px, 1fr);
   gap: 12px;
   padding: 16px;
   margin-bottom: 18px;
+}
+
+.team-side-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #f7faf7;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.team-side-card strong {
+  color: var(--ink);
+}
+
+.game-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.game-filter-row .is-active {
+  border-color: rgba(245, 189, 33, 0.72);
+  background: linear-gradient(180deg, var(--lion-gold), #c98b13);
+  color: var(--lion-navy);
 }
 
 .lineup-builder {
@@ -1575,6 +1637,12 @@ button:focus-visible {
   grid-template-columns: repeat(4, minmax(160px, 1fr));
   gap: 10px;
   align-items: end;
+}
+
+.game-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .coach-card {
@@ -2964,6 +3032,7 @@ button:focus-visible {
 
   .score-form,
   .game-form,
+  .game-summary-grid,
   .lineup-builder-row,
   .scouting-controls,
   .scouting-grid,
@@ -4075,14 +4144,29 @@ label {
 }
 
 #gamesView .lineup-builder-row select,
-#gamesView .game-edit-grid input {
+#gamesView .game-edit-grid input,
+#gamesView .game-edit-grid select,
+#gamesView .game-form input,
+#gamesView .game-form select {
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.08);
   color: var(--white);
 }
 
-#gamesView .lineup-builder-row select option {
+#gamesView .lineup-builder-row select option,
+#gamesView .game-edit-grid select option,
+#gamesView .game-form select option {
   background: #151a2d;
+  color: var(--white);
+}
+
+#gamesView .team-side-card {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+#gamesView .team-side-card strong {
   color: var(--white);
 }
 
@@ -4327,6 +4411,33 @@ label {
   background: linear-gradient(135deg, rgba(7, 20, 55, 0.98), rgba(3, 10, 36, 0.96));
   color: var(--white);
   box-shadow: 0 20px 46px rgba(0, 0, 0, 0.28);
+}
+
+#scoreView .score-empty-state {
+  display: grid;
+  gap: 10px;
+  max-width: 620px;
+  border: 1px solid rgba(245, 189, 33, 0.24);
+  border-radius: 8px;
+  padding: 18px;
+  background: linear-gradient(135deg, rgba(7, 20, 55, 0.96), rgba(3, 10, 36, 0.94));
+  color: var(--white);
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.2);
+}
+
+#scoreView .score-empty-state[hidden] {
+  display: none;
+}
+
+#scoreView .score-empty-state h3,
+#scoreView .score-empty-state .player-meta {
+  margin: 0;
+  color: var(--white);
+}
+
+#scoreView.has-no-game .score-status-card,
+#scoreView.has-no-game .score-grid {
+  display: none;
 }
 
 #scoreView .score-status-card > div:first-child {

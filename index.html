@@ -47,7 +47,7 @@
             <section class="home-panel home-hero-panel">
               <img
                 src="lions-logo.png"
-                alt="Oakmont Lions matchup graphic"
+                alt="Lions matchup graphic"
                 id="homeMatchupImage"
                 class="home-field-image">
               <div class="mini-head">
@@ -90,6 +90,13 @@
               </div>
               <div class="upcoming-game-grid" id="homeUpcomingGames"></div>
             </section>
+            <section class="home-panel home-past-panel">
+              <div class="mini-head">
+                <h3>Recent Results</h3>
+                <span>Last 2</span>
+              </div>
+              <div class="upcoming-game-grid" id="homePastGames"></div>
+            </section>
           </div>
         </section>
 
@@ -101,10 +108,19 @@
             </div>
             <button class="secondary-action" id="newGameBtn">Games</button>
           </div>
+          <section class="score-empty-state" id="scoreEmptyState" hidden>
+            <p class="eyebrow">Score Game</p>
+            <h3>No game in progress</h3>
+            <p class="player-meta">Start the next game from Home to begin scoring.</p>
+            <div class="button-row">
+              <button type="button" class="primary-action" id="scoreEmptyHomeBtn">Home</button>
+              <button type="button" class="secondary-action" id="scoreEmptyGamesBtn">Games</button>
+            </div>
+          </section>
           <section class="score-status-card" aria-label="Current game status">
             <div>
               <p class="eyebrow">Game State</p>
-              <h3 id="gameTitle">Oakmont Lions @ Opponent</h3>
+              <h3 id="gameTitle">Lions @ Opponent</h3>
             </div>
             <div class="game-state-focus">
               <span>Inning</span>
@@ -440,7 +456,7 @@
           <div class="scorebook-layout">
             <section class="scorebook-panel">
               <div class="mini-head">
-                <h3>Oakmont Batting</h3>
+                <h3>Lions Batting</h3>
                 <span>Inning boxes from scored ABs</span>
               </div>
               <div class="scorebook-table-wrap">
@@ -475,7 +491,7 @@
           </div>
           <form class="game-form" id="gameForm">
             <div class="team-side-card wide" id="gameSetupTeamIndicator">
-              <span>Away: Oakmont Lions</span>
+              <span>Away: Lions</span>
               <strong>Home: Opponent</strong>
             </div>
             <label>
@@ -535,7 +551,7 @@
             </div>
             <div class="game-edit-grid">
               <div class="team-side-card wide" id="editTeamIndicator">
-                <span>Away: Oakmont Lions</span>
+                <span>Away: Lions</span>
                 <strong>Home: Opponent</strong>
               </div>
               <label>Opponent <input id="editOpponentInput" autocomplete="off"></label>
@@ -772,6 +788,16 @@
             </div>
             <input class="search-box" id="archiveSearch" placeholder="Search opponent, player, result, note">
           </div>
+          <section class="lineup-builder" id="gameSummaryPanel">
+            <div class="mini-head">
+              <div>
+                <h3 id="gameSummaryTitle">Game Summary</h3>
+                <span class="player-meta" id="gameSummaryMeta">Completed game details</span>
+              </div>
+              <button type="button" class="secondary-action" id="closeGameSummaryBtn">Close</button>
+            </div>
+            <div id="gameSummaryBody"></div>
+          </section>
           <div class="archive-grid" id="archiveGrid"></div>
         </section>
 

@@ -519,6 +519,7 @@ let selectedScoutingTeamId = "";
 let scoutingRefreshState = "snapshot";
 let scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
 let scorebookGameId = "";
+let gameSummaryId = "";
 let bipOutcomeChosen = false;
 let awaitingSprayLocation = false;
 let awaitingRunnerDecision = false;
@@ -546,11 +547,15 @@ const els = {
   homeBattingLeaders: document.getElementById("homeBattingLeaders"),
   homePitchingLeaders: document.getElementById("homePitchingLeaders"),
   homeUpcomingGames: document.getElementById("homeUpcomingGames"),
+  homePastGames: document.getElementById("homePastGames"),
   gameTitle: document.getElementById("gameTitle"),
   headerBatterDisplay: document.getElementById("headerBatterDisplay"),
   currentBatterAvgDisplay: document.getElementById("currentBatterAvgDisplay"),
   headerCountDisplay: document.getElementById("headerCountDisplay"),
   gameContext: document.getElementById("gameContext"),
+  scoreEmptyState: document.getElementById("scoreEmptyState"),
+  scoreEmptyHomeBtn: document.getElementById("scoreEmptyHomeBtn"),
+  scoreEmptyGamesBtn: document.getElementById("scoreEmptyGamesBtn"),
   inningStateDisplay: document.getElementById("inningStateDisplay"),
   outsStateDisplay: document.getElementById("outsStateDisplay"),
   lionsScoreLabel: document.getElementById("lionsScoreLabel"),
@@ -668,6 +673,11 @@ const els = {
   rosterGrid: document.getElementById("rosterGrid"),
   archiveSearch: document.getElementById("archiveSearch"),
   archiveGrid: document.getElementById("archiveGrid"),
+  gameSummaryPanel: document.getElementById("gameSummaryPanel"),
+  gameSummaryTitle: document.getElementById("gameSummaryTitle"),
+  gameSummaryMeta: document.getElementById("gameSummaryMeta"),
+  gameSummaryBody: document.getElementById("gameSummaryBody"),
+  closeGameSummaryBtn: document.getElementById("closeGameSummaryBtn"),
   metricsGrid: document.getElementById("metricsGrid"),
   gameBreakdown: document.getElementById("gameBreakdown"),
   valueBoard: document.getElementById("valueBoard"),
@@ -889,12 +899,16 @@ function addRunsForBattingTeam(game, runs = 0) {
   syncScoreBySide(game);
 }
 
+function displayTeamName(name) {
+  return String(name || "").replace(/^Oakmont Lions$/i, "Lions");
+}
+
 function awayTeamName(game) {
-  return game?.teams?.away?.name || "Oakmont Lions";
+  return displayTeamName(game?.teams?.away?.name || "Lions");
 }
 
 function homeTeamName(game) {
-  return game?.teams?.home?.name || game?.opponent || "Opponent";
+  return displayTeamName(game?.teams?.home?.name || game?.opponent || "Opponent");
 }
 
 function gameMatchupLabel(game) {
@@ -907,6 +921,21 @@ function gameTeamMeta(game) {
 
 function gameScoreLabel(game) {
   return `${awayTeamName(game)} ${scoreForSide(game, "away")} - ${scoreForSide(game, "home")} ${homeTeamName(game)}`;
+}
+
+function gameResultLabel(game) {
+  const lions = Number(game?.score?.lions || 0);
+  const opponent = Number(game?.score?.opponent || 0);
+  const result = lions > opponent ? "W" : lions < opponent ? "L" : "T";
+  return `${result} - ${lions} - ${opponent}`;
+}
+
+function gameResultClass(game) {
+  const lions = Number(game?.score?.lions || 0);
+  const opponent = Number(game?.score?.opponent || 0);
+  if (lions > opponent) return "is-win";
+  if (lions < opponent) return "is-loss";
+  return "is-tie";
 }
 
 function setSelectValueWithLegacy(select, value = "") {
@@ -1417,7 +1446,9 @@ function exportSeasonAsJson(library = loadGameLibrary()) {
 function saveState() {
   if (state?.games?.length) {
     state.games = state.games.map((game) => normalizeGame(game, state));
-    const activeGameObject = state.games.find((game) => game.id === state.activeGameId);
+    let activeGameObject = state.games.find((game) => game.id === state.activeGameId && game.status === "active" && !gameIsFinal(game));
+    if (!activeGameObject) activeGameObject = state.games.find((game) => game.status === "active" && !gameIsFinal(game));
+    state.activeGameId = activeGameObject?.id || "";
     if (activeGameObject) storage.saveGame(activeGameObject, true);
     const library = buildGameLibraryFromGames(state.games, state.activeGameId);
     storage.saveLibrary(library);
@@ -1438,6 +1469,7 @@ function bindEvents() {
     if (!button) return;
     openScoutingForOpponent(button.dataset.homeScoutOpponent);
   });
+  els.homePastGames?.addEventListener("click", handleGameActionClick);
   els.scorebookGameSelect.addEventListener("change", () => {
     scorebookGameId = els.scorebookGameSelect.value;
     renderTraditionalScorebook();
@@ -1632,6 +1664,8 @@ function bindEvents() {
   });
   els.resultSelect.addEventListener("change", suggestRunValues);
   els.newGameBtn.addEventListener("click", () => switchView("games"));
+  els.scoreEmptyHomeBtn?.addEventListener("click", () => switchView("home"));
+  els.scoreEmptyGamesBtn?.addEventListener("click", () => switchView("games"));
   els.undoBtn.addEventListener("click", undoLastPlay);
   els.endHalfBtn.addEventListener("click", () => {
     const game = activeGame();
@@ -1686,6 +1720,12 @@ function bindEvents() {
   });
 
   els.archiveSearch.addEventListener("input", renderArchive);
+  els.archiveGrid.addEventListener("click", handleGameActionClick);
+  els.gameSummaryBody?.addEventListener("click", handleGameActionClick);
+  els.closeGameSummaryBtn?.addEventListener("click", () => {
+    gameSummaryId = "";
+    renderGameSummary();
+  });
   els.applySubBtn.addEventListener("click", applySubstitution);
   els.statsSprayPlayerSelect.addEventListener("change", renderStatsSprayChart);
   els.statsSprayGameSelect.addEventListener("change", renderStatsSprayChart);
@@ -1740,6 +1780,12 @@ function activeGame() {
     saveGameToLibrary(game, false);
   }
   return game;
+}
+
+function activeScoreGame() {
+  const current = state.games.find((item) => item.id === state.activeGameId);
+  if (current && current.status === "active" && !gameIsFinal(current)) return current;
+  return state.games.find((item) => item.status === "active" && !gameIsFinal(item)) || null;
 }
 
 function activePlayers() {
@@ -3179,8 +3225,8 @@ function renderGameSetupPreview() {
   if (!els.gameSetupTeamIndicator) return;
   const opponent = els.opponentInput.value.trim() || "Opponent";
   const side = normalizeLionsSide(els.gameLionsSideInput?.value || "home");
-  const away = side === "away" ? "Oakmont Lions" : opponent;
-  const home = side === "home" ? "Oakmont Lions" : opponent;
+  const away = side === "away" ? "Lions" : opponent;
+  const home = side === "home" ? "Lions" : opponent;
   els.gameSetupTeamIndicator.innerHTML = `<span>Away: ${escapeHtml(away)}</span><strong>Home: ${escapeHtml(home)}</strong>`;
 }
 
@@ -3214,6 +3260,41 @@ function startNextGameFromHome() {
   const next = nextScheduledGame();
   if (!next) return;
   scoreScheduledGame(next.id);
+}
+
+function handleGameActionClick(event) {
+  const button = event.target.closest("[data-game-action]");
+  if (!button) return;
+  const gameId = button.dataset.gameId;
+  if (button.dataset.gameAction === "summary") openGameSummary(gameId);
+  if (button.dataset.gameAction === "scorebook") openGameScorebook(gameId);
+  if (button.dataset.gameAction === "stats") openGameStats(gameId);
+}
+
+function openGameSummary(gameId) {
+  const game = state.games.find((item) => item.id === gameId);
+  if (!game) return;
+  gameSummaryId = game.id;
+  renderGameSummary();
+  switchView("archive");
+}
+
+function openGameScorebook(gameId) {
+  if (!state.games.some((game) => game.id === gameId)) return;
+  scorebookGameId = gameId;
+  renderTraditionalScorebook();
+  switchView("scorebook");
+}
+
+function openGameStats(gameId) {
+  if (!state.games.some((game) => game.id === gameId)) return;
+  const select = els.statsSprayGameSelect;
+  if (select) {
+    renderStatsSprayControls();
+    if ([...select.options].some((option) => option.value === gameId)) select.value = gameId;
+    renderStatsSprayChart();
+  }
+  switchView("stats");
 }
 
 function completeScheduledGame(gameId) {
@@ -3258,31 +3339,44 @@ function addPlayer() {
 }
 
 function render() {
+  const scoreGame = activeScoreGame();
   renderHome();
-  renderScoreboard();
-  renderAtBat();
-  renderScoringStepPanel();
-  renderRunnerTracker();
-  renderSprayChart();
-  renderBatterSelect();
-  renderLiveLineup();
-  renderPlayFeed();
+  renderScoreEmptyState(scoreGame);
+  if (scoreGame) {
+    renderScoreboard();
+    renderAtBat();
+    renderScoringStepPanel();
+    renderRunnerTracker();
+    renderSprayChart();
+    renderBatterSelect();
+    renderLiveLineup();
+    renderPlayFeed();
+    renderSubControls();
+  } else {
+    setScoreGameLocked(true, null);
+  }
   renderRoster();
   renderArchive();
   renderAnalysis();
   renderGameSetupPreview();
   renderGames();
   renderGameEditor();
+  renderGameSummary();
   renderSeasonStats();
   renderLeaders();
-  renderSubControls();
   renderLineupBuilder();
   renderStatsSprayControls();
   renderScoutingReport();
   renderTraditionalScorebook();
   if (!optimizedIds.length) optimizedIds = buildOptimizedLineup();
   renderOptimizedLineup();
-  if (gameIsScoreLocked(activeGame())) setScoreGameLocked(true);
+  if (!scoreGame || gameIsScoreLocked(scoreGame)) setScoreGameLocked(true, scoreGame);
+}
+
+function renderScoreEmptyState(scoreGame = activeScoreGame()) {
+  const hasActiveGame = Boolean(scoreGame);
+  document.getElementById("scoreView")?.classList.toggle("has-no-game", !hasActiveGame);
+  if (els.scoreEmptyState) els.scoreEmptyState.hidden = hasActiveGame;
 }
 
 function renderHome() {
@@ -3324,6 +3418,12 @@ function renderHome() {
     els.homeUpcomingGames.innerHTML = nextTwo.length
       ? nextTwo.map(renderUpcomingGameCard).join("")
       : `<div class="upcoming-empty">No additional upcoming games scheduled.</div>`;
+  }
+  const recentFinals = completedGames(2);
+  if (els.homePastGames) {
+    els.homePastGames.innerHTML = recentFinals.length
+      ? recentFinals.map(renderPastGameCard).join("")
+      : `<div class="upcoming-empty">No completed games yet.</div>`;
   }
   hydrateHomeWeather(upcoming);
 
@@ -3437,6 +3537,17 @@ function nextScheduledGame() {
   return upcomingScheduledGames(1)[0] || null;
 }
 
+function completedGames(limit = Infinity) {
+  return [...state.games]
+    .filter(gameIsFinal)
+    .sort((a, b) => {
+      const dateCompare = (b.date || "").localeCompare(a.date || "");
+      if (dateCompare) return dateCompare;
+      return (b.time || "").localeCompare(a.time || "");
+    })
+    .slice(0, limit);
+}
+
 function getMatchupImage(opponentName) {
   return window.MatchupImages?.getMatchupImage(opponentName) || "lions-logo.png";
 }
@@ -3444,7 +3555,7 @@ function getMatchupImage(opponentName) {
 function setHomeMatchupImage(opponentName) {
   if (!els.homeMatchupImage) return;
   els.homeMatchupImage.src = getMatchupImage(opponentName);
-  els.homeMatchupImage.alt = opponentName ? `Oakmont Lions vs ${opponentName}` : "Oakmont Lions";
+  els.homeMatchupImage.alt = opponentName ? `Lions vs ${opponentName}` : "Lions";
 }
 
 function gameScheduleMeta(game) {
@@ -3453,13 +3564,29 @@ function gameScheduleMeta(game) {
 
 function renderUpcomingGameCard(game) {
   return `<article class="upcoming-game-card">
-    <img src="${escapeHtml(getMatchupImage(game.opponent))}" alt="Oakmont Lions vs ${escapeHtml(game.opponent)}">
+    <img src="${escapeHtml(getMatchupImage(game.opponent))}" alt="Lions vs ${escapeHtml(game.opponent)}">
     <div>
       <span class="scout-kicker">Upcoming</span>
       <h4>${escapeHtml(gameMatchupLabel(game))}</h4>
       <p class="player-meta">${escapeHtml(gameScheduleMeta(game))}</p>
       <div class="weather-chip" data-weather-game-id="${escapeHtml(game.id)}">${renderWeatherChip(game)}</div>
       <button type="button" class="secondary-action upcoming-scout-button" data-home-scout-opponent="${escapeHtml(game.opponent)}">View Scouting Report</button>
+    </div>
+  </article>`;
+}
+
+function renderPastGameCard(game) {
+  return `<article class="upcoming-game-card">
+    <img src="${escapeHtml(getMatchupImage(game.opponent))}" alt="Lions vs ${escapeHtml(game.opponent)}">
+    <div>
+      <span class="scout-kicker">Final</span>
+      <h4>${escapeHtml(gameMatchupLabel(game))}</h4>
+      <strong class="result-score ${gameResultClass(game)}">${escapeHtml(gameResultLabel(game))}</strong>
+      <p class="player-meta">${escapeHtml(game.date || "No date")}</p>
+      <div class="button-row">
+        <button type="button" class="secondary-action" data-game-action="summary" data-game-id="${escapeHtml(game.id)}">View Summary</button>
+        <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">Scorebook</button>
+      </div>
     </div>
   </article>`;
 }
@@ -3633,24 +3760,24 @@ function renderScoreboard() {
   els.gameContext.textContent = gameIsFinal(game)
     ? `${gameTeamMeta(game)} | Final after ${completedInningCount(game)} innings`
     : `${gameTeamMeta(game)} | ${game.half === "top" ? "Top" : "Bottom"} ${game.inning}, ${game.outs} ${game.outs === 1 ? "out" : "outs"}`;
-  if (els.lionsScoreLabel) els.lionsScoreLabel.textContent = `${lionsSide(game) === "home" ? "Home" : "Away"} Oakmont`;
+  if (els.lionsScoreLabel) els.lionsScoreLabel.textContent = `${lionsSide(game) === "home" ? "Home" : "Away"} Lions`;
   if (els.opponentScoreLabel) els.opponentScoreLabel.textContent = `${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent || "Opponent"}`;
   els.lionsScore.textContent = game.score.lions;
   els.opponentScore.textContent = game.score.opponent;
-  setScoreGameLocked(gameIsScoreLocked(game));
+  setScoreGameLocked(gameIsScoreLocked(game), game);
   els.bases.forEach((base) => {
     const key = base.dataset.base === "1" ? "first" : base.dataset.base === "2" ? "second" : "third";
     base.classList.toggle("is-filled", Boolean(game.bases[key]));
   });
 }
 
-function setScoreGameLocked(locked) {
+function setScoreGameLocked(locked, game = activeScoreGame()) {
   document.querySelectorAll("#scoreView button, #scoreView input, #scoreView select, #scoreView textarea")
     .forEach((control) => {
-      if (control === els.newGameBtn) return;
+      if ([els.newGameBtn, els.scoreEmptyHomeBtn, els.scoreEmptyGamesBtn].includes(control)) return;
       control.disabled = locked;
     });
-  if (els.finishGameBtn) els.finishGameBtn.textContent = gameIsFinal(activeGame()) ? "Game Final" : "Complete Game";
+  if (els.finishGameBtn) els.finishGameBtn.textContent = game && gameIsFinal(game) ? "Game Final" : "Complete Game";
 }
 
 function renderRunnerTracker() {
@@ -4123,7 +4250,7 @@ function renderAtBat() {
   const currentPlayer = state.roster.find((player) => player.id === currentBatterId(game));
   els.currentBatterName.textContent = currentPlayer ? `#${currentPlayer.number} ${currentPlayer.name}` : "Current batter";
   els.currentBatterMeta.textContent = currentPlayer
-    ? `${formatPositions(currentPlayer.positions)} | ${lionsSide(game) === "home" ? "Home" : "Away"} Oakmont Lions hitting`
+    ? `${formatPositions(currentPlayer.positions)} | ${lionsSide(game) === "home" ? "Home" : "Away"} Lions hitting`
     : "Set an active lineup to begin.";
   renderCurrentBatterSummary(game, currentPlayer);
   els.countDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
@@ -4385,7 +4512,7 @@ function renderLiveLineup() {
       const current = index === game.batterIndex && isLionsAtBat(game) ? " is-current" : "";
       return `<li class="${current}">
         <strong>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</strong>
-        <div class="player-meta">${lionsSide(game) === "home" ? "Home" : "Away"} Oakmont Lions | ${escapeHtml(entry.role)} | ${escapeHtml(formatPositions(player.positions))} | OPS ${formatRate(stats.ops)} | Contact ${Math.round(contactQuality(stats) * 100)}</div>
+        <div class="player-meta">${lionsSide(game) === "home" ? "Home" : "Away"} Lions | ${escapeHtml(entry.role)} | ${escapeHtml(formatPositions(player.positions))} | OPS ${formatRate(stats.ops)} | Contact ${Math.round(contactQuality(stats) * 100)}</div>
       </li>`;
     })
     .join("");
@@ -4462,7 +4589,17 @@ function inningLabel(event) {
 
 function renderTraditionalScorebook() {
   if (!els.scorebookBody) return;
-  const active = activeGame();
+  const active = activeScoreGame() || state.games[0] || null;
+  if (!active) {
+    scorebookGameId = "";
+    els.scorebookGameSelect.innerHTML = "";
+    els.scorebookGameMeta.textContent = "No games saved yet.";
+    els.scorebookHead.innerHTML = "";
+    els.opponentScorebookHead.innerHTML = "";
+    els.scorebookBody.innerHTML = "";
+    els.opponentScorebookBody.innerHTML = "";
+    return;
+  }
   if (!scorebookGameId || !state.games.some((game) => game.id === scorebookGameId)) scorebookGameId = active.id;
   els.scorebookGameSelect.innerHTML = [...state.games]
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
@@ -4684,8 +4821,8 @@ function togglePlayerActive(playerId, isActive) {
   if (isActive && !state.lineup.includes(playerId)) state.lineup.push(playerId);
   if (!isActive) state.lineup = state.lineup.filter((id) => id !== playerId);
   state.roster = state.roster.map((player) => (player.id === playerId ? { ...player, active: isActive } : player));
-  const game = activeGame();
-  game.batterIndex = Math.min(game.batterIndex, Math.max(state.lineup.length - 1, 0));
+  const game = activeScoreGame();
+  if (game) game.batterIndex = Math.min(game.batterIndex, Math.max(state.lineup.length - 1, 0));
   saveState();
   optimizedIds = buildOptimizedLineup();
   render();
@@ -4698,7 +4835,7 @@ function statCell(label, value) {
 function renderArchive() {
   const query = els.archiveSearch.value.trim().toLowerCase();
   const games = state.games
-    .filter((game) => gameIsFinal(game) || game.events.length)
+    .filter(gameIsFinal)
     .filter((game) => {
       if (!query) return true;
       const haystack = [
@@ -4722,6 +4859,7 @@ function renderArchive() {
 }
 
 function renderArchiveCard(game) {
+  const final = gameIsFinal(game);
   const topEvents = game.events
     .filter((event) => event.scope !== "defense")
     .slice(-3)
@@ -4740,11 +4878,94 @@ function renderArchiveCard(game) {
     </div>
     <div class="archive-meta">${escapeHtml(gameTeamMeta(game))} | ${game.events.length} tracked events | ${escapeHtml(gameStatusLabel(game))}</div>
     ${topEvents || `<div class="archive-meta">No offensive events logged.</div>`}
+    <div class="game-actions">
+      ${final ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${escapeHtml(game.id)}">View Summary</button>` : ""}
+      ${final ? `<button type="button" class="secondary-action" data-game-action="stats" data-game-id="${escapeHtml(game.id)}">View Stats</button>` : ""}
+      <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">View Scorebook</button>
+    </div>
   </article>`;
 }
 
+function renderGameSummary() {
+  const game = state.games.find((item) => item.id === gameSummaryId);
+  els.gameSummaryPanel?.classList.toggle("is-visible", Boolean(game));
+  if (!game || !els.gameSummaryBody) return;
+  const summary = gameSummaryStats(game);
+  els.gameSummaryTitle.textContent = `Summary: ${gameMatchupLabel(game)}`;
+  els.gameSummaryMeta.textContent = `${game.date || "No date"} | ${gameScoreLabel(game)} | ${completedInningCount(game)} innings`;
+  els.gameSummaryBody.innerHTML = `<div class="record-summary">
+      ${metricCard("Final", gameScoreLabel(game), gameTeamMeta(game))}
+      ${metricCard("Lions Hits", String(summary.hitting.h), `${summary.hitting.pa} PA | ${summary.hitting.rbi} RBI`)}
+      ${metricCard("OPS", formatRate(summary.hitting.ops), `AVG ${formatRate(summary.hitting.avg)} | OBP ${formatRate(summary.hitting.obp)}`)}
+      ${metricCard("Pitching", `${summary.pitching.k} K`, `${summary.pitching.pitches} pitches | WHIP ${summary.pitching.whip.toFixed(2)}`)}
+    </div>
+    <div class="game-summary-grid">
+      <article class="breakdown-card">
+        <div class="mini-head"><h3>Lions Batting</h3><span class="player-meta">Top performers</span></div>
+        ${summary.hitters.map(renderGameSummaryHitter).join("") || `<p class="player-meta">No Lions plate appearances logged.</p>`}
+      </article>
+      <article class="breakdown-card">
+        <div class="mini-head"><h3>Lions Pitching</h3><span class="player-meta">This game</span></div>
+        ${summary.pitchers.map(renderGameSummaryPitcher).join("") || `<p class="player-meta">No pitching events logged.</p>`}
+      </article>
+    </div>
+    <div class="button-row">
+      <button type="button" class="primary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">View Scorebook</button>
+      <button type="button" class="secondary-action" data-game-action="stats" data-game-id="${escapeHtml(game.id)}">View Stats</button>
+    </div>`;
+}
+
+function gameSummaryStats(game) {
+  const hitting = emptyStats();
+  game.events
+    .filter((event) => event.scope === "offense")
+    .forEach((event) => applyEventToStats(hitting, event));
+  finishStats(hitting);
+  const hitters = state.roster
+    .map((player) => {
+      const stats = emptyStats();
+      game.events
+        .filter((event) => event.scope === "offense" && event.playerId === player.id)
+        .forEach((event) => applyEventToStats(stats, event));
+      finishStats(stats);
+      return { player, stats };
+    })
+    .filter((row) => row.stats.pa || row.stats.h || row.stats.rbi)
+    .sort((a, b) => b.stats.ops - a.stats.ops || b.stats.h - a.stats.h)
+    .slice(0, 5);
+  const pitchers = state.roster
+    .map((player) => ({ player, stats: pitcherStats(player.id, game.id) }))
+    .filter((row) => row.stats.pitches || row.stats.batters || row.stats.outs)
+    .sort((a, b) => b.stats.outs - a.stats.outs || b.stats.k - a.stats.k);
+  const pitching = pitchers.reduce((total, row) => {
+    total.pitches += row.stats.pitches;
+    total.k += row.stats.k;
+    total.outs += row.stats.outs;
+    total.h += row.stats.h;
+    total.bb += row.stats.bb;
+    total.runs += row.stats.runs;
+    return total;
+  }, { pitches: 0, k: 0, outs: 0, h: 0, bb: 0, runs: 0, whip: 0 });
+  pitching.whip = pitching.outs ? ((pitching.h + pitching.bb) / (pitching.outs / 3)) : 0;
+  return { hitting, hitters, pitching, pitchers };
+}
+
+function renderGameSummaryHitter(row) {
+  return `<div class="scout-row">
+    <span>${escapeHtml(row.player.name)}</span>
+    <strong>${row.stats.h} H | ${row.stats.rbi} RBI | OPS ${formatRate(row.stats.ops)}</strong>
+  </div>`;
+}
+
+function renderGameSummaryPitcher(row) {
+  return `<div class="scout-row">
+    <span>${escapeHtml(row.player.name)}</span>
+    <strong>${formatInnings(row.stats.outs)} IP | ${row.stats.k} K | ${row.stats.pitches} NP</strong>
+  </div>`;
+}
+
 function renderGames() {
-  const activeId = activeGame().id;
+  const activeId = activeScoreGame()?.id || "";
   renderRecordSummary();
   if (els.gameFilterRow) {
     els.gameFilterRow.querySelectorAll("[data-game-filter]").forEach((button) => {
@@ -4799,7 +5020,7 @@ function renderRecordSummary() {
   els.recordSummary.innerHTML = [
     metricCard("Record", `${wins}-${losses}${ties ? `-${ties}` : ""}`, "Completed games only."),
     metricCard("Games Saved", String(state.games.length), "Stored in the local game library."),
-    metricCard("Runs For", String(completed.reduce((sum, game) => sum + (game.score?.lions || 0), 0)), "Oakmont runs in final games."),
+    metricCard("Runs For", String(completed.reduce((sum, game) => sum + (game.score?.lions || 0), 0)), "Lions runs in final games."),
     metricCard("Runs Against", String(completed.reduce((sum, game) => sum + (game.score?.opponent || 0), 0)), "Opponent runs in final games.")
   ].join("");
 }
@@ -4832,8 +5053,8 @@ function renderGameEditorPreview() {
   if (!game) return;
   const opponent = els.editOpponentInput.value.trim() || game.opponent || "Opponent";
   const side = normalizeLionsSide(els.editLionsSideInput.value || lionsSide(game));
-  const away = side === "away" ? "Oakmont Lions" : opponent;
-  const home = side === "home" ? "Oakmont Lions" : opponent;
+  const away = side === "away" ? "Lions" : opponent;
+  const home = side === "home" ? "Lions" : opponent;
   els.editTeamIndicator.innerHTML = `<span>Away: ${escapeHtml(away)}</span><strong>Home: ${escapeHtml(home)}</strong>`;
 }
 
@@ -4857,7 +5078,7 @@ function removeScheduledGame(gameId) {
   const ok = window.confirm(`Remove ${game.opponent} on ${game.date || "this date"}?`);
   if (!ok) return;
   deleteGame(gameId);
-  if (!state.activeGameId && state.games.length) state.activeGameId = state.games[0].id;
+  if (!state.activeGameId) state.activeGameId = inProgressGames()[0]?.id || "";
   if (gameEditId === gameId) gameEditId = null;
   saveState();
   render();
@@ -4996,7 +5217,7 @@ function renderGameBreakdown() {
           ${statCell("K%", `${Math.round(stats.kRate * 100)}%`)}
           ${statCell("P/PA", stats.pitchesPerPa.toFixed(2))}
         </div>
-        <p class="player-meta">${escapeHtml(lineup || "No Oakmont lineup logged.")}</p>
+        <p class="player-meta">${escapeHtml(lineup || "No Lions lineup logged.")}</p>
       </article>`;
     })
     .join("") || `<p class="player-meta">Game analysis appears after scorekeeping begins.</p>`;
