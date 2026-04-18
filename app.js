@@ -502,6 +502,10 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
+const APP_VERSION = "2026.04.18-build-35";
+// Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
+const DISABLE_SERVICE_WORKER_REGISTRATION = false;
+
 let state = loadState();
 let optimizedIds = [];
 let pendingSpray = null;
@@ -5616,8 +5620,39 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+function serviceWorkerRegistrationDisabled() {
+  const params = new URLSearchParams(window.location.search);
+  return DISABLE_SERVICE_WORKER_REGISTRATION
+    || params.has("no-sw")
+    || window.localStorage?.getItem("oakmont:disableServiceWorker") === "1";
+}
+
+function renderAppVersion() {
+  const node = document.getElementById("appVersion");
+  if (!node) return;
+  node.textContent = `Build ${APP_VERSION}${serviceWorkerRegistrationDisabled() ? " | SW off" : ""}`;
+}
+
+function unregisterServiceWorkersForDebug() {
+  return navigator.serviceWorker
+    .getRegistrations()
+    .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+    .then(() => {
+      console.log("Service worker registration disabled for debugging");
+    });
+}
+
+renderAppVersion();
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
+    if (serviceWorkerRegistrationDisabled()) {
+      unregisterServiceWorkersForDebug().catch((error) => {
+        console.error("Service worker unregister failed:", error);
+      });
+      return;
+    }
     navigator.serviceWorker
       .register("./service-worker.js")
       .then(() => {

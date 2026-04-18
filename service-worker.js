@@ -1,4 +1,4 @@
-const CACHE_NAME = "baseball-scorebook-v34";
+const CACHE_NAME = "baseball-scorebook-v35";
 const FILES_TO_CACHE = [
   "./",
   "./index.html",

@@ -61,6 +61,18 @@ button {
   min-width: 230px;
 }
 
+.app-version {
+  flex: 0 0 auto;
+  border: 1px solid rgba(245, 189, 33, 0.28);
+  border-radius: 8px;
+  padding: 5px 8px;
+  background: rgba(245, 189, 33, 0.12);
+  color: var(--lion-gold);
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .mark {
   display: grid;
   width: 44px;
