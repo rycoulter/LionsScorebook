@@ -23,7 +23,7 @@
         <nav class="tabs" aria-label="Scorebook sections">
           <button class="tab is-active" data-view="home">Home</button>
           <button class="tab" data-view="score">Score Game</button>
-          <button class="tab" data-view="games">Games</button>
+          <button class="tab" data-view="games">Schedule & Scores</button>
           <button class="tab" data-view="scorebook">Scorebook</button>
           <button class="tab" data-view="lineup">Lineup Lab</button>
           <button class="tab" data-view="roster">Roster</button>
@@ -426,6 +426,10 @@
                     <option value="ph">Pinch hitter</option>
                   </select>
                 </label>
+                <label>
+                  Game position
+                  <select id="subPositionSelect"></select>
+                </label>
                 <button type="button" class="secondary-action" id="applySubBtn">Apply</button>
               </div>
               <label class="opponent-lineup-editor">
@@ -484,12 +488,12 @@
         <section class="view" id="gamesView" data-panel="games">
           <div class="section-head">
             <div>
-              <p class="eyebrow">Games</p>
-              <h2>Schedule, select, and score</h2>
+              <p class="eyebrow">Schedule & Scores</p>
+              <h2>Schedule & Scores</h2>
             </div>
-            <button class="primary-action" id="scheduleGameBtn">Create Game</button>
+            <button type="button" class="primary-action" id="scheduleGameBtn">Create Game</button>
           </div>
-          <form class="game-form" id="gameForm">
+          <form class="game-form" id="gameForm" hidden>
             <div class="team-side-card wide" id="gameSetupTeamIndicator">
               <span>Away: Lions</span>
               <strong>Home: Opponent</strong>
@@ -528,10 +532,10 @@
                 <option value="Field TBD">Field TBD</option>
               </select>
             </label>
-            <label class="wide">
-              Game notes
-              <input id="gameNotesInput" name="gameNotes" autocomplete="off" placeholder="Tournament, starting pitcher, arrival time...">
-            </label>
+            <div class="button-row wide game-form-actions">
+              <button type="submit" class="primary-action">Save Game</button>
+              <button type="button" class="secondary-action" id="cancelGameCreateBtn">Cancel</button>
+            </div>
           </form>
           <div class="record-summary" id="recordSummary"></div>
           <div class="game-filter-row" id="gameFilterRow" aria-label="Filter games">
@@ -541,6 +545,7 @@
             <button type="button" class="secondary-action" data-game-filter="completed">Completed</button>
           </div>
           <div class="games-grid" id="gamesGrid"></div>
+          <div class="games-archive-note" id="gamesArchiveNote"></div>
           <section class="lineup-builder" id="gameEditPanel">
             <div class="mini-head">
               <div>
@@ -581,20 +586,68 @@
               <button type="button" class="primary-action" id="saveGameEditBtn">Save Game Details</button>
             </div>
           </section>
-          <section class="lineup-builder" id="lineupBuilderPanel">
-            <div class="mini-head">
+        </section>
+
+        <section class="view" id="lineupSetupView" data-panel="lineupSetup">
+          <div class="pregame-shell lineup-builder" id="lineupBuilderPanel">
+            <header class="pregame-header">
               <div>
-                <h3 id="lineupBuilderTitle">Game Lineup</h3>
-                <span class="player-meta">Build this game card, including DH and EH spots.</span>
+                <p class="eyebrow">Pre-Game Setup</p>
+                <h2>Lineup Builder</h2>
+                <p class="player-meta">Set batting order, assign defensive positions, and lock the lineup before scoring starts.</p>
               </div>
-              <button type="button" class="secondary-action" id="closeLineupBuilderBtn">Close</button>
+              <div class="pregame-context" id="lineupBuilderContext">Lions vs Opponent | 6:00 PM | Home Field</div>
+            </header>
+
+            <div class="pregame-grid">
+              <section class="starting-lineup-panel">
+                <div class="pregame-panel-head">
+                  <div>
+                    <h3 id="lineupBuilderTitle">Starting Lineup</h3>
+                    <p class="player-meta">Drag to reorder batting spots. Choose one active position for each starter.</p>
+                  </div>
+                  <button type="button" class="secondary-action" id="useLastLineupBtn">Use Last Lineup</button>
+                </div>
+                <div class="lineup-builder-rows" id="lineupBuilderRows"></div>
+              </section>
+
+              <aside class="bench-panel">
+                <section class="bench-card">
+                  <div class="pregame-panel-head">
+                    <div>
+                      <h3>Bench / Available Players</h3>
+                      <p class="player-meta">Select a lineup row, then choose a player to swap into that spot.</p>
+                    </div>
+                    <button type="button" class="secondary-action" id="lineupTemplatesBtn">Templates</button>
+                  </div>
+                  <div class="bench-list" id="lineupBenchList"></div>
+                </section>
+
+                <section class="starting-pitcher-card">
+                  <div>
+                    <p class="eyebrow">Defense</p>
+                    <h3>Starting Pitcher</h3>
+                    <p class="player-meta">Set the pitcher outside the batting order when using a DH.</p>
+                  </div>
+                  <label>
+                    Pitcher
+                    <select id="lineupPitcherSelect"></select>
+                  </label>
+                  <div class="lineup-pitcher-meta" id="lineupPitcherStats"></div>
+                </section>
+
+                <section class="ready-check-card">
+                  <p class="eyebrow">Ready Check</p>
+                  <div class="ready-check-list" id="lineupReadyCheck"></div>
+                </section>
+
+                <div class="pregame-actions">
+                  <button type="button" class="secondary-action" id="cancelLineupBuilderBtn">Cancel</button>
+                  <button type="button" class="primary-action" id="confirmLineupBtn">Confirm Lineup & Start Game</button>
+                </div>
+              </aside>
             </div>
-            <div class="lineup-builder-rows" id="lineupBuilderRows"></div>
-            <div class="button-row">
-              <button type="button" class="primary-action" id="addLineupSpotBtn">Add Spot</button>
-              <button type="button" class="secondary-action" id="resetGameLineupBtn">Use Active Roster</button>
-            </div>
-          </section>
+          </div>
         </section>
 
         <section class="view" id="lineupView" data-panel="lineup">

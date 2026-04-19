@@ -4,6 +4,22 @@ Track user-facing changes to the Oakmont Lions baseball scorebook app here.
 
 Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA assets, or data handling changes. Keep the newest entry at the top.
 
+## 2026-04-19
+
+### Added
+- Added a dedicated pre-game Lineup Builder screen between Start Game and Score Game.
+- Added a separate starting pitcher selector for DH-for-pitcher lineups.
+
+### Changed
+- Moved full batting-order and game-position setup out of the Games page Start flow.
+- Updated Score Game lineup display to show the assigned game position instead of roster eligibility.
+- Limited live lineup changes to substitutions with a game-position selection.
+- Updated Lineup Builder cards to show season AVG and OPS, added drag-and-drop ordering, and tuned the pre-game layout for iPad portrait use.
+- Simplified Lineup Builder hitter stats into row helper text and changed starting pitcher stats to ERA/record placeholders.
+- Refined Lineup Builder into a bench-first add flow with nine clean empty batting spots and all players available on the bench until selected.
+- Improved Scorebook notation for standard defensive scoring marks like 6-3 groundouts, F8 flyouts, L6 lineouts, E6 errors, and common double-play/force-out patterns.
+- Cleaned up the Schedule & Scores page with a hidden create-game form, tighter schedule inputs, matchup images, recent-completed-game limits, and an Archive prompt.
+
 ## 2026-04-18
 
 ### Added
