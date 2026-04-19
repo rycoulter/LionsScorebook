@@ -4619,6 +4619,54 @@ label {
   font-weight: 800;
 }
 
+.opponent-lineup-setup {
+  margin-top: 0;
+}
+
+.opponent-lineup-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.62fr);
+}
+
+.opponent-lineup-rows {
+  display: grid;
+  gap: 12px;
+}
+
+.opponent-lineup-setup-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
+}
+
+.opponent-lineup-name {
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.opponent-lineup-name span {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+}
+
+.opponent-lineup-name input {
+  margin-top: 6px;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(7, 17, 32, 0.72);
+  color: var(--white);
+  font-weight: 900;
+}
+
+.opponent-lineup-help {
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .ready-check-card {
   border-color: rgba(77, 214, 141, 0.24);
   background: rgba(45, 185, 106, 0.1);
@@ -4656,7 +4704,7 @@ label {
 
 .pregame-actions {
   display: grid;
-  grid-template-columns: 1fr 1.45fr;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
 }
 

@@ -638,6 +638,12 @@ const els = {
   lineupPitcherStats: document.getElementById("lineupPitcherStats"),
   useLastLineupBtn: document.getElementById("useLastLineupBtn"),
   lineupTemplatesBtn: document.getElementById("lineupTemplatesBtn"),
+  addOpponentLineupBtn: document.getElementById("addOpponentLineupBtn"),
+  opponentLineupPanel: document.getElementById("opponentLineupPanel"),
+  opponentLineupContext: document.getElementById("opponentLineupContext"),
+  opponentLineupRows: document.getElementById("opponentLineupRows"),
+  backToLineupBuilderBtn: document.getElementById("backToLineupBuilderBtn"),
+  startFromOpponentLineupBtn: document.getElementById("startFromOpponentLineupBtn"),
   cancelLineupBuilderBtn: document.getElementById("cancelLineupBuilderBtn"),
   confirmLineupBtn: document.getElementById("confirmLineupBtn"),
   addLineupSpotBtn: document.getElementById("addLineupSpotBtn"),
@@ -1645,6 +1651,20 @@ function bindEvents() {
   els.resetGameLineupBtn?.addEventListener("click", resetBuilderLineup);
   els.useLastLineupBtn?.addEventListener("click", useLastLineup);
   els.lineupTemplatesBtn?.addEventListener("click", () => window.alert("Lineup templates are ready for a future save/load workflow."));
+  els.addOpponentLineupBtn?.addEventListener("click", openOpponentLineupStep);
+  els.opponentLineupRows?.addEventListener("input", (event) => {
+    const input = event.target.closest("[data-opponent-pregame-index]");
+    if (input) updatePregameOpponentLineupName(Number(input.dataset.opponentPregameIndex), input.value);
+  });
+  els.opponentLineupRows?.addEventListener("keydown", (event) => {
+    const input = event.target.closest("[data-opponent-pregame-index]");
+    if (!input || event.key !== "Enter") return;
+    event.preventDefault();
+    const next = els.opponentLineupRows.querySelector(`[data-opponent-pregame-index="${Number(input.dataset.opponentPregameIndex) + 1}"]`);
+    next?.focus();
+  });
+  els.backToLineupBuilderBtn?.addEventListener("click", backToLineupBuilderStep);
+  els.startFromOpponentLineupBtn?.addEventListener("click", startGameFromOpponentLineupStep);
   els.cancelLineupBuilderBtn?.addEventListener("click", closeLineupBuilder);
   els.closeLineupBuilderBtn?.addEventListener("click", closeLineupBuilder);
   els.confirmLineupBtn?.addEventListener("click", confirmLineupAndStartGame);
@@ -2231,8 +2251,11 @@ function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
   game.events.push(event);
 
   if (rule.pa) {
-    if (plateAppearance.half === "top") game.batterIndex = nextBatterIndex(game.batterIndex);
-    if (plateAppearance.half === "bottom") game.opponentBatterIndex = nextOpponentBatterIndex(game);
+    if (plateAppearance.battingSide === lionsSide(game)) {
+      game.batterIndex = nextBatterIndex(game.batterIndex, game);
+    } else {
+      game.opponentBatterIndex = nextOpponentBatterIndex(game);
+    }
   }
   game.current.balls = 0;
   game.current.strikes = 0;
@@ -3011,8 +3034,8 @@ function clampNumber(value, min, max) {
   return Math.min(max, Math.max(min, number));
 }
 
-function nextBatterIndex(index) {
-  const total = Math.max(gameLineupPlayerIds().length, 1);
+function nextBatterIndex(index, game = activeGame()) {
+  const total = Math.max(gameLineupPlayerIds(game).length, 1);
   return (index + 1) % total;
 }
 
@@ -3415,8 +3438,16 @@ function confirmLineupAndStartGame() {
   }
   game.lineups.away = deepClone(game.lineupEntries);
   game.batterIndex = 0;
+  game.opponentBatterIndex = 0;
+  game.inning = 1;
+  game.half = "top";
+  game.outs = 0;
+  game.bases = emptyBases(false);
+  game.currentPlateAppearanceId = "";
+  game.atBat = makeAtBat();
   game.pitcherId = els.lineupPitcherSelect?.value || game.pitcherId || game.lineupEntries.find((entry) => entry.role === "P")?.playerId || "";
   game.status = "active";
+  syncGameCurrent(game);
   setActiveGame(game.id);
   clearPendingPlayState(game, true);
   lineupBuilderGameId = null;
@@ -5477,6 +5508,7 @@ function lineupReadiness(game) {
 function renderLineupBuilder() {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   els.lineupBuilderPanel.classList.toggle("is-visible", Boolean(game));
+  els.opponentLineupPanel?.classList.remove("is-visible");
   if (!game) return;
   const entries = startingLineupEntries(game);
   if (!entries.some((entry) => entry.id === lineupBuilderSelectedEntryId)) lineupBuilderSelectedEntryId = entries[0]?.id || "";
@@ -5486,10 +5518,111 @@ function renderLineupBuilder() {
   if (els.lineupBuilderContext) els.lineupBuilderContext.textContent = `${gameMatchupLabel(game)} | ${game.date || "No date"}${game.time ? ` | ${game.time}` : ""}${game.location ? ` | ${game.location}` : ""}`;
   if (els.useLastLineupBtn) els.useLastLineupBtn.disabled = !lastLineup;
   if (els.confirmLineupBtn) els.confirmLineupBtn.disabled = !readiness.ready;
+  if (els.addOpponentLineupBtn) els.addOpponentLineupBtn.disabled = !readiness.ready;
   els.lineupBuilderRows.innerHTML = entries.map((entry, index) => renderLineupBuilderRow(game, entry, index)).join("");
   if (els.lineupBenchList) els.lineupBenchList.innerHTML = renderLineupBench(entries);
   renderLineupPitcher(game);
   if (els.lineupReadyCheck) els.lineupReadyCheck.innerHTML = renderLineupReadyCheck(readiness);
+}
+
+function openOpponentLineupStep() {
+  const game = state.games.find((item) => item.id === lineupBuilderGameId);
+  if (!game || gameIsFinal(game)) return;
+  const readiness = lineupReadiness(game);
+  if (!readiness.ready) {
+    renderLineupBuilder();
+    return;
+  }
+  savePregameOpponentLineup();
+  renderOpponentLineupStep();
+}
+
+function backToLineupBuilderStep() {
+  savePregameOpponentLineup();
+  renderLineupBuilder();
+}
+
+function startGameFromOpponentLineupStep() {
+  savePregameOpponentLineup();
+  confirmLineupAndStartGame();
+}
+
+function renderOpponentLineupStep() {
+  const game = state.games.find((item) => item.id === lineupBuilderGameId);
+  els.lineupBuilderPanel?.classList.remove("is-visible");
+  els.opponentLineupPanel?.classList.toggle("is-visible", Boolean(game));
+  if (!game) return;
+  const entries = pregameOpponentLineupEntries(game);
+  if (els.opponentLineupContext) {
+    els.opponentLineupContext.textContent = `${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent || "Opponent"} | Optional lineup`;
+  }
+  els.opponentLineupRows.innerHTML = entries.map(renderOpponentLineupSetupRow).join("");
+  els.opponentLineupRows.querySelector("[data-opponent-pregame-index]")?.focus();
+}
+
+function pregameOpponentLineupEntries(game) {
+  if (!game.lineups) game.lineups = { away: deepClone(game.lineupEntries || []), home: [] };
+  const existing = Array.isArray(game.lineups.home) ? game.lineups.home.slice(0, 9) : [];
+  const names = Array.isArray(game.opponentLineup) ? game.opponentLineup : [];
+  const entries = [];
+  for (let index = 0; index < 9; index += 1) {
+    const entry = existing[index] || {};
+    entries.push({
+      id: entry.id || createId("opp"),
+      name: entry.name || names[index] || "",
+      order: index + 1,
+      active: entry.active !== false
+    });
+  }
+  game.lineups.home = entries;
+  game.opponentLineup = entries.map((entry) => entry.name || "");
+  return entries;
+}
+
+function renderOpponentLineupSetupRow(entry, index) {
+  const spot = index + 1;
+  return `<article class="opponent-lineup-setup-row">
+    <div class="lineup-order">${spot}</div>
+    <label class="opponent-lineup-name">
+      <span>Batting Spot</span>
+      <input value="${escapeHtml(entry.name || "")}" placeholder="Opponent hitter ${spot}" autocomplete="off" data-opponent-pregame-index="${index}">
+    </label>
+  </article>`;
+}
+
+function updatePregameOpponentLineupName(index, name) {
+  const game = state.games.find((item) => item.id === lineupBuilderGameId);
+  if (!game || gameIsFinal(game)) return;
+  const entries = pregameOpponentLineupEntries(game);
+  if (!entries[index]) return;
+  entries[index] = {
+    ...entries[index],
+    name: String(name || "").trim(),
+    order: index + 1,
+    active: true
+  };
+  game.lineups.home = entries;
+  game.opponentLineup = entries.map((entry) => entry.name || "");
+  saveState();
+}
+
+function savePregameOpponentLineup() {
+  const game = state.games.find((item) => item.id === lineupBuilderGameId);
+  if (!game || !els.opponentLineupRows || gameIsFinal(game)) return;
+  const entries = pregameOpponentLineupEntries(game);
+  els.opponentLineupRows.querySelectorAll("[data-opponent-pregame-index]").forEach((input) => {
+    const index = Number(input.dataset.opponentPregameIndex);
+    if (!entries[index]) return;
+    entries[index] = {
+      ...entries[index],
+      name: input.value.trim(),
+      order: index + 1,
+      active: true
+    };
+  });
+  game.lineups.home = entries;
+  game.opponentLineup = entries.map((entry) => entry.name || "");
+  saveState();
 }
 
 function renderLineupBuilderRow(game, entry, index) {

@@ -644,7 +644,56 @@
 
                 <div class="pregame-actions">
                   <button type="button" class="secondary-action" id="cancelLineupBuilderBtn">Cancel</button>
+                  <button type="button" class="secondary-action" id="addOpponentLineupBtn">Add Opponent Lineup</button>
                   <button type="button" class="primary-action" id="confirmLineupBtn">Confirm Lineup & Start Game</button>
+                </div>
+              </aside>
+            </div>
+          </div>
+
+          <div class="pregame-shell lineup-builder opponent-lineup-setup" id="opponentLineupPanel">
+            <header class="pregame-header">
+              <div>
+                <p class="eyebrow">Optional Setup</p>
+                <h2>Opponent Lineup</h2>
+                <p class="player-meta">Enter the opponent batting order now, or start the game and update it later from Score Game.</p>
+              </div>
+              <div class="pregame-context" id="opponentLineupContext">Opponent batting order | Optional</div>
+            </header>
+
+            <div class="pregame-grid opponent-lineup-grid">
+              <section class="starting-lineup-panel">
+                <div class="pregame-panel-head">
+                  <div>
+                    <h3>Opponent Batting Order</h3>
+                    <p class="player-meta">Type names in order. Blank spots will use Batter 1, Batter 2, and so on.</p>
+                  </div>
+                </div>
+                <div class="opponent-lineup-rows" id="opponentLineupRows"></div>
+              </section>
+
+              <aside class="bench-panel">
+                <section class="ready-check-card">
+                  <p class="eyebrow">Optional</p>
+                  <div class="ready-check-list">
+                    <div class="ready-check-item is-ready"><span>OK</span>Can start without opponent names</div>
+                    <div class="ready-check-item is-ready"><span>OK</span>Editable later in Score Game</div>
+                  </div>
+                </section>
+
+                <section class="bench-card opponent-lineup-help">
+                  <div class="pregame-panel-head">
+                    <div>
+                      <h3>Quick Entry</h3>
+                      <p class="player-meta">Use tab or return to move down the order quickly on iPad.</p>
+                    </div>
+                  </div>
+                  <p class="player-meta">Positions can be added later when opponent defensive tracking is expanded. For now, this keeps the scoring order clean and fast.</p>
+                </section>
+
+                <div class="pregame-actions">
+                  <button type="button" class="secondary-action" id="backToLineupBuilderBtn">Back</button>
+                  <button type="button" class="primary-action" id="startFromOpponentLineupBtn">Start Game</button>
                 </div>
               </aside>
             </div>
