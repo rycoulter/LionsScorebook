@@ -503,7 +503,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.18-build-36";
+const APP_VERSION = "2026.04.19-build-38";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 
@@ -582,6 +582,7 @@ const els = {
   undoPitchBtn: document.getElementById("undoPitchBtn"),
   sprayChart: document.getElementById("sprayChart"),
   sprayMarkers: document.getElementById("sprayMarkers"),
+  runnerFieldMarkers: document.getElementById("runnerFieldMarkers"),
   sprayFilter: document.getElementById("sprayFilter"),
   sprayHint: document.getElementById("sprayHint"),
   abCard: document.getElementById("abCard"),
@@ -1771,6 +1772,7 @@ function bindEvents() {
     renderScoringStepPanel();
   });
   els.scorerStack.addEventListener("pointerdown", setSprayFromPointer);
+  els.runnerFieldMarkers?.addEventListener("click", handleFieldRunnerClick);
   els.sprayChart.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -3991,6 +3993,7 @@ function renderRunnerTracker() {
     button.disabled = !enabled;
     button.classList.toggle("is-selected", pendingRunnerOutBases.includes(base));
   });
+  renderFieldRunnerMarkers(game);
   renderAutoScorePreview();
 }
 
@@ -3999,6 +4002,43 @@ function runnerName(runner) {
   const player = state.roster.find((item) => item.id === runner);
   if (player) return player.name.split(" ")[0];
   return runner === true ? "Runner" : "Opponent";
+}
+
+function runnerNumber(runner) {
+  if (!isOccupied(runner)) return "";
+  const player = state.roster.find((item) => item.id === runner);
+  return player?.number || "R";
+}
+
+function renderFieldRunnerMarkers(game = activeGame()) {
+  if (!els.runnerFieldMarkers || !game) return;
+  const bases = game.bases || emptyBases(false);
+  const baseLabels = { first: "first", second: "second", third: "third" };
+  els.runnerFieldMarkers.innerHTML = ["first", "second", "third"]
+    .filter((base) => isOccupied(bases[base]))
+    .map((base) => {
+      const runner = bases[base];
+      const pending = pendingRunnerOutBases.includes(base) ? " is-pending-out" : "";
+      const label = `${runnerName(runner) || "Runner"} on ${baseLabels[base]}`;
+      return `<button type="button" class="field-runner-marker field-runner-${base}${pending}" data-field-runner-base="${base}" title="${escapeHtml(label)}">${escapeHtml(runnerNumber(runner))}</button>`;
+    })
+    .join("");
+}
+
+function handleFieldRunnerClick(event) {
+  const button = event.target.closest("[data-field-runner-base]");
+  if (!button) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const base = button.dataset.fieldRunnerBase;
+  const game = activeGame();
+  if (!game || !isOccupied(game.bases?.[base])) return;
+  const stealTarget = base === "first" ? "second" : base === "second" ? "third" : base === "third" ? "home" : "";
+  const stealButton = els.stealButtons.find((item) => item.dataset.steal === stealTarget && !item.disabled);
+  els.runnerHint.textContent = stealButton
+    ? `${runnerName(game.bases[base]) || "Runner"} selected. Use the steal controls below for SB or CS.`
+    : `${runnerName(game.bases[base]) || "Runner"} selected. Runner actions will appear here when available.`;
+  stealButton?.focus();
 }
 
 function togglePendingRunnerOut(base) {
@@ -4596,9 +4636,10 @@ function sprayZone(x, y) {
 
 function renderSprayChart() {
   const events = sprayEvents();
-  const dots = events.map(renderSprayDot).join("");
+  const showRecordedSpray = els.sprayFilter?.value !== "hitter" || awaitingSprayLocation || awaitingRunnerDecision;
+  const dots = showRecordedSpray ? events.map(renderSprayDot).join("") : "";
   const pending = pendingSpray
-    ? `<span class="spray-dot pending" style="left:${pendingSpray.x}%;top:${pendingSpray.y}%;" title="Pending ${escapeHtml(pendingSpray.zone)}">+</span>`
+    ? `<span class="spray-dot pending" style="left:${pendingSpray.x}%;top:${pendingSpray.y}%;" title="Pending ${escapeHtml(pendingSpray.zone)}">${escapeHtml(els.resultSelect?.value || "+")}</span>`
     : "";
   els.sprayMarkers.innerHTML = `${dots}${pending}`;
 }
@@ -4621,12 +4662,12 @@ function sprayEvents() {
     });
 }
 
-function renderSprayDot({ event, game }) {
+function renderSprayDot({ event, game }, options = {}) {
   const rule = eventRules[event.result];
   const player = state.roster.find((item) => item.id === event.playerId);
   const kind = rule.hit ? "hit" : "out";
   const title = `${player?.name || "Unknown"} ${rule.label} vs ${game.opponent} (${event.spray.zone})`;
-  const label = rule.hit ? "H" : "O";
+  const label = options.compact ? (rule.hit ? "H" : "O") : event.result || (rule.hit ? "H" : "O");
   return `<span class="spray-dot ${kind}" style="left:${event.spray.x}%;top:${event.spray.y}%;" title="${escapeHtml(title)}">${label}</span>`;
 }
 
@@ -6279,7 +6320,7 @@ function renderStatsSprayChart() {
     .flatMap((game) => game.events.map((event) => ({ event, game })))
     .filter(({ event, game }) => event.spray && event.playerId === playerId && (gameId === "all" || game.id === gameId));
   els.statsSprayMarkers.innerHTML = events.length
-    ? events.map(renderSprayDot).join("")
+    ? events.map((item) => renderSprayDot(item, { compact: true })).join("")
     : `<span class="spray-empty">No tracked batted balls</span>`;
 }
 

@@ -19,6 +19,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 - Refined Lineup Builder into a bench-first add flow with nine clean empty batting spots and all players available on the bench until selected.
 - Improved Scorebook notation for standard defensive scoring marks like 6-3 groundouts, F8 flyouts, L6 lineouts, E6 errors, and common double-play/force-out patterns.
 - Cleaned up the Schedule & Scores page with a hidden create-game form, tighter schedule inputs, matchup images, recent-completed-game limits, and an Archive prompt.
+- Updated the live Score Game field visuals with a polished dark field, anchored runner badges, cleaner bases, and outcome-labeled spray markers.
 
 ## 2026-04-18
 
