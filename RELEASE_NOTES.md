@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Tightened the responsive layout across the app with a broader mobile/tablet pass for page headers, forms, card grids, and especially the Box Score controls, summary, tabs, and tables.
 - Anchored the Public View/Admin Sign In/build utility bar to the bottom of the page on mobile and tablet layouts so it no longer floats over the home content.
 - Renamed the completed-games section back to Game Archive and removed the extra View Stats action from completed-game cards so the game window stays tighter.
 - Added HBP columns to the Stats page for both batting and pitching so hit-by-pitch totals are visible and sortable.

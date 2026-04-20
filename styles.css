@@ -2745,6 +2745,7 @@ button:focus-visible {
   background: transparent;
   color: var(--muted);
   font-weight: 950;
+  white-space: normal;
 }
 
 .box-score-tabs button:last-child {
@@ -7919,6 +7920,20 @@ label {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .leader-grid,
+  .record-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .roster-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .roster-toolbar label {
+    max-width: none;
+  }
+
   .home-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -8003,6 +8018,57 @@ label {
     flex: 1 1 100%;
     text-align: center;
   }
+
+  #boxScoreView .section-head {
+    gap: 14px;
+  }
+
+  #boxScoreView .section-head .button-row {
+    width: 100%;
+  }
+
+  #boxScoreView .scorebook-game-picker {
+    flex: 1 1 280px;
+    min-width: 0;
+  }
+
+  #boxScoreView .scorebook-game-picker select,
+  #boxScoreView #boxScoreBackBtn {
+    width: 100%;
+  }
+
+  .box-score-summary-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(140px, auto) minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .box-score-team-logo {
+    width: clamp(60px, 10vw, 84px);
+    height: clamp(60px, 10vw, 84px);
+  }
+
+  .box-score-final strong {
+    font-size: 1.7rem;
+  }
+
+  .box-score-table {
+    min-width: 620px;
+  }
+
+  .line-score-table {
+    min-width: 680px;
+  }
+
+  .box-score-table th,
+  .box-score-table td {
+    padding: 9px 10px;
+  }
+
+  .box-score-tabs button {
+    min-height: 44px;
+    padding: 8px 10px;
+    font-size: 0.88rem;
+  }
 }
 
 @media (max-width: 767px) {
@@ -8041,6 +8107,176 @@ label {
   .site-utility-bar .app-version {
     flex: 1 1 100%;
     text-align: center;
+  }
+
+  .view {
+    width: min(100% - 20px, 1380px);
+    margin-bottom: 20px;
+  }
+
+  .section-head,
+  .mini-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .section-head > *,
+  .mini-head > * {
+    min-width: 0;
+  }
+
+  .section-head .button-row,
+  .section-head > .primary-action,
+  .section-head > .secondary-action,
+  .mini-head .button-row {
+    width: 100%;
+  }
+
+  .section-head .button-row > *,
+  .mini-head .button-row > *,
+  .section-head > .primary-action,
+  .section-head > .secondary-action {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .home-grid,
+  .games-grid,
+  .archive-grid,
+  .metrics-grid,
+  .leader-grid,
+  .record-summary,
+  .analysis-grid,
+  .lab-grid,
+  .upcoming-game-grid,
+  .scouting-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .game-form,
+  .player-form,
+  .scouting-controls,
+  .stats-spray-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .game-form-actions,
+  .roster-toolbar,
+  .games-archive-note,
+  .scouting-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .game-form-actions > *,
+  .roster-toolbar > *,
+  .games-archive-note > *,
+  .scouting-actions > *,
+  .button-row > * {
+    width: 100%;
+  }
+
+  .scorebook-game-picker,
+  .scorebook-game-picker select,
+  #boxScoreBackBtn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #boxScoreView .section-head .button-row {
+    width: 100%;
+  }
+
+  #boxScoreView .box-score-card {
+    margin-bottom: 12px;
+  }
+
+  .box-score-summary {
+    padding: 14px;
+  }
+
+  .box-score-summary-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .box-score-final {
+    order: -1;
+    min-width: 0;
+  }
+
+  .box-score-final strong {
+    font-size: 1.55rem;
+  }
+
+  .box-score-team-logo {
+    width: 64px;
+    height: 64px;
+  }
+
+  .box-score-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .box-score-tabs button {
+    min-height: 42px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 9px 12px;
+    font-size: 0.84rem;
+  }
+
+  .box-score-tabs button:last-child {
+    border-bottom: 0;
+  }
+
+  .box-score-table-wrap {
+    margin-inline: -1px;
+  }
+
+  .box-score-table {
+    min-width: 540px;
+  }
+
+  .line-score-table {
+    min-width: 620px;
+  }
+
+  .box-score-table th,
+  .box-score-table td {
+    padding: 8px 9px;
+    font-size: 0.8rem;
+  }
+
+  .box-score-table thead th,
+  .box-score-table tbody th {
+    font-size: 0.76rem;
+  }
+
+  .stats-table-wrap {
+    margin-bottom: 14px;
+  }
+
+  .stats-subhead {
+    padding: 12px 12px 4px;
+  }
+
+  .stats-spray-controls {
+    padding: 0 12px 12px;
+  }
+
+  .stats-spray-chart {
+    min-height: 280px;
+    margin: 0 10px 12px;
+  }
+
+  .upcoming-game-card {
+    grid-template-columns: 1fr;
+  }
+
+  .upcoming-game-card img,
+  .game-card-matchup {
+    width: 100%;
   }
 }
 
