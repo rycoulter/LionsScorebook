@@ -434,8 +434,8 @@
                 <button type="button" class="secondary-action" id="applySubBtn">Apply</button>
               </div>
               <label class="opponent-lineup-editor">
-                Home lineup paste
-                <textarea id="scoreOpponentLineupInput" rows="5" placeholder="One hitter per line"></textarea>
+                Opponent lineup paste
+                <textarea id="scoreOpponentLineupInput" rows="5" placeholder="#12 Smith&#10;#4 Johnson&#10;One hitter per line"></textarea>
               </label>
               <div class="mini-head">
                 <h3>Last Plays</h3>
@@ -611,7 +611,7 @@
                   <div class="pregame-panel-head">
                     <div>
                       <h3>Bench / Available Players</h3>
-                      <p class="player-meta">Select a lineup row, then choose a player to swap into that spot.</p>
+                      <p class="player-meta">Fill the first nine spots, then add extra hitters or tap a row to swap.</p>
                     </div>
                     <button type="button" class="secondary-action" id="lineupTemplatesBtn">Templates</button>
                   </div>
@@ -928,34 +928,19 @@
               <p class="eyebrow">Analysis</p>
               <h2>Team trends that shape the next card</h2>
             </div>
-            <button class="secondary-action" id="exportBtn">Export JSON</button>
           </div>
           <div class="metrics-grid" id="metricsGrid"></div>
           <div class="stats-table-wrap">
             <h3 class="stats-subhead">Game Breakdown</h3>
             <div class="game-breakdown" id="gameBreakdown"></div>
           </div>
-          <div class="analysis-grid">
+          <div class="analysis-grid is-summary-only">
             <div>
               <div class="mini-head">
                 <h3>Player Value Board</h3>
                 <span>Adjusted score</span>
               </div>
               <div id="valueBoard" class="value-board"></div>
-            </div>
-            <div>
-              <div class="mini-head">
-                <h3>What To Track</h3>
-                <span>MLB-informed</span>
-              </div>
-              <div class="tracking-list">
-                <p><strong>Plate appearance outcome:</strong> every PA powers AVG, OBP, SLG, OPS, wOBA-lite, strikeout rate, walk rate, and RBI opportunities.</p>
-                <p><strong>Pitch trail:</strong> counts, pitch volume, and first-pitch strike trends show approach quality before the result.</p>
-                <p><strong>Batted-ball profile:</strong> outcome, launch band, and location separate real damage from routine contact.</p>
-                <p><strong>Spray location:</strong> hit and out locations reveal pull tendency, opposite-field direction, and where defenses are taking away hits.</p>
-                <p><strong>Baserunning:</strong> steals, caught stealing, runs, and pressure speed influence lineup shape.</p>
-                <p><strong>Defense:</strong> positions and coach grades keep the best nine from becoming a fragile nine.</p>
-              </div>
             </div>
           </div>
         </section>

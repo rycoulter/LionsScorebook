@@ -503,7 +503,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.19-build-42";
+const APP_VERSION = "2026.04.20-build-45";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 
@@ -747,7 +747,6 @@ const els = {
   refreshScoutingBtn: document.getElementById("refreshScoutingBtn"),
   scoutingSourceStatus: document.getElementById("scoutingSourceStatus"),
   scoutingReport: document.getElementById("scoutingReport"),
-  exportBtn: document.getElementById("exportBtn"),
   playerTemplate: document.getElementById("playerCardTemplate")
 };
 
@@ -882,12 +881,53 @@ function lineupEntriesFromRoster(playerIds = []) {
 }
 
 function opponentLineupEntries(names = []) {
-  return names.map((name, index) => ({
+  return names.map((entry, index) => normalizeOpponentLineupEntry(entry, index));
+}
+
+function parseOpponentLine(value, index = 0) {
+  const text = String(value || "").trim();
+  const match = text.match(/^#?\s*([0-9]{1,3})\s+(.+)$/);
+  return {
     id: createId("opp"),
-    name,
+    name: match ? match[2].trim() : text,
+    number: match ? match[1].trim() : "",
     order: index + 1,
     active: true
-  }));
+  };
+}
+
+function normalizeOpponentLineupEntry(entry, index = 0) {
+  if (entry && typeof entry === "object") {
+    const name = String(entry.name || entry.label || entry.playerName || "").trim();
+    const number = String(entry.number || entry.jerseyNumber || "").trim();
+    return {
+      id: entry.id || createId("opp"),
+      name: name || `Batter ${index + 1}`,
+      number,
+      order: entry.order || index + 1,
+      active: entry.active !== false
+    };
+  }
+  const parsed = parseOpponentLine(entry, index);
+  return {
+    ...parsed,
+    name: parsed.name || `Batter ${index + 1}`
+  };
+}
+
+function opponentLineupSnapshot(entries = []) {
+  return entries.map((entry, index) => {
+    const normalized = normalizeOpponentLineupEntry(entry, index);
+    return {
+      name: normalized.name,
+      number: normalized.number
+    };
+  });
+}
+
+function opponentBatterLabel(entry, fallbackIndex = 0) {
+  const normalized = normalizeOpponentLineupEntry(entry, fallbackIndex);
+  return `${normalized.number ? `#${normalized.number} ` : ""}${normalized.name || `Batter ${fallbackIndex + 1}`}`.trim();
 }
 
 function emptyBases(value = null) {
@@ -1128,7 +1168,7 @@ function createGame(options = {}) {
     batterIndex: config.batterIndex ?? 0,
     lineupEntries: deepClone(awayLineup),
     opponentBatterIndex: config.opponentBatterIndex ?? 0,
-    opponentLineup: homeLineup.map((entry) => entry.name),
+    opponentLineup: opponentLineupSnapshot(homeLineup),
     pitcherId,
     score: {
       lions: config.score?.lions ?? (gameLionsSide === "away" ? config.score?.away : config.score?.home) ?? 0,
@@ -1296,17 +1336,21 @@ function resetGameAwayLineupToRoster(game, nextState = state) {
 function normalizeGame(game, nextState = state) {
   const lineupSource = game.lineups?.away || game.lineupEntries || makeLineupEntries(nextState.lineup || []);
   const homeSource = game.lineups?.home || opponentLineupEntries(game.opponentLineup || []);
-  const lineupEntries = lineupSource.map((entry, index) => ({
-    id: entry.id || createId("lineup"),
-    playerId: Object.prototype.hasOwnProperty.call(entry, "playerId") ? entry.playerId : entry.id || "",
-    role: entry.role || defaultRoleForSpot(index),
-    order: entry.order || index + 1,
-    active: entry.active !== false,
-    note: entry.note || ""
-  }));
+  const lineupEntries = lineupSource.map((entry, index) => {
+    const hasRole = entry && typeof entry === "object" && Object.prototype.hasOwnProperty.call(entry, "role");
+    return {
+      id: entry.id || createId("lineup"),
+      playerId: Object.prototype.hasOwnProperty.call(entry, "playerId") ? entry.playerId : entry.id || "",
+      role: hasRole ? entry.role : defaultRoleForSpot(index),
+      order: entry.order || index + 1,
+      active: entry.active !== false,
+      note: entry.note || ""
+    };
+  });
   const homeLineup = homeSource.map((entry, index) => ({
     id: entry.id || createId("opp"),
-    name: entry.name || String(entry),
+    name: normalizeOpponentLineupEntry(entry, index).name,
+    number: normalizeOpponentLineupEntry(entry, index).number,
     order: entry.order || index + 1,
     active: entry.active !== false
   }));
@@ -1340,7 +1384,7 @@ function normalizeGame(game, nextState = state) {
     batterIndex: game.batterIndex ?? 0,
     lineupEntries,
     opponentBatterIndex: game.opponentBatterIndex ?? 0,
-    opponentLineup: homeLineup.map((entry) => entry.name),
+    opponentLineup: opponentLineupSnapshot(homeLineup),
     pitcherId: game.pitcherId || game.current?.pitcherId || "",
     score,
     atBat: {
@@ -1637,7 +1681,6 @@ function bindEvents() {
     if (button.dataset.gameAction === "complete") completeScheduledGame(button.dataset.gameId);
     if (button.dataset.gameAction === "edit") openGameEditor(button.dataset.gameId);
     if (button.dataset.gameAction === "summary") openGameSummary(button.dataset.gameId);
-    if (button.dataset.gameAction === "boxscore") openBoxScorePlaceholder(button.dataset.gameId);
     if (button.dataset.gameAction === "delete") removeScheduledGame(button.dataset.gameId);
   });
   els.gamesArchiveNote?.addEventListener("click", (event) => {
@@ -1717,7 +1760,10 @@ function bindEvents() {
   els.addOpponentLineupBtn?.addEventListener("click", openOpponentLineupStep);
   els.opponentLineupRows?.addEventListener("input", (event) => {
     const input = event.target.closest("[data-opponent-pregame-index]");
-    if (input) updatePregameOpponentLineupName(Number(input.dataset.opponentPregameIndex), input.value);
+    if (!input) return;
+    updatePregameOpponentLineupEntry(Number(input.dataset.opponentPregameIndex), {
+      [input.dataset.opponentPregameField || "name"]: input.value
+    });
   });
   els.opponentLineupRows?.addEventListener("keydown", (event) => {
     const input = event.target.closest("[data-opponent-pregame-index]");
@@ -1782,7 +1828,10 @@ function bindEvents() {
 
   els.liveLineup.addEventListener("blur", (event) => {
     const item = event.target.closest("[data-opponent-lineup-index]");
-    if (item) updateOpponentLineupName(Number(item.dataset.opponentLineupIndex), "value" in item ? item.value.trim() : item.textContent.trim());
+    if (!item) return;
+    const index = Number(item.dataset.opponentLineupIndex);
+    const field = item.dataset.opponentLineupField || "name";
+    updateOpponentLineupEntry(index, { [field]: "value" in item ? item.value.trim() : item.textContent.trim() });
   }, true);
 
   els.liveLineup.addEventListener("keydown", (event) => {
@@ -1964,7 +2013,6 @@ function bindEvents() {
       renderSeasonStats();
     });
   });
-  els.exportBtn.addEventListener("click", exportData);
 }
 
 function switchView(view) {
@@ -2020,8 +2068,8 @@ function currentBatterId(game = activeGame()) {
 function parseOpponentLineup(value) {
   return value
     .split(/\r?\n/)
-    .map((name) => name.trim())
-    .filter(Boolean);
+    .map((line, index) => parseOpponentLine(line, index))
+    .filter((entry) => entry.name || entry.number);
 }
 
 function defaultOpponentNames() {
@@ -2033,22 +2081,20 @@ function opponentLineupEntriesForGame(game = activeGame()) {
   const sourceEntries = Array.isArray(game.lineups.home) && game.lineups.home.length
     ? game.lineups.home
     : opponentLineupEntries(game.opponentLineup?.length ? game.opponentLineup : defaultOpponentNames());
-  const entries = sourceEntries.map((entry, index) => {
-    const name = String(entry.name || game.opponentLineup?.[index] || `Batter ${index + 1}`).trim() || `Batter ${index + 1}`;
-    return {
-      id: entry.id || createId("opp"),
-      name,
-      order: index + 1,
-      active: entry.active !== false
-    };
-  });
+  const entries = sourceEntries.map((entry, index) => normalizeOpponentLineupEntry(entry, index));
   game.lineups.home = entries;
-  game.opponentLineup = entries.map((entry) => entry.name);
+  game.opponentLineup = opponentLineupSnapshot(entries);
   return entries;
 }
 
 function opponentLineup(game = activeGame()) {
-  return opponentLineupEntriesForGame(game).map((entry) => entry.name);
+  return opponentLineupEntriesForGame(game).map((entry, index) => opponentBatterLabel(entry, index));
+}
+
+function opponentLineupText(entries = []) {
+  return entries
+    .map((entry, index) => opponentBatterLabel(entry, index))
+    .join("\n");
 }
 
 function currentOpponentBatter(game = activeGame()) {
@@ -2075,22 +2121,27 @@ function updateOpponentLineup(value) {
   renderGames();
 }
 
-function updateOpponentLineupName(index, name) {
+function updateOpponentLineupEntry(index, updates = {}) {
   const game = activeGame();
   if (gameIsFinal(game)) return;
   const entries = opponentLineupEntriesForGame(game);
-  if (!name) name = `Batter ${index + 1}`;
   while (entries.length <= index) {
-    entries.push({ id: createId("opp"), name: `Batter ${entries.length + 1}`, order: entries.length + 1, active: true });
+    entries.push({ id: createId("opp"), name: `Batter ${entries.length + 1}`, number: "", order: entries.length + 1, active: true });
   }
-  entries[index] = { ...entries[index], name, order: index + 1, active: true };
+  const nextName = Object.prototype.hasOwnProperty.call(updates, "name") ? String(updates.name || "").trim() : entries[index].name;
+  const nextNumber = Object.prototype.hasOwnProperty.call(updates, "number") ? String(updates.number || "").trim() : entries[index].number || "";
+  entries[index] = { ...entries[index], name: nextName || `Batter ${index + 1}`, number: nextNumber, order: index + 1, active: true };
   game.lineups.home = entries;
-  game.opponentLineup = entries.map((entry) => entry.name);
-  els.scoreOpponentLineupInput.value = game.opponentLineup.join("\n");
+  game.opponentLineup = opponentLineupSnapshot(entries);
+  els.scoreOpponentLineupInput.value = opponentLineupText(entries);
   saveState();
   renderAtBat();
   renderLiveLineup();
   renderGames();
+}
+
+function updateOpponentLineupName(index, name) {
+  updateOpponentLineupEntry(index, { name });
 }
 
 function currentPitcherId(game = activeGame()) {
@@ -4809,9 +4860,13 @@ function renderLiveLineup() {
         const current = index === (game.opponentBatterIndex || 0) ? " is-current" : "";
         return `<li class="opponent-lineup-row${current}">
           <div class="lineup-order">${index + 1}</div>
+          <label class="opponent-lineup-number">
+            <span>No.</span>
+            <input value="${escapeHtml(entry.number || "")}" placeholder="#" inputmode="numeric" spellcheck="false" data-opponent-lineup-index="${index}" data-opponent-lineup-field="number">
+          </label>
           <label>
             <span>Home hitter</span>
-            <input value="${escapeHtml(entry.name)}" spellcheck="false" data-opponent-lineup-index="${index}">
+            <input value="${escapeHtml(entry.name)}" spellcheck="false" data-opponent-lineup-index="${index}" data-opponent-lineup-field="name">
           </label>
           <div class="player-meta">${opponentSide(game) === "home" ? "Home" : "Away"} ${escapeHtml(game.opponent)} batting | Type to edit</div>
         </li>`;
@@ -5454,7 +5509,6 @@ function renderScheduleGameCard(game, activeId = "") {
     <div class="game-actions">
       ${primaryAction}
       ${completed ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${game.id}">View Summary</button>` : ""}
-      ${completed ? `<button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${game.id}">View Box Score</button>` : ""}
       <button type="button" class="secondary-action" data-game-action="edit" data-game-id="${game.id}" ${locked ? "disabled" : ""}>Edit</button>
       <button type="button" class="secondary-action" data-game-action="complete" data-game-id="${game.id}" ${canComplete ? "" : "disabled"}>Mark Final</button>
       <button type="button" class="secondary-action danger-action" data-game-action="delete" data-game-id="${game.id}">Remove</button>
@@ -5464,11 +5518,6 @@ function renderScheduleGameCard(game, activeId = "") {
 
 function matchupImageForGame(game) {
   return window.MatchupImages?.getMatchupImage?.(game?.opponent) || window.MatchupImages?.fallback || "lions-logo.png";
-}
-
-function openBoxScorePlaceholder(gameId) {
-  const game = state.games.find((item) => item.id === gameId);
-  window.alert(`Box Score for ${game ? gameMatchupLabel(game) : "this game"} is planned for a future update.`);
 }
 
 function renderRecordSummary() {
@@ -5589,7 +5638,7 @@ function ensureStartingLineup(game) {
     : Array.isArray(game.lineups?.away)
       ? game.lineups.away
       : [];
-  const existing = source.slice(0, 9);
+  const existing = source.slice();
   while (existing.length < 9) {
     existing.push({
       id: uuid(),
@@ -5600,18 +5649,19 @@ function ensureStartingLineup(game) {
       note: ""
     });
   }
-  game.lineupEntries = existing.slice(0, 9).map((entry, index) => ({
-    ...entry,
-    id: entry.id || uuid(),
-    playerId: Object.prototype.hasOwnProperty.call(entry, "playerId") ? entry.playerId : "",
-    role: entry.playerId
-      ? Object.prototype.hasOwnProperty.call(entry, "role")
-        ? entry.role
-        : defaultBuilderRoleForSpot(index)
-      : "",
-    order: index + 1,
-    active: true
-  }));
+  game.lineupEntries = existing.map((entry, index) => {
+    const hasPlayerId = entry && typeof entry === "object" && Object.prototype.hasOwnProperty.call(entry, "playerId");
+    const hasRole = entry && typeof entry === "object" && Object.prototype.hasOwnProperty.call(entry, "role");
+    const playerId = hasPlayerId ? entry.playerId : "";
+    return {
+      ...entry,
+      id: entry.id || uuid(),
+      playerId,
+      role: playerId && hasRole ? entry.role : "",
+      order: index + 1,
+      active: true
+    };
+  });
   game.lineups.away = deepClone(game.lineupEntries);
   return game.lineupEntries;
 }
@@ -5624,8 +5674,8 @@ function lineupReadiness(game) {
   const entries = startingLineupEntries(game);
   const playerIds = entries.map((entry) => entry.playerId).filter(Boolean);
   const roles = new Set(entries.filter((entry) => entry.playerId).map((entry) => entry.role).filter(Boolean));
-  const startersAssigned = entries.length === 9 && playerIds.length === 9;
-  const battingOrderComplete = startersAssigned && new Set(playerIds).size === 9;
+  const startersAssigned = playerIds.length >= 9;
+  const battingOrderComplete = startersAssigned && new Set(playerIds).size === playerIds.length;
   const pitcherAssigned = Boolean(game.pitcherId || entries.find((entry) => entry.role === "P")?.playerId);
   const missingPositions = fieldPositionsWithoutPitcher.filter((position) => !roles.has(position));
   if (!pitcherAssigned) missingPositions.unshift("P");
@@ -5646,7 +5696,9 @@ function renderLineupBuilder() {
   els.opponentLineupPanel?.classList.remove("is-visible");
   if (!game) return;
   const entries = startingLineupEntries(game);
-  if (!entries.some((entry) => entry.id === lineupBuilderSelectedEntryId)) lineupBuilderSelectedEntryId = entries[0]?.id || "";
+  if (!entries.some((entry) => entry.id === lineupBuilderSelectedEntryId)) {
+    lineupBuilderSelectedEntryId = entries.find((entry) => !entry.playerId)?.id || "";
+  }
   const readiness = lineupReadiness(game);
   const lastLineup = lastLineupGame(game.id);
   els.lineupBuilderTitle.textContent = "Starting Lineup";
@@ -5704,16 +5756,20 @@ function pregameOpponentLineupEntries(game) {
   const names = Array.isArray(game.opponentLineup) ? game.opponentLineup : [];
   const entries = [];
   for (let index = 0; index < 9; index += 1) {
-    const entry = existing[index] || {};
+    const entry = existing[index] || names[index] || {};
+    const normalized = normalizeOpponentLineupEntry(entry, index);
+    const hasEntryData = entry && typeof entry === "object"
+      ? Boolean(entry.name || entry.number || entry.label || entry.playerName)
+      : Boolean(String(entry || "").trim());
     entries.push({
-      id: entry.id || createId("opp"),
-      name: entry.name || names[index] || "",
+      ...normalized,
+      name: hasEntryData ? normalized.name : "",
       order: index + 1,
-      active: entry.active !== false
+      active: true
     });
   }
   game.lineups.home = entries;
-  game.opponentLineup = entries.map((entry) => entry.name || "");
+  game.opponentLineup = opponentLineupSnapshot(entries);
   return entries;
 }
 
@@ -5721,27 +5777,36 @@ function renderOpponentLineupSetupRow(entry, index) {
   const spot = index + 1;
   return `<article class="opponent-lineup-setup-row">
     <div class="lineup-order">${spot}</div>
+    <label class="opponent-lineup-number">
+      <span>No.</span>
+      <input value="${escapeHtml(entry.number || "")}" placeholder="#" inputmode="numeric" autocomplete="off" data-opponent-pregame-index="${index}" data-opponent-pregame-field="number">
+    </label>
     <label class="opponent-lineup-name">
       <span>Batting Spot</span>
-      <input value="${escapeHtml(entry.name || "")}" placeholder="Opponent hitter ${spot}" autocomplete="off" data-opponent-pregame-index="${index}">
+      <input value="${escapeHtml(entry.name || "")}" placeholder="Opponent hitter ${spot}" autocomplete="off" data-opponent-pregame-index="${index}" data-opponent-pregame-field="name">
     </label>
   </article>`;
 }
 
-function updatePregameOpponentLineupName(index, name) {
+function updatePregameOpponentLineupEntry(index, updates = {}) {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   if (!game || gameIsFinal(game)) return;
   const entries = pregameOpponentLineupEntries(game);
   if (!entries[index]) return;
   entries[index] = {
     ...entries[index],
-    name: String(name || "").trim(),
+    name: Object.prototype.hasOwnProperty.call(updates, "name") ? String(updates.name || "").trim() : entries[index].name,
+    number: Object.prototype.hasOwnProperty.call(updates, "number") ? String(updates.number || "").trim() : entries[index].number || "",
     order: index + 1,
     active: true
   };
   game.lineups.home = entries;
-  game.opponentLineup = entries.map((entry) => entry.name || "");
+  game.opponentLineup = opponentLineupSnapshot(entries);
   saveState();
+}
+
+function updatePregameOpponentLineupName(index, name) {
+  updatePregameOpponentLineupEntry(index, { name });
 }
 
 function savePregameOpponentLineup() {
@@ -5751,15 +5816,16 @@ function savePregameOpponentLineup() {
   els.opponentLineupRows.querySelectorAll("[data-opponent-pregame-index]").forEach((input) => {
     const index = Number(input.dataset.opponentPregameIndex);
     if (!entries[index]) return;
+    const field = input.dataset.opponentPregameField || "name";
     entries[index] = {
       ...entries[index],
-      name: input.value.trim(),
+      [field]: input.value.trim(),
       order: index + 1,
       active: true
     };
   });
   game.lineups.home = entries;
-  game.opponentLineup = entries.map((entry) => entry.name || "");
+  game.opponentLineup = opponentLineupSnapshot(entries);
   saveState();
 }
 
@@ -5772,7 +5838,7 @@ function renderLineupBuilderRow(game, entry, index) {
   const rowClass = `lineup-builder-row${player ? "" : " is-empty"}${selected ? " is-selected" : ""}`;
   const playerSlot = player
     ? `<div class="lineup-player-picker">
-      <span>Starter</span>
+      <span>${spot > 9 ? "Extra Hitter" : "Starter"}</span>
       <strong>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</strong>
     </div>`
     : `<div class="lineup-player-picker">
@@ -5789,8 +5855,8 @@ function renderLineupBuilderRow(game, entry, index) {
     <div class="lineup-builder-controls">
       <div class="lineup-order">${spot}</div>
       <div class="lineup-move-group" aria-label="Move ${spot} hitter">
-        <button type="button" class="lineup-move" data-lineup-entry="${entry.id}" data-lineup-move="up" ${index === 0 ? "disabled" : ""} aria-label="Move batting spot ${spot} up">▲</button>
-        <button type="button" class="lineup-move" data-lineup-entry="${entry.id}" data-lineup-move="down" ${index === lastIndex ? "disabled" : ""} aria-label="Move batting spot ${spot} down">▼</button>
+        <button type="button" class="lineup-move" data-lineup-entry="${entry.id}" data-lineup-move="up" ${index === 0 ? "disabled" : ""} aria-label="Move batting spot ${spot} up">&#9650;</button>
+        <button type="button" class="lineup-move" data-lineup-entry="${entry.id}" data-lineup-move="down" ${index === lastIndex ? "disabled" : ""} aria-label="Move batting spot ${spot} down">&#9660;</button>
       </div>
     </div>
     ${playerSlot}
@@ -5808,11 +5874,14 @@ function renderLineupBench(entries) {
   const bench = state.roster.filter((player) => !used.has(player.id));
   if (!bench.length) return `<p class="player-meta">No bench players available.</p>`;
   const selectedEntry = entries.find((entry) => entry.id === lineupBuilderSelectedEntryId);
+  const assignedCount = entries.filter((entry) => entry.playerId).length;
   const benchActionLabel = selectedEntry
     ? selectedEntry.playerId
       ? `Swap Spot ${selectedEntry.order || entries.indexOf(selectedEntry) + 1}`
       : `Add to Spot ${selectedEntry.order || entries.indexOf(selectedEntry) + 1}`
-    : "Add Next";
+    : assignedCount >= 9
+      ? "Add addl. player"
+      : "Add Next";
   return bench
     .map((player) => {
       const stats = statsForPlayer(player.id);
@@ -5850,7 +5919,7 @@ function renderLineupReadyCheck(readiness) {
     : "";
   return [
     missingWarning,
-    readyCheckItem(readiness.startersAssigned, "9 starters assigned"),
+    readyCheckItem(readiness.startersAssigned, "At least 9 hitters assigned"),
     readyCheckItem(readiness.pitcherAssigned, "Starting pitcher assigned"),
     readyCheckItem(readiness.positionsFilled, "All defensive positions filled"),
     readyCheckItem(readiness.battingOrderComplete, "Batting order complete")
@@ -5883,7 +5952,7 @@ function updateLineupEntry(entryId, playerId, role) {
   game.lineupEntries = startingLineupEntries(game).map((entry) => (entry.id === entryId ? {
     ...entry,
     playerId: playerId !== undefined ? playerId : entry.playerId,
-    role: role || entry.role
+    role: role !== undefined ? role : entry.role
   } : entry));
   game.lineups.away = deepClone(game.lineupEntries);
   saveState();
@@ -5896,6 +5965,25 @@ function updateLineupPitcher() {
   game.pitcherId = els.lineupPitcherSelect?.value || "";
   saveState();
   renderLineupBuilder();
+}
+
+function focusMissingLineupPosition(position = "") {
+  if (position === "P" && els.lineupPitcherSelect) {
+    els.lineupPitcherSelect.focus();
+    els.lineupPitcherSelect.closest(".starting-pitcher-card")?.classList.add("is-attention");
+    window.setTimeout(() => els.lineupPitcherSelect.closest(".starting-pitcher-card")?.classList.remove("is-attention"), 1400);
+    return;
+  }
+  const rows = [...(els.lineupBuilderRows?.querySelectorAll("[data-lineup-entry]") || [])];
+  const targetRow = rows.find((row) => {
+    const value = row.querySelector("[data-lineup-role]")?.value || "";
+    return !value || !fieldPositionsWithoutPitcher.includes(value);
+  }) || rows[0];
+  const target = targetRow?.querySelector("[data-lineup-role]");
+  target?.focus();
+  targetRow?.querySelector(".lineup-position-card")?.classList.add("is-attention");
+  targetRow?.scrollIntoView({ block: "center", behavior: "smooth" });
+  window.setTimeout(() => targetRow?.querySelector(".lineup-position-card")?.classList.remove("is-attention"), 1400);
 }
 
 function focusMissingLineupPosition(position = "") {
@@ -5940,9 +6028,21 @@ function addLineupEntry() {
   if (!player) return;
   const entries = startingLineupEntries(game);
   const target = entries.find((entry) => !entry.playerId);
-  if (!target) return;
-  target.playerId = player.id;
-  lineupBuilderSelectedEntryId = target.id;
+  if (target) {
+    target.playerId = player.id;
+    target.role = "";
+    lineupBuilderSelectedEntryId = entries.find((entry) => !entry.playerId)?.id || "";
+  } else {
+    entries.push({
+      id: uuid(),
+      playerId: player.id,
+      role: "",
+      order: entries.length + 1,
+      active: true,
+      note: ""
+    });
+    lineupBuilderSelectedEntryId = "";
+  }
   game.lineupEntries = entries.map((entry, index) => ({ ...entry, order: index + 1 }));
   game.lineups.away = deepClone(game.lineupEntries);
   saveState();
@@ -5953,15 +6053,20 @@ function removeLineupEntry(entryId) {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   if (!game) return;
   if (gameIsFinal(game)) return;
-  game.lineupEntries = startingLineupEntries(game).map((entry, index) => (entry.id === entryId ? {
-    ...entry,
-    playerId: "",
-    role: "",
-    order: index + 1
-  } : {
-    ...entry,
-    order: index + 1
-  }));
+  const entries = startingLineupEntries(game);
+  const removeIndex = entries.findIndex((entry) => entry.id === entryId);
+  const nextEntries = removeIndex >= 9
+    ? entries.filter((entry) => entry.id !== entryId)
+    : entries.map((entry, index) => (entry.id === entryId ? {
+      ...entry,
+      playerId: "",
+      role: "",
+      order: index + 1
+    } : {
+      ...entry,
+      order: index + 1
+    }));
+  game.lineupEntries = nextEntries.map((entry, index) => ({ ...entry, order: index + 1 }));
   game.lineups.away = deepClone(game.lineupEntries);
   game.batterIndex = Math.min(game.batterIndex, Math.max(game.lineupEntries.length - 1, 0));
   lineupBuilderSelectedEntryId = entryId;
@@ -5988,14 +6093,29 @@ function insertBenchPlayer(playerId) {
   const entries = startingLineupEntries(game);
   const selected = entries.find((entry) => entry.id === lineupBuilderSelectedEntryId);
   const target = selected || entries.find((entry) => !entry.playerId);
-  if (!target) return;
-  const wasEmpty = !target.playerId;
-  entries.forEach((entry) => {
-    if (entry.id !== target.id && entry.playerId === playerId) entry.playerId = "";
-  });
-  target.playerId = playerId;
-  const nextEmpty = entries.find((entry) => !entry.playerId);
-  lineupBuilderSelectedEntryId = wasEmpty && nextEmpty ? nextEmpty.id : target.id;
+  if (target) {
+    const wasEmpty = !target.playerId;
+    entries.forEach((entry) => {
+      if (entry.id !== target.id && entry.playerId === playerId) entry.playerId = "";
+    });
+    target.playerId = playerId;
+    target.role = "";
+    const nextEmpty = entries.find((entry) => !entry.playerId);
+    lineupBuilderSelectedEntryId = wasEmpty && nextEmpty ? nextEmpty.id : target.id;
+    if (wasEmpty && !nextEmpty && entries.filter((entry) => entry.playerId).length >= 9) {
+      lineupBuilderSelectedEntryId = "";
+    }
+  } else {
+    entries.push({
+      id: uuid(),
+      playerId,
+      role: "",
+      order: entries.length + 1,
+      active: true,
+      note: ""
+    });
+    lineupBuilderSelectedEntryId = "";
+  }
   game.lineupEntries = entries.map((entry, index) => ({ ...entry, order: index + 1 }));
   game.lineups.away = deepClone(game.lineupEntries);
   saveState();
@@ -6013,7 +6133,7 @@ function useLastLineup() {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   const last = lastLineupGame(game?.id || "");
   if (!game || !last || gameIsFinal(game)) return;
-  const source = (last.lineupEntries?.length ? last.lineupEntries : last.lineups?.away || []).slice(0, 9);
+  const source = (last.lineupEntries?.length ? last.lineupEntries : last.lineups?.away || []);
   game.lineupEntries = source.map((entry, index) => ({
     id: uuid(),
     playerId: entry.playerId,
@@ -6035,7 +6155,7 @@ function renderAnalysis() {
     metricCard("Team OPS", formatRate(team.ops), "OBP plus slugging from logged plate appearances."),
     metricCard("wOBA-lite", formatRate(team.woba), "Weighted offensive value using MLB-style event weights."),
     metricCard("Pitches/PA", team.pitchesPerPa.toFixed(2), "Plate discipline signal from pitch-by-pitch scoring."),
-    metricCard("Hard-hit rate", `${Math.round(team.hardRate * 100)}%`, "Hard or barreled contact per batted ball."),
+    metricCard("AVG", formatRate(team.avg), "Team batting average from scored at-bats."),
     metricCard("K rate", `${Math.round(team.kRate * 100)}%`, "Strikeouts per plate appearance."),
     metricCard("First-pitch strike", `${Math.round(team.firstPitchStrikeRate * 100)}%`, "How often the AB starts in a pitcher count.")
   ].join("");
@@ -6052,31 +6172,21 @@ function renderGameBreakdown() {
       const stats = emptyStats();
       offensiveEvents.forEach((event) => applyEventToStats(stats, event));
       finishStats(stats);
-      const lineup = gameLineupEntries(game)
-        .map((entry, index) => {
-          const player = state.roster.find((item) => item.id === entry.playerId);
-          if (!player) return "";
-          const playerEvents = offensiveEvents.filter((event) => event.playerId === player.id);
-          const reached = playerEvents.filter((event) => eventRules[event.result]?.reach).length;
-          return `${index + 1}. ${player.name} ${entry.role} (${reached}/${Math.max(playerEvents.length, 1)} reached)`;
-        })
-        .filter(Boolean)
-        .join(" | ");
       return `<article class="breakdown-card">
         <div class="mini-head">
           <div>
             <h3>${escapeHtml(game.date || "No date")} ${escapeHtml(gameMatchupLabel(game))}</h3>
             <span class="player-meta">${escapeHtml(gameScoreLabel(game))} | ${escapeHtml(gameStatusLabel(game))}</span>
           </div>
-          <span class="player-meta">${offensiveEvents.length} PA</span>
+          <button type="button" class="secondary-action" disabled aria-disabled="true">View Box Score</button>
         </div>
         <div class="stat-strip">
+          ${statCell("AVG", formatRate(stats.avg))}
           ${statCell("OPS", formatRate(stats.ops))}
-          ${statCell("OBP", formatRate(stats.obp))}
           ${statCell("K%", `${Math.round(stats.kRate * 100)}%`)}
           ${statCell("P/PA", stats.pitchesPerPa.toFixed(2))}
         </div>
-        <p class="player-meta">${escapeHtml(lineup || "No Lions lineup logged.")}</p>
+        <p class="player-meta">${offensiveEvents.length} scored plate appearances</p>
       </article>`;
     })
     .join("") || `<p class="player-meta">Game analysis appears after scorekeeping begins.</p>`;
@@ -6973,17 +7083,6 @@ function formatInnings(outs) {
   const whole = Math.floor(outs / 3);
   const remainder = outs % 3;
   return `${whole}.${remainder}`;
-}
-
-function exportData() {
-  saveState();
-  const blob = new Blob([exportSeasonAsJson(loadGameLibrary())], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `oakmont-lions-season-${todayValue()}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 function escapeHtml(value) {

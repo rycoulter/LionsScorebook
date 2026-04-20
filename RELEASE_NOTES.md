@@ -4,6 +4,22 @@ Track user-facing changes to the Oakmont Lions baseball scorebook app here.
 
 Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA assets, or data handling changes. Keep the newest entry at the top.
 
+## 2026-04-20
+
+### Changed
+- Cleaned up Analysis by replacing Hard-hit rate with team AVG and replacing game OBP with game AVG.
+- Removed verbose lineup/play-by-play text, the static tracking explainer, and the Export JSON action from Analysis.
+- Added disabled View Box Score buttons to Analysis game breakdowns without adding Box Score functionality.
+- Refreshed the PWA cache version for the Analysis cleanup.
+- Kept Lions lineup positions on Select Position when players are added, swapped, normalized, or reloaded.
+- Allowed Lions batting lineups to keep more than nine hitters while still requiring at least nine hitters and every defensive position.
+- Updated bench actions to add an additional player after the first nine hitters are filled.
+- Refreshed the PWA cache version for the lineup-position and extra-hitter update.
+- Kept newly added Lions lineup players on Select Position so game positions are chosen manually.
+- Added opponent jersey-number fields to pre-game opponent lineup setup and Score Game opponent lineup editing.
+- Normalized opponent lineup entries so blank names fall back to Batter 1, Batter 2, and so on instead of `[object Object]`.
+- Refreshed the PWA cache version for the lineup and opponent-number update.
+
 ## 2026-04-19
 
 ### Added
