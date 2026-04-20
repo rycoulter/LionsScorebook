@@ -503,9 +503,27 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.19-build-38";
+const APP_VERSION = "2026.04.19-build-42";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
+
+const FIELD_LOCATIONS = [
+  { name: "Herschel Park", address: "800 Herschel St, Pittsburgh, PA 15220" },
+  { name: "John Herb Field", address: "1000 Ross Municipal Dr, Pittsburgh, PA 15237" },
+  { name: "Bauerstown", address: "152 Koehler St, Pittsburgh, PA 15223" },
+  { name: "Mellon Park", address: "6600 Fifth Ave, Pittsburgh, PA 15206" },
+  { name: "Riverside Park", address: "100 Hulton Rd, Oakmont, PA 15139" },
+  { name: "Graham Park", address: "UPMC Passavant Sportsplex at Graham Park, 260 Graham Park Drive, Cranberry Twp, PA 16066" }
+];
+
+const FIELD_LOCATION_COORDINATES = {
+  "herschel park": { latitude: 40.438, longitude: -80.044 },
+  "john herb field": { latitude: 40.527, longitude: -80.022 },
+  bauerstown: { latitude: 40.501, longitude: -79.959 },
+  "mellon park": { latitude: 40.454, longitude: -79.916 },
+  "riverside park": { latitude: 40.524, longitude: -79.839 },
+  "graham park": { latitude: 40.692, longitude: -80.111 }
+};
 
 let state = loadState();
 let optimizedIds = [];
@@ -533,7 +551,6 @@ let pendingOutFielder = "";
 let gameFilter = "all";
 let lineupBuilderReturnView = "games";
 let lineupBuilderSelectedEntryId = "";
-let lineupDragEntryId = "";
 const weatherCache = {};
 const weatherRequests = {};
 
@@ -734,6 +751,8 @@ const els = {
   playerTemplate: document.getElementById("playerCardTemplate")
 };
 
+populateFieldLocationSelects();
+configureGameDateInputs();
 bindEvents();
 initializeScoutingReport();
 render();
@@ -989,6 +1008,84 @@ function setSelectValueWithLegacy(select, value = "") {
   select.value = cleaned;
 }
 
+function normalizeLocationKey(value = "") {
+  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, " ");
+}
+
+function fieldLocationByName(name = "") {
+  const key = normalizeLocationKey(name);
+  if (!key) return null;
+  return FIELD_LOCATIONS.find((field) => normalizeLocationKey(field.name) === key) || null;
+}
+
+function fieldLocationByAddress(address = "") {
+  const key = normalizeLocationKey(address);
+  if (!key) return null;
+  return FIELD_LOCATIONS.find((field) => normalizeLocationKey(field.address) === key) || null;
+}
+
+function normalizeGameLocationInput(value = "", addressOverride = "") {
+  const raw = value && typeof value === "object"
+    ? { name: value.name || value.location || "", address: value.address || value.locationAddress || "" }
+    : { name: String(value || ""), address: "" };
+  const known = fieldLocationByName(raw.name);
+  const name = known?.name || raw.name.trim();
+  const address = addressOverride || raw.address || known?.address || "";
+  return { name, address };
+}
+
+function selectedFieldLocation(select) {
+  return normalizeGameLocationInput(select?.value || "");
+}
+
+function gameLocationName(game) {
+  return normalizeGameLocationInput(game?.location || "", game?.locationAddress || "").name;
+}
+
+function gameLocationAddress(game) {
+  return normalizeGameLocationInput(game?.location || "", game?.locationAddress || "").address;
+}
+
+function gameWeatherLocation(game) {
+  return gameLocationAddress(game) || gameLocationName(game);
+}
+
+function fieldCoordinatesForGame(game) {
+  const location = normalizeGameLocationInput(game?.location || "", game?.locationAddress || "");
+  const knownField = fieldLocationByName(location.name) || fieldLocationByAddress(location.address);
+  const key = normalizeLocationKey(knownField?.name || location.name);
+  return FIELD_LOCATION_COORDINATES[key] || null;
+}
+
+function gameLocationLabel(game) {
+  return gameLocationName(game);
+}
+
+function populateFieldLocationSelects() {
+  [els.gameLocationInput, els.editLocationInput].filter(Boolean).forEach((select) => {
+    const current = select.value;
+    select.innerHTML = `<option value="">Select field location</option>${FIELD_LOCATIONS
+      .map((field) => `<option value="${escapeHtml(field.name)}">${escapeHtml(field.name)}</option>`)
+      .join("")}`;
+    setSelectValueWithLegacy(select, current);
+  });
+}
+
+function configureGameDateInputs() {
+  const today = todayValue();
+  [els.gameDateInput, els.editDateInput].filter(Boolean).forEach((input) => {
+    input.min = today;
+  });
+}
+
+function selectedGameDate(input) {
+  return input?.value || todayValue();
+}
+
+function isPastGameDate(value) {
+  return Boolean(value) && value < todayValue();
+}
+
 function createGame(options = {}) {
   const config = typeof options === "string" ? { opponent: options } : options;
   const opponent = config.opponent || "Wildcats";
@@ -997,13 +1094,15 @@ function createGame(options = {}) {
   const homeLineup = config.homeLineup || opponentLineupEntries(config.opponentLineup || []);
   const batterId = awayLineup[0]?.playerId || awayLineup[0]?.id || "";
   const pitcherId = config.pitcherId || batterId;
+  const location = normalizeGameLocationInput(config.location || "", config.locationAddress || "");
 
   return {
     id: config.id || createId("game"),
     opponent,
     date: config.date || todayValue(),
     time: config.time || "",
-    location: config.location || "",
+    location: location.name,
+    locationAddress: location.address,
     notes: config.notes || "",
     status: config.status || "active",
     lionsSide: gameLionsSide,
@@ -1219,11 +1318,13 @@ function normalizeGame(game, nextState = state) {
     away: game.score?.away ?? 0,
     home: game.score?.home ?? 0
   };
+  const location = normalizeGameLocationInput(game.location || "", game.locationAddress || "");
   const normalized = {
     ...game,
     opponent: game.opponent || game.teams?.home?.name || "Opponent",
     time: game.time || "",
-    location: game.location || "",
+    location: location.name,
+    locationAddress: location.address,
     notes: game.notes || "",
     status: game.status || "active",
     lionsSide: normalizedLionsSide,
@@ -1588,6 +1689,11 @@ function bindEvents() {
       row?.querySelector("[data-lineup-role]")?.focus();
       return;
     }
+    const missingButton = event.target.closest("[data-lineup-missing-warning]");
+    if (missingButton) {
+      focusMissingLineupPosition(missingButton.dataset.lineupMissingWarning || "");
+      return;
+    }
     const row = event.target.closest("[data-lineup-entry]");
     if (row && !event.target.closest("button, select, input, textarea")) {
       lineupBuilderSelectedEntryId = row.dataset.lineupEntry;
@@ -1595,56 +1701,13 @@ function bindEvents() {
     }
   });
 
-  els.lineupBuilderRows?.addEventListener("dragstart", (event) => {
-    if (!event.target.closest("[data-lineup-drag]")) {
-      event.preventDefault();
-      return;
-    }
-    const row = event.target.closest("[data-lineup-entry]");
-    if (!row) return;
-    lineupDragEntryId = row.dataset.lineupEntry;
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", lineupDragEntryId);
-    row.classList.add("is-dragging");
-  });
-
-  els.lineupBuilderRows?.addEventListener("dragover", (event) => {
-    if (!lineupDragEntryId) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  });
-
-  els.lineupBuilderRows?.addEventListener("drop", (event) => {
-    event.preventDefault();
-    const target = event.target.closest("[data-lineup-entry]");
-    if (target) moveLineupEntryTo(lineupDragEntryId, target.dataset.lineupEntry);
-    lineupDragEntryId = "";
-  });
-
-  els.lineupBuilderRows?.addEventListener("dragend", () => {
-    lineupDragEntryId = "";
-    els.lineupBuilderRows.querySelectorAll(".is-dragging").forEach((row) => row.classList.remove("is-dragging"));
-  });
-
-  els.lineupBuilderRows?.addEventListener("pointerdown", (event) => {
-    const handle = event.target.closest("[data-lineup-drag]");
-    const row = handle?.closest("[data-lineup-entry]");
-    if (!row) return;
-    lineupDragEntryId = row.dataset.lineupEntry;
-    row.classList.add("is-dragging");
-  });
-
-  els.lineupBuilderRows?.addEventListener("pointerup", (event) => {
-    if (!lineupDragEntryId) return;
-    const targetRow = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-lineup-entry]");
-    if (targetRow) moveLineupEntryTo(lineupDragEntryId, targetRow.dataset.lineupEntry);
-    lineupDragEntryId = "";
-    els.lineupBuilderRows.querySelectorAll(".is-dragging").forEach((row) => row.classList.remove("is-dragging"));
-  });
-
   els.lineupBenchList?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-bench-player]");
     if (button) insertBenchPlayer(button.dataset.benchPlayer);
+  });
+  els.lineupReadyCheck?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-lineup-missing-warning]");
+    if (button) focusMissingLineupPosition(button.dataset.lineupMissingWarning || "");
   });
   els.lineupPitcherSelect?.addEventListener("change", updateLineupPitcher);
   els.addLineupSpotBtn?.addEventListener("click", addLineupEntry);
@@ -3352,10 +3415,19 @@ function startNewGame() {
 
 function scheduleGame() {
   const opponent = els.opponentInput.value.trim() || "Opponent";
+  const date = selectedGameDate(els.gameDateInput);
+  if (isPastGameDate(date)) {
+    window.alert("Choose today or a future date for new games.");
+    els.gameDateInput.value = todayValue();
+    els.gameDateInput.focus();
+    return;
+  }
   const game = makeUniqueGame({ opponent, lionsSide: els.gameLionsSideInput.value || "home" });
-  game.date = els.gameDateInput.value || todayValue();
+  const location = selectedFieldLocation(els.gameLocationInput);
+  game.date = date;
   game.time = els.gameTimeInput.value || "";
-  game.location = els.gameLocationInput.value || "";
+  game.location = location.name;
+  game.locationAddress = location.address;
   game.notes = "";
   game.status = "scheduled";
   syncGameTeams(game, game.lionsSide);
@@ -3372,7 +3444,9 @@ function showGameCreateForm() {
   if (!els.gameForm) return;
   els.gameForm.hidden = false;
   els.scheduleGameBtn.hidden = true;
+  configureGameDateInputs();
   if (!els.gameDateInput.value) els.gameDateInput.value = todayValue();
+  if (isPastGameDate(els.gameDateInput.value)) els.gameDateInput.value = todayValue();
   renderGameSetupPreview();
   els.opponentInput?.focus();
 }
@@ -3397,6 +3471,7 @@ function resetGameCreationForm() {
   els.opponentInput.value = "";
   if (els.gameLionsSideInput) els.gameLionsSideInput.value = "home";
   els.gameDateInput.value = todayValue();
+  configureGameDateInputs();
   els.gameTimeInput.value = "";
   els.gameLocationInput.value = "";
   if (els.gameNotesInput) els.gameNotesInput.value = "";
@@ -3759,7 +3834,8 @@ function setHomeMatchupImage(opponentName) {
 }
 
 function gameScheduleMeta(game) {
-  return `${gameTeamMeta(game)} | ${game.date || "No date"}${game.time ? ` at ${game.time}` : ""}${game.location ? ` | ${game.location}` : ""}`;
+  const location = gameLocationLabel(game);
+  return `${gameTeamMeta(game)} | ${game.date || "No date"}${game.time ? ` at ${game.time}` : ""}${location ? ` | ${location}` : ""}`;
 }
 
 function renderUpcomingGameCard(game) {
@@ -3792,11 +3868,11 @@ function renderPastGameCard(game) {
 }
 
 function weatherKey(game) {
-  return `${game.date || ""}|${game.location || ""}`.trim().toLowerCase();
+  return `${game.date || ""}|${gameWeatherLocation(game) || ""}`.trim().toLowerCase();
 }
 
 function renderWeatherChip(game) {
-  if (!game?.date || !game?.location) return "Add date and field location for weather.";
+  if (!game?.date || !gameWeatherLocation(game)) return "Add date and field location for weather.";
   const cached = weatherCache[weatherKey(game)];
   if (!cached) return "Checking weather...";
   if (cached.error) return cached.error;
@@ -3806,7 +3882,7 @@ function renderWeatherChip(game) {
 function hydrateHomeWeather(games) {
   games.forEach((game) => {
     const key = weatherKey(game);
-    if (!game.date || !game.location || weatherCache[key] || weatherRequests[key]) return;
+    if (!game.date || !gameWeatherLocation(game) || weatherCache[key] || weatherRequests[key]) return;
     weatherRequests[key] = fetchGameWeather(game)
       .then((weather) => {
         weatherCache[key] = weather;
@@ -3830,7 +3906,7 @@ function updateWeatherChips(game) {
 
 async function fetchGameWeather(game) {
   if (typeof fetch !== "function") return { error: "Weather unavailable." };
-  const location = await geocodeGameLocation(game.location);
+  const location = fieldCoordinatesForGame(game) || await geocodeGameLocation(gameWeatherLocation(game));
   if (!location) return { error: "Location not found." };
   const forecastUrl = [
     "https://api.open-meteo.com/v1/forecast",
@@ -5282,62 +5358,108 @@ function renderGames() {
       button.classList.toggle("is-active", button.dataset.gameFilter === gameFilter);
     });
   }
-  const sorted = [...state.games].sort((a, b) => {
-    const dateCompare = (b.date || "").localeCompare(a.date || "");
-    if (dateCompare) return dateCompare;
-    return a.opponent.localeCompare(b.opponent);
-  });
-  const completedTotal = sorted.filter((game) => gameLifecycle(game) === "completed").length;
-  const filteredBase = sorted.filter((game) => gameFilter === "all" || gameLifecycle(game) === gameFilter);
-  let completedShown = 0;
-  const filtered = filteredBase.filter((game) => {
-    if (gameLifecycle(game) !== "completed") return true;
-    completedShown += 1;
-    return completedShown <= 3;
-  });
-  els.gamesGrid.innerHTML = filtered.length ? filtered
-    .map((game) => {
-      const locked = gameIsFinal(game);
-      const lifecycle = gameLifecycle(game);
-      const active = game.id === activeId && lifecycle === "active" ? " is-active" : "";
-      const score = game.events.length || locked ? gameScoreLabel(game) : gameMatchupLabel(game);
-      const status = gameStatusLabel(game);
-      const completed = lifecycle === "completed";
-      const statusTag = lifecycle === "active" ? "LIVE" : completed ? "FINAL" : "UPCOMING";
-      const cardClass = `game-card${active} is-${lifecycle}`;
-      const matchupImage = matchupImageForGame(game);
-      const primaryAction = lifecycle === "active"
-        ? `<button type="button" class="primary-action" data-game-action="score" data-game-id="${game.id}">${game.id === activeId ? "Continue Scoring" : "Open In Progress"}</button>`
-        : lifecycle === "future"
-          ? `<button type="button" class="primary-action" data-game-action="start" data-game-id="${game.id}">Start Game</button>`
-          : "";
-      const canComplete = lifecycle === "active";
-      return `<article class="${cardClass}">
-        <img class="game-card-matchup" src="${escapeHtml(matchupImage)}" alt="${escapeHtml(gameMatchupLabel(game))} matchup">
-        <div>
-          <span class="game-status-tag">${escapeHtml(statusTag)}</span>
-          <span class="player-meta">${escapeHtml(gameTeamMeta(game))}</span>
-          <h3>${escapeHtml(score)}</h3>
-          <span class="player-meta">${escapeHtml(game.date || "No date")} ${game.time ? `| ${escapeHtml(game.time)}` : ""} ${game.location ? `| ${escapeHtml(game.location)}` : ""}</span>
-        </div>
-        ${completed ? "" : `<div class="archive-meta">${escapeHtml(status)}</div>`}
-        ${!completed && game.notes ? `<div class="archive-meta">${escapeHtml(game.notes)}</div>` : ""}
-        <div class="game-actions">
-          ${primaryAction}
-          ${completed ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${game.id}">View Summary</button>` : ""}
-          ${completed ? `<button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${game.id}">View Box Score</button>` : ""}
-          <button type="button" class="secondary-action" data-game-action="edit" data-game-id="${game.id}" ${locked ? "disabled" : ""}>Edit</button>
-          <button type="button" class="secondary-action" data-game-action="complete" data-game-id="${game.id}" ${canComplete ? "" : "disabled"}>Mark Final</button>
-          <button type="button" class="secondary-action danger-action" data-game-action="delete" data-game-id="${game.id}">Remove</button>
-        </div>
-      </article>`;
-    })
-    .join("") : `<p class="player-meta">No ${escapeHtml(gameFilter)} games found.</p>`;
+  const completedGamesSorted = gamesForLifecycle("completed");
+  const completedTotal = completedGamesSorted.length;
+  if (gameFilter === "all") {
+    const liveGames = gamesForLifecycle("active");
+    const upcomingGames = gamesForLifecycle("future");
+    const recentCompleted = completedGamesSorted.slice(0, 3);
+    els.gamesGrid.classList.add("is-grouped");
+    els.gamesGrid.innerHTML = [
+      renderGameOrderSection("Live", "Games currently in progress", liveGames, activeId, "live"),
+      renderGameOrderSection("Upcoming", "Scheduled games, soonest first", upcomingGames, activeId, "upcoming"),
+      renderGameOrderSection("Completed", "Most recent finals", recentCompleted, activeId, "completed")
+    ].join("");
+  } else {
+    els.gamesGrid.classList.remove("is-grouped");
+    const filtered = gamesForLifecycle(gameFilter).slice(0, gameFilter === "completed" ? 3 : Infinity);
+    els.gamesGrid.innerHTML = filtered.length
+      ? filtered.map((game) => renderScheduleGameCard(game, activeId)).join("")
+      : `<p class="player-meta">No ${escapeHtml(gameFilter)} games found.</p>`;
+  }
   if (els.gamesArchiveNote) {
     els.gamesArchiveNote.innerHTML = completedTotal > 3
       ? `<span>Showing the 3 most recent completed games.</span><button type="button" class="secondary-action" data-game-action="archive">View full history in Archive</button>`
       : `<span>Full game history lives in the Archive.</span><button type="button" class="secondary-action" data-game-action="archive">Open Archive</button>`;
   }
+}
+
+function gamesForLifecycle(lifecycle) {
+  const games = state.games.filter((game) => gameLifecycle(game) === lifecycle);
+  return lifecycle === "completed"
+    ? games.sort(sortGamesNewestFirst)
+    : games.sort(sortGamesOldestFirst);
+}
+
+function sortGamesOldestFirst(a, b) {
+  const today = todayValue();
+  const dateCompare = (a.date || today).localeCompare(b.date || today);
+  if (dateCompare) return dateCompare;
+  const timeCompare = (a.time || "").localeCompare(b.time || "");
+  if (timeCompare) return timeCompare;
+  return (a.opponent || "").localeCompare(b.opponent || "");
+}
+
+function sortGamesNewestFirst(a, b) {
+  const dateCompare = (b.date || "").localeCompare(a.date || "");
+  if (dateCompare) return dateCompare;
+  const timeCompare = (b.time || "").localeCompare(a.time || "");
+  if (timeCompare) return timeCompare;
+  return (a.opponent || "").localeCompare(b.opponent || "");
+}
+
+function renderGameOrderSection(title, subtitle, games, activeId, type) {
+  const cards = games.length
+    ? games.map((game) => renderScheduleGameCard(game, activeId)).join("")
+    : `<p class="player-meta game-order-empty">No ${escapeHtml(title.toLowerCase())} games.</p>`;
+  return `<section class="game-order-section is-${escapeHtml(type)}">
+    <div class="game-order-head">
+      <div>
+        <span class="scout-kicker">${escapeHtml(title)}</span>
+        <h3>${escapeHtml(title)}</h3>
+      </div>
+      <span class="player-meta">${escapeHtml(subtitle)}</span>
+    </div>
+    <div class="game-order-grid">${cards}</div>
+  </section>`;
+}
+
+function renderScheduleGameCard(game, activeId = "") {
+  const locked = gameIsFinal(game);
+  const lifecycle = gameLifecycle(game);
+  const active = game.id === activeId && lifecycle === "active" ? " is-active" : "";
+  const score = game.events.length || locked ? gameScoreLabel(game) : gameMatchupLabel(game);
+  const status = gameStatusLabel(game);
+  const completed = lifecycle === "completed";
+  const statusTag = lifecycle === "active" ? "LIVE" : completed ? "FINAL" : "UPCOMING";
+  const cardClass = `game-card${active} is-${lifecycle}`;
+  const matchupImage = matchupImageForGame(game);
+  const location = gameLocationLabel(game);
+  const primaryAction = lifecycle === "active"
+    ? `<button type="button" class="primary-action" data-game-action="score" data-game-id="${game.id}">${game.id === activeId ? "Continue Scoring" : "Open In Progress"}</button>`
+    : lifecycle === "future"
+      ? `<button type="button" class="primary-action" data-game-action="start" data-game-id="${game.id}">Start Game</button>`
+      : "";
+  const canComplete = lifecycle === "active";
+  return `<article class="${cardClass}">
+    <img class="game-card-matchup" src="${escapeHtml(matchupImage)}" alt="${escapeHtml(gameMatchupLabel(game))} matchup">
+    <div>
+      <span class="game-status-tag">${escapeHtml(statusTag)}</span>
+      <span class="player-meta">${escapeHtml(gameTeamMeta(game))}</span>
+      <h3>${escapeHtml(score)}</h3>
+      <span class="player-meta">${escapeHtml(game.date || "No date")} ${game.time ? `| ${escapeHtml(game.time)}` : ""} ${location ? `| ${escapeHtml(location)}` : ""}</span>
+    </div>
+    ${completed ? "" : `<div class="archive-meta">${escapeHtml(status)}</div>`}
+    ${!completed && game.notes ? `<div class="archive-meta">${escapeHtml(game.notes)}</div>` : ""}
+    <div class="game-actions">
+      ${primaryAction}
+      ${completed ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${game.id}">View Summary</button>` : ""}
+      ${completed ? `<button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${game.id}">View Box Score</button>` : ""}
+      <button type="button" class="secondary-action" data-game-action="edit" data-game-id="${game.id}" ${locked ? "disabled" : ""}>Edit</button>
+      <button type="button" class="secondary-action" data-game-action="complete" data-game-id="${game.id}" ${canComplete ? "" : "disabled"}>Mark Final</button>
+      <button type="button" class="secondary-action danger-action" data-game-action="delete" data-game-id="${game.id}">Remove</button>
+    </div>
+  </article>`;
 }
 
 function matchupImageForGame(game) {
@@ -5370,8 +5492,9 @@ function openGameEditor(gameId) {
   els.editOpponentInput.value = game.opponent || "";
   els.editLionsSideInput.value = lionsSide(game);
   els.editDateInput.value = game.date || todayValue();
+  configureGameDateInputs();
   els.editTimeInput.value = game.time || "";
-  setSelectValueWithLegacy(els.editLocationInput, game.location || "");
+  setSelectValueWithLegacy(els.editLocationInput, gameLocationName(game));
   els.editNotesInput.value = game.notes || "";
   renderGameEditor();
 }
@@ -5399,11 +5522,20 @@ function saveGameEdits() {
   const game = state.games.find((item) => item.id === gameEditId);
   if (!game) return;
   if (gameIsFinal(game)) return;
+  const date = selectedGameDate(els.editDateInput);
+  if (isPastGameDate(date)) {
+    window.alert("Choose today or a future date for games that are not final.");
+    els.editDateInput.value = todayValue();
+    els.editDateInput.focus();
+    return;
+  }
+  const location = selectedFieldLocation(els.editLocationInput);
   game.opponent = els.editOpponentInput.value.trim() || "Opponent";
   syncGameTeams(game, els.editLionsSideInput.value || lionsSide(game));
-  game.date = els.editDateInput.value || todayValue();
+  game.date = date;
   game.time = els.editTimeInput.value || "";
-  game.location = els.editLocationInput.value || "";
+  game.location = location.name;
+  game.locationAddress = location.address;
   game.notes = els.editNotesInput.value.trim();
   saveState();
   render();
@@ -5495,12 +5627,15 @@ function lineupReadiness(game) {
   const startersAssigned = entries.length === 9 && playerIds.length === 9;
   const battingOrderComplete = startersAssigned && new Set(playerIds).size === 9;
   const pitcherAssigned = Boolean(game.pitcherId || entries.find((entry) => entry.role === "P")?.playerId);
-  const positionsFilled = pitcherAssigned && fieldPositionsWithoutPitcher.every((position) => roles.has(position));
+  const missingPositions = fieldPositionsWithoutPitcher.filter((position) => !roles.has(position));
+  if (!pitcherAssigned) missingPositions.unshift("P");
+  const positionsFilled = missingPositions.length === 0;
   return {
     startersAssigned,
     positionsFilled,
     battingOrderComplete,
     pitcherAssigned,
+    missingPositions,
     ready: startersAssigned && positionsFilled && battingOrderComplete
   };
 }
@@ -5515,7 +5650,10 @@ function renderLineupBuilder() {
   const readiness = lineupReadiness(game);
   const lastLineup = lastLineupGame(game.id);
   els.lineupBuilderTitle.textContent = "Starting Lineup";
-  if (els.lineupBuilderContext) els.lineupBuilderContext.textContent = `${gameMatchupLabel(game)} | ${game.date || "No date"}${game.time ? ` | ${game.time}` : ""}${game.location ? ` | ${game.location}` : ""}`;
+  if (els.lineupBuilderContext) {
+    const location = gameLocationLabel(game);
+    els.lineupBuilderContext.textContent = `${gameMatchupLabel(game)} | ${game.date || "No date"}${game.time ? ` | ${game.time}` : ""}${location ? ` | ${location}` : ""}`;
+  }
   if (els.useLastLineupBtn) els.useLastLineupBtn.disabled = !lastLineup;
   if (els.confirmLineupBtn) els.confirmLineupBtn.disabled = !readiness.ready;
   if (els.addOpponentLineupBtn) els.addOpponentLineupBtn.disabled = !readiness.ready;
@@ -5629,6 +5767,7 @@ function renderLineupBuilderRow(game, entry, index) {
   const player = state.roster.find((item) => item.id === entry.playerId);
   const stats = player ? statsForPlayer(player.id) : null;
   const spot = index + 1;
+  const lastIndex = Math.max(0, startingLineupEntries(game).length - 1);
   const selected = entry.id === lineupBuilderSelectedEntryId;
   const rowClass = `lineup-builder-row${player ? "" : " is-empty"}${selected ? " is-selected" : ""}`;
   const playerSlot = player
@@ -5649,10 +5788,9 @@ function renderLineupBuilderRow(game, entry, index) {
   return `<article class="${rowClass}" data-lineup-entry="${entry.id}">
     <div class="lineup-builder-controls">
       <div class="lineup-order">${spot}</div>
-      <button type="button" class="lineup-drag-handle" data-lineup-drag draggable="true" aria-label="Drag ${spot} hitter">Drag</button>
       <div class="lineup-move-group" aria-label="Move ${spot} hitter">
-        <button type="button" class="lineup-move" data-lineup-entry="${entry.id}" data-lineup-move="up" ${index === 0 ? "disabled" : ""}>Up</button>
-        <button type="button" class="lineup-move" data-lineup-entry="${entry.id}" data-lineup-move="down" ${index === 8 ? "disabled" : ""}>Down</button>
+        <button type="button" class="lineup-move" data-lineup-entry="${entry.id}" data-lineup-move="up" ${index === 0 ? "disabled" : ""} aria-label="Move batting spot ${spot} up">▲</button>
+        <button type="button" class="lineup-move" data-lineup-entry="${entry.id}" data-lineup-move="down" ${index === lastIndex ? "disabled" : ""} aria-label="Move batting spot ${spot} down">▼</button>
       </div>
     </div>
     ${playerSlot}
@@ -5705,12 +5843,18 @@ function renderLineupPitcher(game) {
 }
 
 function renderLineupReadyCheck(readiness) {
+  const missingWarning = readiness.missingPositions?.length
+    ? `<button type="button" class="lineup-missing-warning" data-lineup-missing-warning="${escapeHtml(readiness.missingPositions[0])}">
+        Missing positions: ${escapeHtml(readiness.missingPositions.join(", "))}. Tap to fix.
+      </button>`
+    : "";
   return [
+    missingWarning,
     readyCheckItem(readiness.startersAssigned, "9 starters assigned"),
     readyCheckItem(readiness.pitcherAssigned, "Starting pitcher assigned"),
     readyCheckItem(readiness.positionsFilled, "All defensive positions filled"),
     readyCheckItem(readiness.battingOrderComplete, "Batting order complete")
-  ].join("");
+  ].filter(Boolean).join("");
 }
 
 function readyCheckItem(ok, label) {
@@ -5754,6 +5898,25 @@ function updateLineupPitcher() {
   renderLineupBuilder();
 }
 
+function focusMissingLineupPosition(position = "") {
+  if (position === "P" && els.lineupPitcherSelect) {
+    els.lineupPitcherSelect.focus();
+    els.lineupPitcherSelect.closest(".starting-pitcher-card")?.classList.add("is-attention");
+    window.setTimeout(() => els.lineupPitcherSelect.closest(".starting-pitcher-card")?.classList.remove("is-attention"), 1400);
+    return;
+  }
+  const rows = [...(els.lineupBuilderRows?.querySelectorAll("[data-lineup-entry]") || [])];
+  const targetRow = rows.find((row) => {
+    const value = row.querySelector("[data-lineup-role]")?.value || "";
+    return !value || !fieldPositionsWithoutPitcher.includes(value);
+  }) || rows[0];
+  const target = targetRow?.querySelector("[data-lineup-role]");
+  target?.focus();
+  targetRow?.querySelector(".lineup-position-card")?.classList.add("is-attention");
+  targetRow?.scrollIntoView({ block: "center", behavior: "smooth" });
+  window.setTimeout(() => targetRow?.querySelector(".lineup-position-card")?.classList.remove("is-attention"), 1400);
+}
+
 function moveLineupEntry(entryId, direction) {
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   if (!game || gameIsFinal(game)) return;
@@ -5764,22 +5927,6 @@ function moveLineupEntry(entryId, direction) {
   [entries[from], entries[to]] = [entries[to], entries[from]];
   game.lineupEntries = entries.map((entry, index) => ({ ...entry, order: index + 1 }));
   game.lineups.away = deepClone(game.lineupEntries);
-  saveState();
-  renderLineupBuilder();
-}
-
-function moveLineupEntryTo(entryId, targetEntryId) {
-  const game = state.games.find((item) => item.id === lineupBuilderGameId);
-  if (!game || gameIsFinal(game) || !entryId || !targetEntryId || entryId === targetEntryId) return;
-  const entries = startingLineupEntries(game);
-  const from = entries.findIndex((entry) => entry.id === entryId);
-  const to = entries.findIndex((entry) => entry.id === targetEntryId);
-  if (from < 0 || to < 0) return;
-  const [moved] = entries.splice(from, 1);
-  entries.splice(to, 0, moved);
-  game.lineupEntries = entries.map((entry, index) => ({ ...entry, order: index + 1 }));
-  game.lineups.away = deepClone(game.lineupEntries);
-  lineupBuilderSelectedEntryId = entryId;
   saveState();
   renderLineupBuilder();
 }

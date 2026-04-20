@@ -20,6 +20,18 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 - Improved Scorebook notation for standard defensive scoring marks like 6-3 groundouts, F8 flyouts, L6 lineouts, E6 errors, and common double-play/force-out patterns.
 - Cleaned up the Schedule & Scores page with a hidden create-game form, tighter schedule inputs, matchup images, recent-completed-game limits, and an Archive prompt.
 - Updated the live Score Game field visuals with a polished dark field, anchored runner badges, cleaner bases, and outcome-labeled spray markers.
+- Refined the live Score Game field with brighter grass, clearer dirt, crisp foul lines, white bases, simplified labels, and circular runner badges.
+- Refreshed the PWA cache version for the field-only visual cleanup.
+- Grouped the Schedule & Scores All tab into Live, Upcoming, and Completed sections for clearer game order.
+- Updated game locations to store field names with full addresses for weather lookup.
+- Refreshed the PWA cache version for the schedule and location update.
+- Added known-field weather coordinates so Home page weather resolves from structured field locations reliably.
+- Prevented creating or editing non-final games with past dates.
+- Refreshed the PWA cache version for the weather and date validation update.
+- Replaced Lineup Builder drag reordering with accessible up/down batting-order buttons.
+- Made the Lineup Builder bench list scroll independently while the starting lineup stays visible.
+- Added a clickable missing-position warning that focuses the lineup position controls.
+- Refreshed the PWA cache version for the Lineup Builder update.
 
 ## 2026-04-18
 
