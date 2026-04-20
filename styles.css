@@ -8511,7 +8511,7 @@ label {
   aspect-ratio: 4 / 3;
   margin: 0 auto;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 8px;
   background: transparent;
   box-shadow: none;
@@ -8534,6 +8534,8 @@ label {
 #scoreView .field-background {
   z-index: 1;
   pointer-events: none;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 #scoreView .field-background-art {
@@ -8542,7 +8544,26 @@ label {
   display: block;
   width: 100%;
   height: 100%;
-  filter: brightness(1.24) saturate(1.22);
+  filter: brightness(1.4) saturate(1.24);
+}
+
+#scoreView .spray-panel .mini-head {
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  background: rgba(255, 255, 255, 0.84);
+  color: #10212b;
+  box-shadow: 0 10px 24px rgba(14, 27, 19, 0.16);
+  backdrop-filter: blur(10px);
+}
+
+#scoreView .spray-panel .mini-head h3,
+#scoreView .spray-panel .mini-head .player-meta {
+  color: #10212b;
+}
+
+#scoreView .spray-panel select {
+  border-color: rgba(16, 33, 43, 0.18);
+  background: rgba(255, 255, 255, 0.9);
+  color: #10212b;
 }
 
 #scoreView .position-marker-layer {

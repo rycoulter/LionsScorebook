@@ -505,7 +505,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-104";
+const APP_VERSION = "2026.04.20-build-106";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -6108,16 +6108,15 @@ function renderSprayChart() {
 
 function sprayEvents() {
   const game = activeGame();
+  if (!game) return [];
   const filter = els.sprayFilter.value;
   const currentHitterId = currentBatterId(game);
-  return state.games
-    .flatMap((item) => item.events.map((event) => ({ event, game: item })))
+  return game.events
+    .map((event) => ({ event, game }))
     .filter(({ event, game: item }) => {
       if (!event.spray) return false;
       const rule = eventRules[event.result] || {};
       if (filter === "hitter" && event.playerId !== currentHitterId) return false;
-      if (filter === "team" && item.id !== game.id) return false;
-      if (filter === "current" && item.id !== game.id) return false;
       if (filter === "hits" && !rule.hit) return false;
       if (filter === "outs" && !rule.out) return false;
       return true;

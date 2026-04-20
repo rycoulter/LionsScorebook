@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Removed the dark navy panel treatment from the live Score Game field shell, brightened the score-view field chrome to match the lighter field art, and scoped the live spray chart to the active game only so batted-ball markers no longer carry over from earlier games.
 - Added a lightweight completed-game publish retry queue so tapping Sync now survives failed/offline attempts, remembers the pending publish locally, and automatically retries after the device reconnects or an admin session comes back.
 - Hardened Supabase game sync so shared bootstrap now merges remote games by ID without wiping local-only games, normal shared sync uses upserts instead of full-snapshot deletes, and game removal issues an explicit targeted delete only for the game an admin intentionally removed.
 - Tightened the responsive layout across the app with a broader mobile/tablet pass for page headers, forms, card grids, and especially the Box Score controls, summary, tabs, and tables.
