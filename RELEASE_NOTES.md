@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Added cache-busting asset versioning for the main HTML/CSS/JS/logo paths and fixed the header logo sizing in markup so live GitHub Pages deploys do not mix new HTML with stale styling.
 - Activated GA4 traffic tracking for the live site using the configured measurement ID and refreshed the build/cache for production pickup.
 - Replaced the OL header badge with the Lions logo, simplified the top-left brand to Oakmont Lions, moved the build/admin controls into a bottom-left utility bar, and aligned the home pitching leader cards to match batting.
 - Added a GA4-ready analytics hook so site traffic tracking can be turned on once a live measurement ID is provided.
