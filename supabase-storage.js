@@ -43,8 +43,12 @@
   function mergeRemoteSnapshot(baseState, appStateRow, gamesRows) {
     const nextState = deepClone(baseState || {});
     if (appStateRow) {
-      nextState.roster = deepClone(appStateRow.roster || nextState.roster || []);
-      nextState.lineup = deepClone(appStateRow.lineup || nextState.lineup || []);
+      if (Array.isArray(appStateRow.roster) && appStateRow.roster.length) {
+        nextState.roster = deepClone(appStateRow.roster);
+      }
+      if (Array.isArray(appStateRow.lineup) && appStateRow.lineup.length) {
+        nextState.lineup = deepClone(appStateRow.lineup);
+      }
       if (appStateRow.roster_version !== undefined && appStateRow.roster_version !== null) {
         nextState.rosterVersion = appStateRow.roster_version;
       }

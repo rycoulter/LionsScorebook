@@ -505,7 +505,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-81";
+const APP_VERSION = "2026.04.20-build-82";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 const GA_MEASUREMENT_ID = "G-JWRVWJ9XYP";
@@ -1730,6 +1730,13 @@ function hasMeaningfulSupabaseSnapshot(snapshot) {
   return false;
 }
 
+function sharedRosterMissing(snapshot) {
+  if (!snapshot?.appState || typeof snapshot.appState !== "object") return true;
+  const rosterMissing = !Array.isArray(snapshot.appState.roster) || !snapshot.appState.roster.length;
+  const lineupMissing = !Array.isArray(snapshot.appState.lineup) || !snapshot.appState.lineup.length;
+  return rosterMissing || lineupMissing;
+}
+
 async function bootstrapSupabaseState() {
   if (!supabaseStorage?.isReady?.()) return null;
   if (supabaseBootstrapPromise) return supabaseBootstrapPromise;
@@ -1819,8 +1826,9 @@ async function seedSupabaseFromLocalIfEmpty() {
     console.warn("Unable to inspect Supabase before seeding.", error);
     return null;
   }
-  if (hasMeaningfulSupabaseSnapshot(data)) return data;
-  return syncSharedSnapshot("initial-seed");
+  if (!hasMeaningfulSupabaseSnapshot(data)) return syncSharedSnapshot("initial-seed");
+  if (sharedRosterMissing(data)) return syncSharedSnapshot("recover-shared-roster");
+  return data;
 }
 
 function markGameSyncPending(game) {
