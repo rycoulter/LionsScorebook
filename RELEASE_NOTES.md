@@ -7,6 +7,8 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Added pitcher win/loss/no-decision tracking for completed games using pitcher-of-record logic from the game event history, and expanded the Stats pitching table to show W, L, and ND.
+- Simplified Game Archive into Past Games by removing the searchable-notes framing, dropping the search box, and removing the play-by-play preview text from each past-game card.
 - Filtered the Stats pitching view down to only players who have actually pitched, added Wins to the pitching leaders/table, and froze the Player column so stats stay readable while horizontally scrolling on desktop and mobile.
 - Removed the extra Name and Number row from Roster player cards so the card stays cleaner and the stat section begins immediately below player info.
 - Removed SLG from the Roster player stat strip so cards now show AVG, OBP, and OPS with cleaner spacing and better desktop alignment.

@@ -505,7 +505,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-93";
+const APP_VERSION = "2026.04.20-build-95";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -757,7 +757,6 @@ const els = {
   rosterFilter: document.getElementById("rosterFilter"),
   rosterFilterSummary: document.getElementById("rosterFilterSummary"),
   rosterGrid: document.getElementById("rosterGrid"),
-  archiveSearch: document.getElementById("archiveSearch"),
   archiveGrid: document.getElementById("archiveGrid"),
   gameSummaryPanel: document.getElementById("gameSummaryPanel"),
   gameSummaryTitle: document.getElementById("gameSummaryTitle"),
@@ -2680,7 +2679,6 @@ function bindEvents() {
     renderRoster();
   });
 
-  els.archiveSearch.addEventListener("input", renderArchive);
   els.archiveGrid.addEventListener("click", handleGameActionClick);
   els.gameSummaryBody?.addEventListener("click", handleGameActionClick);
   els.closeGameSummaryBtn?.addEventListener("click", () => {
@@ -5645,12 +5643,15 @@ function renderPitcherSelect(game = activeGame()) {
 }
 
 function pitcherStats(playerId, gameId = null) {
-  const stats = { wins: 0, pitches: 0, balls: 0, strikes: 0, batters: 0, outs: 0, h: 0, hr: 0, k: 0, bb: 0, hbp: 0, runs: 0 };
+  const stats = { wins: 0, losses: 0, noDecision: 0, decisions: 0, pitches: 0, balls: 0, strikes: 0, batters: 0, outs: 0, h: 0, hr: 0, k: 0, bb: 0, hbp: 0, runs: 0 };
   state.games
     .filter((game) => !gameId || game.id === gameId)
-    .filter((game) => gameIsFinal(game) && currentPitcherId(game) === playerId && Number(game.score?.lions || 0) > Number(game.score?.opponent || 0))
-    .forEach(() => {
-      stats.wins += 1;
+    .filter(gameIsFinal)
+    .forEach((game) => {
+      const decision = lionsPitchingDecision(game);
+      if (decision.winPitcherId === playerId) stats.wins += 1;
+      if (decision.lossPitcherId === playerId) stats.losses += 1;
+      if (decision.noDecisionPitcherIds.includes(playerId)) stats.noDecision += 1;
     });
   state.games
     .filter((game) => !gameId || game.id === gameId)
@@ -5672,6 +5673,7 @@ function pitcherStats(playerId, gameId = null) {
         if (["called_strike", "swinging_strike", "foul", "in_play"].includes(pitch.type)) stats.strikes += 1;
       });
     });
+  stats.decisions = stats.wins + stats.losses;
   stats.ip = stats.outs / 3;
   stats.strikeRate = divide(stats.strikes, stats.pitches);
   stats.kRate = divide(stats.k, stats.batters);
@@ -5685,7 +5687,163 @@ function pitcherStats(playerId, gameId = null) {
 }
 
 function hasPitchingStats(stats) {
-  return Boolean(stats && (stats.outs > 0 || stats.pitches > 0 || stats.batters > 0 || stats.wins > 0));
+  return Boolean(stats && (stats.outs > 0 || stats.pitches > 0 || stats.batters > 0 || stats.wins > 0 || stats.losses > 0 || stats.noDecision > 0));
+}
+
+function plateAppearanceOutsRecorded(event) {
+  const delta = Math.max(0, Number(event?.outsAfter ?? 0) - Number(event?.outsBefore ?? 0));
+  if (delta) return delta;
+  const rule = eventRules[event?.result] || {};
+  return rule.out ? 1 : 0;
+}
+
+function lionsDefensiveEvents(game) {
+  return (game?.events || []).filter((event) => event.scope === "defense" && event.pitcherId);
+}
+
+function startingPitcherIdForGame(game) {
+  const firstDefenseEvent = lionsDefensiveEvents(game)[0];
+  if (firstDefenseEvent?.pitcherId) return firstDefenseEvent.pitcherId;
+  return game?.lineupEntries?.find((entry) => entry.role === "P")?.playerId || game?.pitcherId || "";
+}
+
+function buildLionsPitcherAppearances(game) {
+  const appearances = [];
+  let lastPitcherId = "";
+  lionsDefensiveEvents(game).forEach((event, index) => {
+    const pitcherId = event.pitcherId;
+    const rule = eventRules[event.result] || {};
+    if (!pitcherId) return;
+    if (pitcherId !== lastPitcherId) {
+      appearances.push({
+        pitcherId,
+        appearanceIndex: appearances.length,
+        startEventIndex: index,
+        outs: 0,
+        runs: 0,
+        pitches: 0,
+        batters: 0
+      });
+      lastPitcherId = pitcherId;
+    }
+    const appearance = appearances[appearances.length - 1];
+    appearance.outs += plateAppearanceOutsRecorded(event);
+    appearance.runs += Number(event.runs || 0);
+    appearance.pitches += Array.isArray(event.pitches) ? event.pitches.length : 0;
+    appearance.batters += rule.pa ? 1 : 0;
+  });
+  return appearances;
+}
+
+function offensePitcherOfRecordAtEvent(game, eventIndex) {
+  const events = game?.events || [];
+  const starterId = startingPitcherIdForGame(game);
+  let pitcherId = starterId;
+  for (let index = 0; index < eventIndex; index += 1) {
+    const event = events[index];
+    if (event?.scope === "defense" && event.pitcherId) pitcherId = event.pitcherId;
+  }
+  return pitcherId;
+}
+
+function scoreAfterEvent(event) {
+  const before = event?.snapshotBefore?.score || { lions: 0, opponent: 0 };
+  const after = {
+    lions: Number(before.lions || 0),
+    opponent: Number(before.opponent || 0)
+  };
+  if ((event?.scope || "") === "offense") after.lions += Number(event?.runs || 0);
+  if ((event?.scope || "") === "defense") after.opponent += Number(event?.runs || 0);
+  return after;
+}
+
+function decisiveLeadEventIndex(game, winningTeam = "lions") {
+  const events = game?.events || [];
+  const finalLions = Number(game?.score?.lions || 0);
+  const finalOpponent = Number(game?.score?.opponent || 0);
+  return events.findIndex((event, index) => {
+    const after = scoreAfterEvent(event);
+    const teamAhead = winningTeam === "lions"
+      ? after.lions > after.opponent
+      : after.opponent > after.lions;
+    if (!teamAhead) return false;
+    return events.slice(index + 1).every((laterEvent) => {
+      const laterScore = scoreAfterEvent(laterEvent);
+      return winningTeam === "lions"
+        ? laterScore.lions >= laterScore.opponent
+        : laterScore.opponent >= laterScore.lions;
+    }) && (winningTeam === "lions" ? finalLions > finalOpponent : finalOpponent > finalLions);
+  });
+}
+
+function isBriefIneffectiveReliefAppearance(appearance) {
+  return Boolean(appearance && appearance.outs < 3 && appearance.runs >= 2);
+}
+
+function chooseMostEffectiveReliever(appearances = []) {
+  if (!appearances.length) return null;
+  return appearances
+    .slice()
+    .sort((left, right) => {
+      if (left.runs !== right.runs) return left.runs - right.runs;
+      if (left.outs !== right.outs) return right.outs - left.outs;
+      if (left.pitches !== right.pitches) return left.pitches - right.pitches;
+      return left.appearanceIndex - right.appearanceIndex;
+    })[0];
+}
+
+function winningPitcherIdForLions(game) {
+  if (!gameIsFinal(game) || Number(game?.score?.lions || 0) <= Number(game?.score?.opponent || 0)) return "";
+  const appearances = buildLionsPitcherAppearances(game);
+  if (!appearances.length) return "";
+  const decisiveIndex = decisiveLeadEventIndex(game, "lions");
+  if (decisiveIndex < 0) return "";
+  const pitcherOfRecordId = offensePitcherOfRecordAtEvent(game, decisiveIndex);
+  if (!pitcherOfRecordId) return "";
+  const starter = appearances[0];
+  const pitcherOfRecordAppearance = appearances.find((appearance) => appearance.pitcherId === pitcherOfRecordId) || null;
+  const starterEligible = starter?.pitcherId === pitcherOfRecordId && starter.outs >= 15;
+  if (starterEligible) return pitcherOfRecordId;
+  if (pitcherOfRecordAppearance && pitcherOfRecordAppearance.pitcherId !== starter?.pitcherId) {
+    if (!isBriefIneffectiveReliefAppearance(pitcherOfRecordAppearance)) return pitcherOfRecordId;
+    const succeeding = appearances.filter((appearance) => appearance.appearanceIndex > pitcherOfRecordAppearance.appearanceIndex && appearance.outs > 0);
+    return chooseMostEffectiveReliever(succeeding)?.pitcherId || pitcherOfRecordId;
+  }
+  const relievers = appearances.filter((appearance) => appearance.pitcherId !== starter?.pitcherId && appearance.outs > 0);
+  return chooseMostEffectiveReliever(relievers)?.pitcherId || "";
+}
+
+function losingPitcherIdForLions(game) {
+  if (!gameIsFinal(game) || Number(game?.score?.lions || 0) >= Number(game?.score?.opponent || 0)) return "";
+  const decisiveIndex = decisiveLeadEventIndex(game, "opponent");
+  if (decisiveIndex < 0) return "";
+  const decisiveEvent = game.events?.[decisiveIndex];
+  return decisiveEvent?.pitcherId || "";
+}
+
+function lionsPitchingDecision(game) {
+  const appearances = buildLionsPitcherAppearances(game);
+  const pitcherIds = [...new Set(appearances.map((appearance) => appearance.pitcherId).filter(Boolean))];
+  if (!gameIsFinal(game) || !pitcherIds.length) {
+    return { winPitcherId: "", lossPitcherId: "", noDecisionPitcherIds: [] };
+  }
+  if (gameIsTied(game)) {
+    return { winPitcherId: "", lossPitcherId: "", noDecisionPitcherIds: pitcherIds };
+  }
+  const winPitcherId = winningPitcherIdForLions(game);
+  const lossPitcherId = losingPitcherIdForLions(game);
+  if (Number(game.score?.lions || 0) > Number(game.score?.opponent || 0)) {
+    return {
+      winPitcherId,
+      lossPitcherId: "",
+      noDecisionPitcherIds: pitcherIds.filter((id) => id !== winPitcherId)
+    };
+  }
+  return {
+    winPitcherId: "",
+    lossPitcherId,
+    noDecisionPitcherIds: pitcherIds.filter((id) => id !== lossPitcherId)
+  };
 }
 
 function addPitchToPitcherStats(stats, pitch) {
@@ -6283,51 +6441,23 @@ function statCell(label, value) {
 }
 
 function renderArchive() {
-  const query = els.archiveSearch.value.trim().toLowerCase();
   const games = state.games
     .filter(gameIsFinal)
-    .filter((game) => {
-      if (!query) return true;
-      const haystack = [
-        game.opponent,
-        game.date,
-        ...game.events.flatMap((event) => {
-          const player = state.roster.find((item) => item.id === event.playerId);
-          return [player?.name, event.result, event.note, event.contact, event.launch, event.spray?.zone];
-        })
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(query);
-    })
     .sort((a, b) => b.date.localeCompare(a.date));
 
   els.archiveGrid.innerHTML = games.length
     ? games.map(renderArchiveCard).join("")
-    : `<p class="player-meta">No games match that search.</p>`;
+    : `<p class="player-meta">No past games yet.</p>`;
 }
 
 function renderArchiveCard(game) {
   const final = gameIsFinal(game);
-  const topEvents = game.events
-    .filter((event) => event.scope !== "defense")
-    .slice(-3)
-    .reverse()
-    .map((event) => {
-      const player = state.roster.find((item) => item.id === event.playerId);
-      const rule = eventRules[event.result] || { label: event.result };
-      return `<div class="archive-meta">${escapeHtml(player?.name || "Unknown")} ${escapeHtml(rule.label)} ${event.note ? `- ${escapeHtml(event.note)}` : ""}</div>`;
-    })
-    .join("");
-
   return `<article class="archive-card">
     <div class="archive-score">
       <span>${escapeHtml(game.date)}</span>
       <span>${escapeHtml(gameScoreLabel(game))}</span>
     </div>
     <div class="archive-meta">${escapeHtml(gameTeamMeta(game))} | ${game.events.length} tracked events | ${escapeHtml(gameStatusLabel(game))}</div>
-    ${topEvents || `<div class="archive-meta">No offensive events logged.</div>`}
     <div class="game-actions">
       ${final ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${escapeHtml(game.id)}">View Summary</button>` : ""}
       <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
@@ -7958,6 +8088,8 @@ function renderSeasonStats() {
       return `<tr>
         <td>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</td>
         <td>${pit.wins}</td>
+        <td>${pit.losses}</td>
+        <td>${pit.noDecision}</td>
         <td>${formatInnings(pit.outs)}</td>
         <td>${pit.pitches}</td>
         <td>${pit.balls}</td>

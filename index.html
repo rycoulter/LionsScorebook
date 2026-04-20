@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <link rel="manifest" href="manifest.json?v=2026.04.20-build-93">
+    <link rel="manifest" href="manifest.json?v=2026.04.20-build-95">
     <meta name="theme-color" content="#1f2937">
     <title>Oakmont Lions Scorebook</title>
     <link rel="preconnect" href="https://images.unsplash.com">
-    <link rel="stylesheet" href="styles.css?v=2026.04.20-build-93">
+    <link rel="stylesheet" href="styles.css?v=2026.04.20-build-95">
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-block">
-          <img src="new-lion.png?v=2026.04.20-build-93" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
+          <img src="new-lion.png?v=2026.04.20-build-95" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
           <div>
             <h1>Oakmont Lions</h1>
           </div>
@@ -26,7 +26,7 @@
           <button class="tab" data-view="roster">Roster</button>
           <button class="tab" data-view="stats">Stats</button>
           <button class="tab" data-view="scouting">Scouting Report</button>
-          <button class="tab" data-view="archive">Game Archive</button>
+          <button class="tab" data-view="archive">Past Games</button>
           <button class="tab" data-view="analysis">Analysis</button>
         </nav>
       </header>
@@ -43,7 +43,7 @@
           <div class="home-grid">
             <section class="home-panel home-hero-panel">
               <img
-                src="new-lion.png?v=2026.04.20-build-93"
+                src="new-lion.png?v=2026.04.20-build-95"
                 alt="Lions matchup graphic"
                 id="homeMatchupImage"
                 class="home-field-image">
@@ -863,6 +863,8 @@
                 <tr>
                   <th><button type="button" data-pit-sort="name">Player</button></th>
                   <th><button type="button" data-pit-sort="wins">W</button></th>
+                  <th><button type="button" data-pit-sort="losses">L</button></th>
+                  <th><button type="button" data-pit-sort="noDecision">ND</button></th>
                   <th><button type="button" data-pit-sort="outs">IP</button></th>
                   <th><button type="button" data-pit-sort="pitches">NP</button></th>
                   <th><button type="button" data-pit-sort="balls">Ball</button></th>
@@ -890,10 +892,9 @@
         <section class="view" id="archiveView" data-panel="archive">
           <div class="section-head">
             <div>
-              <p class="eyebrow">Game Archive</p>
-              <h2>Past games and searchable notes</h2>
+              <p class="eyebrow">Past Games</p>
+              <h2>Past Games</h2>
             </div>
-            <input class="search-box" id="archiveSearch" placeholder="Search opponent, player, result, note">
           </div>
           <section class="lineup-builder" id="gameSummaryPanel">
             <div class="mini-head">
@@ -1090,11 +1091,11 @@
       </article>
     </template>
 
-    <script src="storage.js?v=2026.04.20-build-93"></script>
-    <script src="matchup-images.js?v=2026.04.20-build-93"></script>
+    <script src="storage.js?v=2026.04.20-build-95"></script>
+    <script src="matchup-images.js?v=2026.04.20-build-95"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=2026.04.20-build-93"></script>
-    <script src="supabase-storage.js?v=2026.04.20-build-93"></script>
-    <script src="app.js?v=2026.04.20-build-93"></script>
+    <script src="supabase-config.js?v=2026.04.20-build-95"></script>
+    <script src="supabase-storage.js?v=2026.04.20-build-95"></script>
+    <script src="app.js?v=2026.04.20-build-95"></script>
   </body>
 </html>
