@@ -7,6 +7,11 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Pulled first and third base farther inside the foul lines and pushed the live outfield fence farther back for a larger field footprint.
+- Refreshed the PWA cache version for the field geometry refinement.
+- Moved the live field fence farther back, removed defensive position chips, and cleaned up duplicate live base rendering.
+- Removed the live box-style base tracker while keeping the circular on-field runner markers and runner actions intact.
+- Refreshed the PWA cache version for the field cleanup pass.
 - Rebuilt the live scoring field background as a simpler top-down SVG with flat grass, dirt, foul lines, bases, mound, and outfield arc while preserving overlay alignment.
 - Refreshed the PWA cache version for the top-down field update.
 - Reworked occupied baserunner field markers into smaller glowing number badges and aligned them closer to each base without changing runner actions.

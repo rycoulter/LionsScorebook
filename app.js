@@ -503,7 +503,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-50";
+const APP_VERSION = "2026.04.20-build-52";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 
@@ -4157,10 +4157,13 @@ function renderRunnerTracker() {
     second: ".spray-second-base",
     third: ".spray-third-base"
   };
-  const occupied = [];
+  const bases = game.bases || emptyBases(false);
+  const occupied = ["first", "second", "third"]
+    .filter((key) => isOccupied(bases[key]))
+    .map((key) => `${runnerName(bases[key]) || "Runner"} on ${baseLabels[key]}`);
   els.runnerBases.forEach((baseEl) => {
     const key = baseEl.dataset.runnerBase;
-    const runner = game.bases[key];
+    const runner = bases[key];
     const name = runnerName(runner);
     const occupiedBase = isOccupied(runner);
     baseEl.classList.toggle("is-occupied", occupiedBase);
@@ -4170,7 +4173,6 @@ function renderRunnerTracker() {
     if (sprayBase) {
       sprayBase.classList.toggle("is-occupied", occupiedBase);
     }
-    if (name) occupied.push(`${name} on ${baseLabels[key]}`);
   });
   els.runnerSummary.textContent = occupied.length ? occupied.join(" | ") : "Bases empty";
   const canStealSecond = isOccupied(game.bases.first) && !isOccupied(game.bases.second);
