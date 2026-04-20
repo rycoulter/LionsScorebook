@@ -505,11 +505,12 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-79";
+const APP_VERSION = "2026.04.20-build-80";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 const GA_MEASUREMENT_ID = "G-JWRVWJ9XYP";
 const ACCESS_MODE_STORAGE_KEY = "oakmont-lions-access-mode-v1";
+const ADMIN_EMAIL_STORAGE_KEY = "oakmont-lions-admin-email-v1";
 const PUBLIC_TAB_VIEWS = new Set(["home", "games", "stats", "archive"]);
 const PUBLIC_READ_VIEWS = new Set(["home", "games", "stats", "archive", "scorebook", "boxscore"]);
 const ADMIN_TAB_VIEWS = new Set(["home", "score", "games", "lineup", "roster", "stats", "scouting", "archive", "analysis"]);
@@ -1982,6 +1983,27 @@ function saveAccessMode() {
   }
 }
 
+function loadStoredAdminEmail() {
+  try {
+    return String(window.localStorage?.getItem(ADMIN_EMAIL_STORAGE_KEY) || "").trim().toLowerCase();
+  } catch (error) {
+    console.warn("Unable to load stored admin email.", error);
+    return "";
+  }
+}
+
+function saveStoredAdminEmail(email) {
+  try {
+    if (!email) {
+      window.localStorage?.removeItem(ADMIN_EMAIL_STORAGE_KEY);
+      return;
+    }
+    window.localStorage?.setItem(ADMIN_EMAIL_STORAGE_KEY, String(email).trim().toLowerCase());
+  } catch (error) {
+    console.warn("Unable to store admin email.", error);
+  }
+}
+
 function isAdminMode() {
   return accessMode === "admin";
 }
@@ -2049,10 +2071,12 @@ function setAccessMode(nextMode) {
 }
 
 async function applySupabaseAdminState(user, options = {}) {
-  const { allowSeed = false, preserveModal = false } = options;
+  const { allowSeed = false, preserveModal = false, allowOfflineCache = false } = options;
   const normalizedEmail = String(user?.email || "").trim().toLowerCase();
+  const cachedAdminEmail = loadStoredAdminEmail();
   if (!normalizedEmail) {
     supabaseAdminEmail = "";
+    saveStoredAdminEmail("");
     if (accessMode !== "public") {
       if (preserveModal) {
         accessMode = "public";
@@ -2067,11 +2091,47 @@ async function applySupabaseAdminState(user, options = {}) {
     }
     return false;
   }
+  const canUseOfflineCache = allowOfflineCache && !navigator.onLine && cachedAdminEmail && cachedAdminEmail === normalizedEmail;
+  if (canUseOfflineCache) {
+    supabaseAdminEmail = normalizedEmail;
+    const destination = pendingAdminView && canAccessView("home") ? pendingAdminView : currentView;
+    pendingAdminView = "";
+    if (preserveModal) {
+      accessMode = "admin";
+      saveAccessMode();
+      closeAdminAuthModal();
+      render();
+      if (destination && destination !== currentView) switchView(destination);
+      else switchView(currentView);
+    } else {
+      setAccessMode("admin");
+      if (destination && destination !== currentView) switchView(destination);
+    }
+    return true;
+  }
   const { data: isAdmin, error } = await supabaseStorage.isAdminEmail(normalizedEmail);
   if (error) {
     console.warn("Unable to verify Supabase admin access.", error);
+    if (allowOfflineCache && cachedAdminEmail && cachedAdminEmail === normalizedEmail) {
+      supabaseAdminEmail = normalizedEmail;
+      const destination = pendingAdminView && canAccessView("home") ? pendingAdminView : currentView;
+      pendingAdminView = "";
+      if (preserveModal) {
+        accessMode = "admin";
+        saveAccessMode();
+        closeAdminAuthModal();
+        render();
+        if (destination && destination !== currentView) switchView(destination);
+        else switchView(currentView);
+      } else {
+        setAccessMode("admin");
+        if (destination && destination !== currentView) switchView(destination);
+      }
+      return true;
+    }
     if (els.adminAuthMessage) els.adminAuthMessage.textContent = "Sign-in worked, but admin access could not be verified yet.";
     supabaseAdminEmail = "";
+    saveStoredAdminEmail("");
     if (preserveModal) {
       accessMode = "public";
       saveAccessMode();
@@ -2084,6 +2144,7 @@ async function applySupabaseAdminState(user, options = {}) {
   }
   if (!isAdmin) {
     supabaseAdminEmail = "";
+    saveStoredAdminEmail("");
     if (els.adminAuthMessage) els.adminAuthMessage.textContent = "This account is signed in, but it is not listed as a Scorebook admin.";
     if (preserveModal) {
       accessMode = "public";
@@ -2097,6 +2158,7 @@ async function applySupabaseAdminState(user, options = {}) {
   }
 
   supabaseAdminEmail = normalizedEmail;
+  saveStoredAdminEmail(normalizedEmail);
   const destination = pendingAdminView && canAccessView("home") ? pendingAdminView : currentView;
   pendingAdminView = "";
   if (preserveModal) {
@@ -2142,7 +2204,7 @@ async function submitAdminCredentials() {
     els.adminPasswordInput?.select();
     return;
   }
-  const granted = await applySupabaseAdminState(data.user, { allowSeed: true, preserveModal: true });
+  const granted = await applySupabaseAdminState(data.user, { allowSeed: true, preserveModal: true, allowOfflineCache: true });
   if (granted && els.adminAuthMessage) els.adminAuthMessage.textContent = `Signed in as ${data.user.email}.`;
   setAdminAuthBusy(false);
 }
@@ -2159,6 +2221,7 @@ async function signOutAdmin() {
     console.warn("Supabase sign-out failed.", error);
   }
   supabaseAdminEmail = "";
+  saveStoredAdminEmail("");
   setAccessMode("public");
 }
 
@@ -2172,19 +2235,20 @@ async function initializeSupabaseAuth() {
         return;
       }
       if (session?.user) {
-        applySupabaseAdminState(session.user, { allowSeed: event === "SIGNED_IN" || event === "INITIAL_SESSION" })
+        applySupabaseAdminState(session.user, { allowSeed: event === "SIGNED_IN" || event === "INITIAL_SESSION", allowOfflineCache: true })
           .catch((error) => console.warn("Unable to refresh Supabase admin state.", error));
       }
     }, 0);
   });
   try {
-    const { data, error } = await client.auth.getUser();
+    const { data, error } = await client.auth.getSession();
     if (error) {
-      console.warn("Unable to fetch the current Supabase user.", error);
+      console.warn("Unable to fetch the current Supabase session.", error);
       return;
     }
-    if (data?.user) {
-      await applySupabaseAdminState(data.user, { allowSeed: true });
+    const sessionUser = data?.session?.user || null;
+    if (sessionUser) {
+      await applySupabaseAdminState(sessionUser, { allowSeed: true, allowOfflineCache: true });
     } else if (accessMode !== "public") {
       setAccessMode("public");
     }

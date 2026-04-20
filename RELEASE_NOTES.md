@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Fixed admin session persistence for field use by restoring approved admin mode from the cached Supabase session plus cached approved admin email when the scorer reopens the PWA offline.
 - Added a manual `Sync Game` action and visible live-game sync status for Score Game so the scoring iPad can keep working offline and push the current game snapshot to Supabase when reconnected.
 - Replaced the frontend-only admin password prompt with Supabase email/password admin sign-in, persisted admin sessions through Supabase Auth, and restricted shared backend writes to approved admin emails.
 - Added first-pass shared Supabase writes for roster changes plus scheduled/completed game updates while intentionally leaving in-progress Score Game work local-first for iPad/offline scoring.
