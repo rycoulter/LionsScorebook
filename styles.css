@@ -46,6 +46,8 @@ textarea:disabled {
 }
 
 .app-shell {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   padding-bottom: calc(104px + env(safe-area-inset-bottom));
 }
@@ -260,6 +262,7 @@ h3 {
 
 main {
   display: grid;
+  flex: 1 0 auto;
   gap: 24px;
 }
 
@@ -7847,6 +7850,7 @@ label {
 
   .app-shell {
     min-height: 100dvh;
+    padding-bottom: 0;
   }
 
   .topbar {
@@ -7889,7 +7893,7 @@ label {
 
   main {
     gap: 18px;
-    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+    padding-bottom: 0;
   }
 
   .view,
@@ -7973,10 +7977,50 @@ label {
   }
 
   .site-utility-bar {
-    left: max(12px, env(safe-area-inset-left));
-    right: max(12px, env(safe-area-inset-right));
-    bottom: 0;
+    position: static;
+    inset: auto;
+    width: min(calc(100% - 22px), 1180px);
     max-width: none;
+    margin: auto auto 0;
+    padding: 0 0 max(10px, env(safe-area-inset-bottom));
+  }
+
+  .site-utility-bar .access-controls {
+    width: 100%;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .site-utility-bar .access-badge,
+  .site-utility-bar .secondary-action {
+    flex: 1 1 140px;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .site-utility-bar .app-version {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 767px) {
+  .app-shell {
+    min-height: 100dvh;
+    padding-bottom: 0;
+  }
+
+  main {
+    padding-bottom: 0;
+  }
+
+  .site-utility-bar {
+    position: static;
+    inset: auto;
+    width: min(calc(100% - 22px), 1180px);
+    max-width: none;
+    margin: auto auto 0;
     padding: 0 0 max(10px, env(safe-area-inset-bottom));
   }
 
