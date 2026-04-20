@@ -126,11 +126,11 @@
               <span>Inning</span>
               <strong id="inningStateDisplay">Top 1</strong>
             </div>
-            <div class="game-state-focus">
+            <div class="game-state-focus" id="headerCountFocus">
               <span>Count</span>
               <strong id="headerCountDisplay">0-0</strong>
             </div>
-            <div class="game-state-focus">
+            <div class="game-state-focus" id="headerOutsFocus">
               <span>Outs</span>
               <strong id="outsStateDisplay">0</strong>
             </div>
@@ -145,9 +145,19 @@
               </div>
             </div>
             <div class="current-batter-card" aria-label="Current batter">
-              <div>
+              <div class="current-batter-primary">
                 <span>Current batter</span>
                 <strong id="headerBatterDisplay">Current batter</strong>
+                <div class="current-batter-status-row" id="headerBatterStatus" hidden>
+                  <span class="current-batter-status">
+                    <span>Count</span>
+                    <strong id="headerBatterCountDisplay">0-0</strong>
+                  </span>
+                  <span class="current-batter-status">
+                    <span>Outs</span>
+                    <strong id="headerBatterOutsDisplay">0</strong>
+                  </span>
+                </div>
               </div>
               <div class="current-batter-avg">
                 <span>AVG</span>

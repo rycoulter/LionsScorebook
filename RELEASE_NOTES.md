@@ -7,6 +7,9 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Reworked the score-game header so when the Lions are batting the Lions pitcher row is hidden and Count/Outs move into the Current Batter card for easier at-bat visibility.
+- Added a non-clickable current-batter badge at home plate using the same circular field marker style and made runner `SB` / `CS` / `PO` actions return the scorer to Pitch Mode after the action is recorded.
+- Added traditional scorebook rendering for stolen base, caught stealing, and pickoff events using `SB`, `CS`, and `PO` notation so runner actions now appear in the scorebook and pickoffs stay distinct from caught stealing.
 - Removed the tinted field container and chart backing so the live field reads as the SVG itself rather than a field sitting under a dark shell, while preserving the current runner selection and action behavior.
 - Removed the dark field veil from the live score view by flattening the chart shell, removing the inset dimming, and brightening the field SVG colors, while leaving the current runner selection and action workflow untouched.
 - Brightened the final active score-view field shell itself, including the live chart background and field SVG filter, to get back closer to the easier-to-read pre-runner-panel look without touching runner interactions or logic.

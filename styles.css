@@ -5677,6 +5677,48 @@ label {
     0 12px 26px rgba(0, 0, 0, 0.24);
 }
 
+#scoreView .current-batter-primary {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+#scoreView .current-batter-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#scoreView .current-batter-status {
+  display: grid;
+  gap: 2px;
+  min-width: 74px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+#scoreView .current-batter-status span {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+#scoreView .current-batter-status strong {
+  color: var(--white);
+  font-size: 1rem;
+}
+
+#scoreView #headerBatterCountDisplay {
+  color: #65e88e;
+}
+
+#scoreView #headerBatterOutsDisplay {
+  color: #ff8e96;
+}
+
 #scoreView .current-batter-card > div {
   display: grid;
   align-content: center;
@@ -8048,6 +8090,23 @@ label {
 #scoreView .field-runner-first {
   left: 71%;
   top: 64.5%;
+}
+
+#scoreView .field-batter-marker {
+  left: 50%;
+  top: 86%;
+  cursor: default;
+  pointer-events: none;
+}
+
+#scoreView .field-batter-marker:hover,
+#scoreView .field-batter-marker:focus-visible {
+  transform: translate(-50%, -50%);
+  box-shadow:
+    0 0 0 4px rgba(255, 206, 97, 0.22),
+    0 10px 18px rgba(0, 0, 0, 0.38),
+    0 0 22px rgba(255, 197, 79, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 #scoreView .field-runner-marker.is-pending-out {

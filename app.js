@@ -231,6 +231,7 @@ const fieldPositionsWithoutPitcher = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "
 
 const battedBallResults = new Set(["1B", "2B", "3B", "HR", "ROE", "FC", "DP", "GO", "FO", "LO", "SAC"]);
 const scorebookFielderResults = new Set(["GO", "FO", "LO", "DP", "FC", "SAC", "ROE"]);
+const scorebookBaseRunningResults = new Set(["SB", "CS", "PO"]);
 
 const PITTSBURGH_NABA_URL = "https://www.pittsburghnaba.org/teams/?s=baseball&u=PITTSBURGHNABA";
 
@@ -504,7 +505,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-64";
+const APP_VERSION = "2026.04.20-build-67";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 
@@ -578,13 +579,18 @@ const els = {
   gameTitle: document.getElementById("gameTitle"),
   headerBatterDisplay: document.getElementById("headerBatterDisplay"),
   currentBatterAvgDisplay: document.getElementById("currentBatterAvgDisplay"),
+  headerBatterStatus: document.getElementById("headerBatterStatus"),
+  headerBatterCountDisplay: document.getElementById("headerBatterCountDisplay"),
+  headerBatterOutsDisplay: document.getElementById("headerBatterOutsDisplay"),
   headerCountDisplay: document.getElementById("headerCountDisplay"),
+  headerCountFocus: document.getElementById("headerCountFocus"),
   gameContext: document.getElementById("gameContext"),
   scoreEmptyState: document.getElementById("scoreEmptyState"),
   scoreEmptyHomeBtn: document.getElementById("scoreEmptyHomeBtn"),
   scoreEmptyGamesBtn: document.getElementById("scoreEmptyGamesBtn"),
   inningStateDisplay: document.getElementById("inningStateDisplay"),
   outsStateDisplay: document.getElementById("outsStateDisplay"),
+  headerOutsFocus: document.getElementById("headerOutsFocus"),
   lionsScoreLabel: document.getElementById("lionsScoreLabel"),
   opponentScoreLabel: document.getElementById("opponentScoreLabel"),
   lionsScore: document.getElementById("lionsScore"),
@@ -620,6 +626,7 @@ const els = {
   undoOpponentPitchBtn: document.getElementById("undoOpponentPitchBtn"),
   pitcherSelect: document.getElementById("pitcherSelect"),
   pitcherStatStrip: document.getElementById("pitcherStatStrip"),
+  gamePitcherCard: document.querySelector(".game-pitcher-card"),
   opponentOutcomeButtons: [...document.querySelectorAll("[data-opponent-result]")],
   runnerBases: [...document.querySelectorAll("[data-runner-base]")],
   runnerSummary: document.getElementById("runnerSummary"),
@@ -2141,6 +2148,12 @@ function currentOpponentBatter(game = activeGame()) {
   return lineup[index % lineup.length];
 }
 
+function currentOpponentBatterEntry(game = activeGame()) {
+  const entries = opponentLineupEntriesForGame(game);
+  const index = game.opponentBatterIndex || 0;
+  return entries[index % entries.length] || null;
+}
+
 function nextOpponentBatterIndex(game) {
   const total = Math.max(opponentLineup(game).length, 1);
   return ((game.opponentBatterIndex || 0) + 1) % total;
@@ -3329,7 +3342,8 @@ function recordSteal(target, outcome) {
   const event = {
     id: uuid(),
     gameId: game.id,
-    playerId: typeof runner === "string" ? runner : currentBatterId(game),
+    playerId: typeof runner === "string" ? runner : currentBatterModelId(game),
+    opponentBatter: isOpponentAtBat(game) ? String(typeof runner === "string" ? runner : currentBatterModelId(game)).replace(/^opp:/, "") : undefined,
     result: outcome === "safe" ? "SB" : "CS",
     runs: outcome === "safe" && steal.to === "home" ? 1 : 0,
     rbi: 0,
@@ -3339,7 +3353,9 @@ function recordSteal(target, outcome) {
     inning: game.inning,
     half: game.half,
     outsBefore: snapshotBefore.outs,
+    outsAfter: game.outs,
     basesBefore: { ...snapshotBefore.bases },
+    basesAfter: { ...game.bases },
     scope: isLionsAtBat(game) ? "offense" : "defense",
     note: `${outcome === "safe" ? "Safe steal of" : "Caught stealing"} ${steal.label}`,
     pitches: [],
@@ -3349,7 +3365,8 @@ function recordSteal(target, outcome) {
     snapshotBefore
   };
   game.events.push(event);
-  selectedFieldRunnerBase = outcome === "safe" && steal.to !== "home" ? steal.to : "";
+  selectedFieldRunnerBase = "";
+  scoringStep = "pitch";
   if (game.outs >= 3) advanceHalfInning(game);
   saveState();
   render();
@@ -3379,7 +3396,8 @@ function recordPickoff(base) {
   game.events.push({
     id: uuid(),
     gameId: game.id,
-    playerId: typeof runner === "string" ? runner : currentBatterId(game),
+    playerId: typeof runner === "string" ? runner : currentBatterModelId(game),
+    opponentBatter: isOpponentAtBat(game) ? String(typeof runner === "string" ? runner : currentBatterModelId(game)).replace(/^opp:/, "") : undefined,
     result: "PO",
     runs: 0,
     rbi: 0,
@@ -3389,7 +3407,9 @@ function recordPickoff(base) {
     inning: game.inning,
     half: game.half,
     outsBefore: snapshotBefore.outs,
+    outsAfter: game.outs,
     basesBefore: { ...snapshotBefore.bases },
+    basesAfter: { ...game.bases },
     scope: isLionsAtBat(game) ? "offense" : "defense",
     note: `Picked off at ${baseLabel(base)}`,
     pitches: [],
@@ -3399,6 +3419,7 @@ function recordPickoff(base) {
     snapshotBefore
   });
   selectedFieldRunnerBase = "";
+  scoringStep = "pitch";
   if (game.outs >= 3) advanceHalfInning(game);
   saveState();
   render();
@@ -4176,18 +4197,25 @@ function renderScoreboard() {
   const game = activeGame();
   if (!game.atBat) game.atBat = makeAtBat();
   syncGameCurrent(game);
+  const lionsBatting = isLionsAtBat(game);
   els.scoreOpponentLineupInput.value = opponentLineup(game).join("\n");
   els.gameTitle.textContent = gameMatchupLabel(game);
   const inningLabel = gameIsFinal(game) ? "Final" : `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}`;
-  const headerBatter = isLionsAtBat(game) ? currentBatterLabel(game) : currentOpponentBatter(game);
-  els.headerBatterDisplay.textContent = isLionsAtBat(game) ? headerBatter : `${headerBatter} (${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent})`;
+  const headerBatter = lionsBatting ? currentBatterLabel(game) : currentOpponentBatter(game);
+  els.headerBatterDisplay.textContent = lionsBatting ? headerBatter : `${headerBatter} (${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent})`;
   if (els.currentBatterAvgDisplay) {
-    const batterStats = isLionsAtBat(game) ? statsForPlayer(currentBatterId(game)) : null;
+    const batterStats = lionsBatting ? statsForPlayer(currentBatterId(game)) : null;
     els.currentBatterAvgDisplay.textContent = batterStats ? formatRate(batterStats.avg) : "--";
   }
   els.inningStateDisplay.textContent = inningLabel;
   els.headerCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   els.outsStateDisplay.textContent = String(game.outs);
+  if (els.headerBatterCountDisplay) els.headerBatterCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
+  if (els.headerBatterOutsDisplay) els.headerBatterOutsDisplay.textContent = `${game.outs}`;
+  if (els.headerBatterStatus) els.headerBatterStatus.hidden = !lionsBatting;
+  if (els.headerCountFocus) els.headerCountFocus.hidden = lionsBatting;
+  if (els.headerOutsFocus) els.headerOutsFocus.hidden = lionsBatting;
+  if (els.gamePitcherCard) els.gamePitcherCard.hidden = lionsBatting;
   els.gameContext.textContent = gameIsFinal(game)
     ? `${gameTeamMeta(game)} | Final after ${completedInningCount(game)} innings`
     : `${gameTeamMeta(game)} | ${game.half === "top" ? "Top" : "Bottom"} ${game.inning}, ${game.outs} ${game.outs === 1 ? "out" : "outs"}`;
@@ -4293,11 +4321,30 @@ function runnerNumber(runner) {
   return player?.number || "R";
 }
 
+function currentFieldBatterMarker(game = activeGame()) {
+  if (!game || game.status !== "active") return null;
+  if (isLionsAtBat(game)) {
+    const player = state.roster.find((item) => item.id === currentBatterId(game));
+    if (!player) return null;
+    return {
+      number: player.number || "R",
+      label: `#${player.number || ""} ${player.name || "Batter"}`.trim()
+    };
+  }
+  const opponentEntry = currentOpponentBatterEntry(game);
+  const opponentLabel = currentOpponentBatter(game);
+  if (!opponentLabel) return null;
+  return {
+    number: opponentEntry?.number || "R",
+    label: opponentLabel
+  };
+}
+
 function renderFieldRunnerMarkers(game = activeGame()) {
   if (!els.runnerFieldMarkers || !game) return;
   const bases = game.bases || emptyBases(false);
   const baseLabels = { first: "first", second: "second", third: "third" };
-  els.runnerFieldMarkers.innerHTML = ["first", "second", "third"]
+  const runnerButtons = ["first", "second", "third"]
     .filter((base) => isOccupied(bases[base]))
     .map((base) => {
       const runner = bases[base];
@@ -4307,6 +4354,11 @@ function renderFieldRunnerMarkers(game = activeGame()) {
       return `<button type="button" class="field-runner-marker field-runner-${base}${pending}${selected}" data-field-runner-base="${base}" title="${escapeHtml(label)}" onpointerdown="window.handleFieldRunnerClick(event)">${escapeHtml(runnerNumber(runner))}</button>`;
     })
     .join("");
+  const batterMarker = currentFieldBatterMarker(game);
+  const batterBadge = batterMarker
+    ? `<span class="field-runner-marker field-batter-marker" aria-hidden="true" title="${escapeHtml(batterMarker.label)}">${escapeHtml(batterMarker.number)}</span>`
+    : "";
+  els.runnerFieldMarkers.innerHTML = `${batterBadge}${runnerButtons}`;
 }
 
 function handleFieldRunnerClick(event) {
@@ -5163,8 +5215,8 @@ function renderTraditionalScorebook() {
   els.scorebookHead.innerHTML = head;
   els.opponentScorebookHead.innerHTML = head.replace("Lineup", "Opponent");
 
-  const offenseEvents = game.events.filter((event) => event.scope === "offense" && eventRules[event.result]?.pa);
-  const defenseEvents = game.events.filter((event) => event.scope === "defense" && eventRules[event.result]?.pa);
+  const offenseEvents = game.events.filter((event) => event.scope === "offense" && isScorebookEvent(event));
+  const defenseEvents = game.events.filter((event) => event.scope === "defense" && isScorebookEvent(event));
   els.scorebookBody.innerHTML = renderScorebookRows(
     gameLineupEntries(game).map((entry, index) => {
       const player = state.roster.find((item) => item.id === entry.playerId);
@@ -5177,16 +5229,23 @@ function renderTraditionalScorebook() {
     }),
     innings
   );
-  const opponentNames = opponentLineup(game);
   els.opponentScorebookBody.innerHTML = renderScorebookRows(
-    opponentNames.map((name, index) => ({
-      id: name,
-      label: `${index + 1}. ${name}`,
-      role: game.opponent,
-      events: defenseEvents.filter((event) => event.opponentBatter === name)
-    })),
+    opponentLineupEntriesForGame(game).map((entry, index) => {
+      const name = opponentBatterLabel(entry, index);
+      const opponentPlayerId = entry.playerId || `opp:${name}`;
+      return {
+        id: opponentPlayerId,
+        label: `${index + 1}. ${name}`,
+        role: game.opponent,
+        events: defenseEvents.filter((event) => event.playerId === opponentPlayerId || event.opponentBatter === name)
+      };
+    }),
     innings
   );
+}
+
+function isScorebookEvent(event) {
+  return Boolean(eventRules[event?.result]?.pa || scorebookBaseRunningResults.has(event?.result));
 }
 
 function scorebookInnings(game) {
@@ -5243,6 +5302,9 @@ function renderScorebookCell(events) {
 function scorebookNotation(event) {
   const result = event.result;
   const fieldedBy = scorebookPrimaryFielder(event);
+  if (result === "SB") return `SB ${scorebookRunnerDestinationLabel(event)}`.trim();
+  if (result === "CS") return `CS ${scorebookRunnerDestinationLabel(event)}`.trim();
+  if (result === "PO") return `PO ${scorebookRunnerOriginLabel(event)}`.trim();
   if (result === "GO") return scorebookGroundoutNotation(fieldedBy);
   if (result === "FO") return scorebookAirOutNotation("F", fieldedBy, "FO");
   if (result === "LO") return scorebookAirOutNotation("L", fieldedBy, "LO");
@@ -5334,6 +5396,7 @@ function batterReachedBase(result) {
 }
 
 function scorebookDetail(event, pitchCount) {
+  if (scorebookBaseRunningResults.has(event.result)) return scorebookRunnerDetail(event);
   return [
     pitchCount ? `${pitchCount} pitches` : "",
     event.count ? `Count ${event.count}` : "",
@@ -5342,6 +5405,34 @@ function scorebookDetail(event, pitchCount) {
     event.spray?.zone || "",
     event.runnerAdvancements?.some((advancement) => advancement.out) ? "Runner out" : ""
   ].filter(Boolean).join(" | ");
+}
+
+function scorebookRunnerOriginBase(event) {
+  const runnerId = event.playerId || "";
+  const bases = event.basesBefore || event.snapshotBefore?.bases || emptyBases(false);
+  return ["first", "second", "third"].find((base) => bases?.[base] === runnerId) || "";
+}
+
+function scorebookRunnerOriginLabel(event) {
+  const origin = scorebookRunnerOriginBase(event);
+  if (origin) return baseLabel(origin);
+  const noteMatch = String(event.note || "").match(/\b(1B|2B|3B|Home)\b/i);
+  return noteMatch ? noteMatch[1].replace(/^home$/i, "Home") : "";
+}
+
+function scorebookRunnerDestinationLabel(event) {
+  const origin = scorebookRunnerOriginBase(event);
+  const destination = origin ? nextBaseForRunner(origin) : "";
+  if (destination) return baseLabel(destination);
+  const noteMatch = String(event.note || "").match(/\b(2B|3B|Home)\b/i);
+  return noteMatch ? noteMatch[1].replace(/^home$/i, "Home") : "";
+}
+
+function scorebookRunnerDetail(event) {
+  if (event.result === "SB") return `Stole ${scorebookRunnerDestinationLabel(event)}`.trim();
+  if (event.result === "CS") return `Out trying for ${scorebookRunnerDestinationLabel(event)}`.trim();
+  if (event.result === "PO") return `Picked off at ${scorebookRunnerOriginLabel(event)}`.trim();
+  return "";
 }
 
 function outNumber(event) {
