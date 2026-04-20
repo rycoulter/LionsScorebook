@@ -505,7 +505,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-102";
+const APP_VERSION = "2026.04.20-build-104";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -570,6 +570,7 @@ let currentView = "home";
 let pendingAdminView = "";
 let supabaseBootstrapPromise = null;
 let sharedSyncPromise = null;
+let completedGameSyncQueuePromise = null;
 let supabaseAdminEmail = "";
 const activeCompletedGameSyncs = new Set();
 const weatherCache = {};
@@ -1298,6 +1299,7 @@ function seedState() {
     roster: defaultRoster,
     rosterVersion: ROSTER_VERSION,
     lineup: defaultRoster.filter((player) => player.active).map((player) => player.id),
+    completedGameSyncQueue: [],
     games: [sampleGame, activeGame],
     activeGameId: activeGame.id
   };
@@ -1382,6 +1384,7 @@ function normalizeState(nextState) {
       : nextState.roster.filter((player) => player.active).map((player) => player.id);
   }
   nextState.games = nextState.games.map((game) => normalizeGame(game, nextState));
+  nextState.completedGameSyncQueue = normalizeCompletedGameSyncQueue(nextState.completedGameSyncQueue, nextState.games);
   if (rosterWasReplaced) {
     nextState.games.forEach((game) => resetGameAwayLineupToRoster(game, nextState));
   }
@@ -1607,6 +1610,86 @@ function normalizeGameSyncState(sync = {}) {
   };
 }
 
+function normalizeCompletedGameSyncJob(job = {}) {
+  return {
+    gameId: String(job?.gameId || "").trim(),
+    queuedAt: job?.queuedAt || new Date().toISOString(),
+    lastAttemptAt: job?.lastAttemptAt || "",
+    attempts: Number.isFinite(Number(job?.attempts)) ? Math.max(0, Number(job.attempts)) : 0,
+    lastError: job?.lastError || ""
+  };
+}
+
+function gameNeedsCompletedSyncRetry(game) {
+  if (!gameIsFinal(game)) return false;
+  const status = stableGameSyncState(game).status;
+  return status === "error" || status === "syncing";
+}
+
+function normalizeCompletedGameSyncQueue(queue = [], games = []) {
+  const jobsByGameId = new Map();
+  const finalGamesById = new Map(
+    (Array.isArray(games) ? games : [])
+      .filter((game) => game?.id && gameIsFinal(game))
+      .map((game) => [game.id, game])
+  );
+
+  (Array.isArray(queue) ? queue : []).forEach((job) => {
+    const normalized = normalizeCompletedGameSyncJob(job);
+    if (!normalized.gameId || !finalGamesById.has(normalized.gameId)) return;
+    jobsByGameId.set(normalized.gameId, normalized);
+  });
+
+  finalGamesById.forEach((game, gameId) => {
+    if (!gameNeedsCompletedSyncRetry(game) || jobsByGameId.has(gameId)) return;
+    jobsByGameId.set(gameId, normalizeCompletedGameSyncJob({ gameId }));
+  });
+
+  return [...jobsByGameId.values()];
+}
+
+function queueCompletedGameSync(gameId, details = {}) {
+  if (!gameId) return false;
+  const before = Array.isArray(state?.completedGameSyncQueue) ? state.completedGameSyncQueue.length : 0;
+  state.completedGameSyncQueue = normalizeCompletedGameSyncQueue([
+    ...(state?.completedGameSyncQueue || []),
+    { gameId, ...details }
+  ], state?.games || []);
+  return state.completedGameSyncQueue.length > before;
+}
+
+function dequeueCompletedGameSync(gameIds = []) {
+  const ids = new Set((Array.isArray(gameIds) ? gameIds : [gameIds]).filter(Boolean));
+  if (!ids.size) return;
+  state.completedGameSyncQueue = normalizeCompletedGameSyncQueue(
+    (state?.completedGameSyncQueue || []).filter((job) => !ids.has(job.gameId)),
+    state?.games || []
+  );
+}
+
+function queuedCompletedGameIds() {
+  return (state?.completedGameSyncQueue || []).map((job) => job.gameId).filter(Boolean);
+}
+
+function updateCompletedGameSyncQueueAttempt(gameIds = [], error = null) {
+  const ids = new Set((Array.isArray(gameIds) ? gameIds : [gameIds]).filter(Boolean));
+  if (!ids.size) return;
+  const timestamp = new Date().toISOString();
+  state.completedGameSyncQueue = normalizeCompletedGameSyncQueue(
+    (state?.completedGameSyncQueue || []).map((job) => {
+      if (!ids.has(job.gameId)) return job;
+      const normalized = normalizeCompletedGameSyncJob(job);
+      return {
+        ...normalized,
+        attempts: normalized.attempts + 1,
+        lastAttemptAt: timestamp,
+        lastError: error?.message || String(error || "")
+      };
+    }),
+    state?.games || []
+  );
+}
+
 function stableGameSyncState(game, options = {}) {
   const normalized = normalizeGameSyncState(game?.sync);
   const keepActiveSync = options.keepActiveSync && game?.id && activeCompletedGameSyncs.has(game.id);
@@ -1816,17 +1899,21 @@ function buildSharedSnapshot(sourceState = state) {
   };
 }
 
-async function syncSharedSnapshot(reason = "manual") {
+async function syncSharedSnapshot(reason = "manual", options = {}) {
   if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return null;
   if (sharedSyncPromise) return sharedSyncPromise;
   sharedSyncPromise = (async () => {
     const snapshot = buildSharedSnapshot(state);
+    const deleteGameIds = Array.isArray(options?.deleteGameIds) ? options.deleteGameIds.filter(Boolean) : [];
     try {
       const [appStateResponse, gamesResponse] = await Promise.all([
         supabaseStorage.upsertAppState(snapshot),
-        supabaseStorage.replaceGamesSnapshot(snapshot.games)
+        supabaseStorage.upsertGames(snapshot.games)
       ]);
-      const error = appStateResponse.error || gamesResponse.error || null;
+      const deleteResponse = deleteGameIds.length
+        ? await supabaseStorage.deleteGames(deleteGameIds)
+        : { data: [], error: null };
+      const error = appStateResponse.error || gamesResponse.error || deleteResponse.error || null;
       if (error) {
         console.warn(`Unable to sync shared scorebook snapshot (${reason}).`, error);
         return { data: null, error };
@@ -1846,10 +1933,10 @@ async function syncSharedSnapshot(reason = "manual") {
   return sharedSyncPromise;
 }
 
-function requestSharedSnapshotSync(reason) {
+function requestSharedSnapshotSync(reason, options = {}) {
   if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return;
   setTimeout(() => {
-    syncSharedSnapshot(reason).catch((error) => {
+    syncSharedSnapshot(reason, options).catch((error) => {
       console.warn(`Shared scorebook sync failed (${reason}).`, error);
     });
   }, 0);
@@ -1904,6 +1991,63 @@ function markGameSyncFailed(game, error) {
   game.sync.lastError = error?.message || String(error || "Unable to sync game.");
 }
 
+async function processCompletedGameSyncQueue(reason = "auto") {
+  if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return null;
+  if (typeof navigator !== "undefined" && !navigator.onLine) return null;
+  if (completedGameSyncQueuePromise) return completedGameSyncQueuePromise;
+  completedGameSyncQueuePromise = (async () => {
+    try {
+      const queuedIds = queuedCompletedGameIds();
+      if (!queuedIds.length) return null;
+      const queuedGames = state.games.filter((game) => queuedIds.includes(game.id) && gameIsFinal(game));
+      if (!queuedGames.length) {
+        dequeueCompletedGameSync(queuedIds);
+        saveStateWithOptions({ markLiveGamesDirty: false });
+        render();
+        return null;
+      }
+
+      queuedGames.forEach((game) => markGameSyncStarted(game));
+      saveStateWithOptions({ markLiveGamesDirty: false });
+      render();
+
+      const syncResponse = await syncSharedSnapshot(`completed-game-queue-${reason}`);
+      const error = syncResponse?.error || null;
+      if (error) {
+        updateCompletedGameSyncQueueAttempt(queuedIds, error);
+        queuedGames.forEach((game) => markGameSyncFailed(game, error));
+        saveStateWithOptions({ markLiveGamesDirty: false });
+        render();
+        return { data: null, error };
+      }
+
+      const syncedFinalIds = state.games.filter((game) => gameIsFinal(game)).map((game) => game.id);
+      state.games.filter((game) => gameIsFinal(game)).forEach((game) => markGameSyncSucceeded(game));
+      dequeueCompletedGameSync(syncedFinalIds);
+      saveStateWithOptions({ markLiveGamesDirty: false });
+      render();
+      syncSharedSnapshot("sync-completed-game-status").catch((persistError) => {
+        console.warn("Unable to persist completed-game sync status after publish.", persistError);
+      });
+      return syncResponse;
+    } finally {
+      completedGameSyncQueuePromise = null;
+    }
+  })();
+  return completedGameSyncQueuePromise;
+}
+
+function requestCompletedGameSyncRetry(reason = "auto") {
+  if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return;
+  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+  if (!queuedCompletedGameIds().length) return;
+  setTimeout(() => {
+    processCompletedGameSyncQueue(reason).catch((error) => {
+      console.warn(`Completed-game retry queue failed (${reason}).`, error);
+    });
+  }, 0);
+}
+
 function canSyncGame(game) {
   return Boolean(
     game
@@ -1927,32 +2071,16 @@ async function syncCompletedGame(gameId) {
     return null;
   }
   if (typeof navigator !== "undefined" && !navigator.onLine) {
+    queueCompletedGameSync(game.id);
     markGameSyncFailed(game, new Error("Device is offline."));
     saveStateWithOptions({ markLiveGamesDirty: false });
     render();
     return null;
   }
 
-  markGameSyncStarted(game);
+  queueCompletedGameSync(game.id);
   saveStateWithOptions({ markLiveGamesDirty: false });
-  render();
-
-  const syncResponse = await syncSharedSnapshot("sync-completed-game");
-  const error = syncResponse?.error || null;
-  if (error) {
-    markGameSyncFailed(game, error);
-    saveStateWithOptions({ markLiveGamesDirty: false });
-    render();
-    return { data: null, error };
-  }
-
-  state.games.filter((item) => gameIsFinal(item)).forEach((item) => markGameSyncSucceeded(item));
-  saveStateWithOptions({ markLiveGamesDirty: false });
-  render();
-  syncSharedSnapshot("sync-completed-game-status").catch((persistError) => {
-    console.warn("Unable to persist completed-game sync status after publish.", persistError);
-  });
-  return syncResponse;
+  return processCompletedGameSyncQueue("manual");
 }
 
 function formatSyncTimestamp(timestamp) {
@@ -2229,6 +2357,7 @@ async function applySupabaseAdminState(user, options = {}) {
       console.warn("Unable to seed Supabase from local scorebook data.", seedError);
     });
   }
+  requestCompletedGameSyncRetry("admin-ready");
   return true;
 }
 
@@ -2667,7 +2796,10 @@ function bindEvents() {
     saveState();
     render();
   });
-  window.addEventListener("online", render);
+  window.addEventListener("online", () => {
+    render();
+    requestCompletedGameSyncRetry("online");
+  });
   window.addEventListener("offline", render);
   els.finishGameBtn.addEventListener("click", finishGame);
 
@@ -6813,11 +6945,12 @@ function removeScheduledGame(gameId) {
   const ok = window.confirm(`Remove ${game.opponent} on ${game.date || "this date"}?`);
   if (!ok) return;
   deleteGame(gameId);
+  dequeueCompletedGameSync(gameId);
   if (!state.activeGameId) state.activeGameId = inProgressGames()[0]?.id || "";
   if (gameEditId === gameId) gameEditId = null;
   saveState();
   render();
-  requestSharedSnapshotSync("remove-scheduled-game");
+  requestSharedSnapshotSync("remove-scheduled-game", { deleteGameIds: [gameId] });
 }
 
 function openLineupBuilder(gameId, returnView = "games") {

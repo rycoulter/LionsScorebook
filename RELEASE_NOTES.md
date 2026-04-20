@@ -7,6 +7,8 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Added a lightweight completed-game publish retry queue so tapping Sync now survives failed/offline attempts, remembers the pending publish locally, and automatically retries after the device reconnects or an admin session comes back.
+- Hardened Supabase game sync so shared bootstrap now merges remote games by ID without wiping local-only games, normal shared sync uses upserts instead of full-snapshot deletes, and game removal issues an explicit targeted delete only for the game an admin intentionally removed.
 - Tightened the responsive layout across the app with a broader mobile/tablet pass for page headers, forms, card grids, and especially the Box Score controls, summary, tabs, and tables.
 - Anchored the Public View/Admin Sign In/build utility bar to the bottom of the page on mobile and tablet layouts so it no longer floats over the home content.
 - Renamed the completed-games section back to Game Archive and removed the extra View Stats action from completed-game cards so the game window stays tighter.

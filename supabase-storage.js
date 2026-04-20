@@ -57,7 +57,38 @@
       }
     }
     if (Array.isArray(gamesRows)) {
-      nextState.games = gamesRows.map((row) => deepClone(row.game_data || null)).filter(Boolean);
+      const localGames = Array.isArray(nextState.games) ? nextState.games.map((game) => deepClone(game)).filter(Boolean) : [];
+      const remoteGamesById = new Map(
+        gamesRows
+          .map((row) => {
+            const game = deepClone(row.game_data || null);
+            const id = row.id || game?.id || "";
+            return id && game ? [id, game] : null;
+          })
+          .filter(Boolean)
+      );
+      const mergedGames = [];
+      const seenIds = new Set();
+      localGames.forEach((game) => {
+        const gameId = game?.id || "";
+        if (!gameId || seenIds.has(gameId)) return;
+        const remoteGame = remoteGamesById.get(gameId);
+        if (remoteGame && game.status !== "active") {
+          mergedGames.push(remoteGame);
+          seenIds.add(gameId);
+          remoteGamesById.delete(gameId);
+          return;
+        }
+        mergedGames.push(game);
+        seenIds.add(gameId);
+        remoteGamesById.delete(gameId);
+      });
+      remoteGamesById.forEach((game, gameId) => {
+        if (!gameId || seenIds.has(gameId)) return;
+        mergedGames.push(game);
+        seenIds.add(gameId);
+      });
+      nextState.games = mergedGames;
     }
     return nextState;
   }
@@ -133,23 +164,19 @@
   }
 
   async function replaceGamesSnapshot(games = []) {
+    return upsertGames(games);
+  }
+
+  async function deleteGames(gameIds = []) {
     const client = getClient();
     if (!client) return { data: [], error: new Error("Supabase client not ready.") };
-    const ids = games.filter((game) => game?.id).map((game) => game.id);
-    const existingResponse = await client.from("games").select("id");
-    if (existingResponse.error) {
-      return { data: [], error: existingResponse.error };
-    }
-    const staleIds = (existingResponse.data || [])
-      .map((row) => row.id)
-      .filter((id) => !ids.includes(id));
-    if (staleIds.length) {
-      const deleteResponse = await client.from("games").delete().in("id", staleIds);
-      if (deleteResponse.error) {
-        return { data: [], error: deleteResponse.error };
-      }
-    }
-    return upsertGames(games);
+    const ids = [...new Set(gameIds.filter(Boolean))];
+    if (!ids.length) return { data: [], error: null };
+    return client
+      .from("games")
+      .delete()
+      .in("id", ids)
+      .select("id");
   }
 
   async function isAdminEmail(email) {
@@ -181,6 +208,7 @@
     upsertGames,
     pushSnapshot,
     replaceGamesSnapshot,
+    deleteGames,
     isAdminEmail
   };
 })(window);
