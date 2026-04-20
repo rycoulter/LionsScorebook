@@ -505,7 +505,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-95";
+const APP_VERSION = "2026.04.20-build-96";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -571,6 +571,7 @@ let pendingAdminView = "";
 let supabaseBootstrapPromise = null;
 let sharedSyncPromise = null;
 let supabaseAdminEmail = "";
+const activeCompletedGameSyncs = new Set();
 const weatherCache = {};
 const weatherRequests = {};
 
@@ -1606,6 +1607,20 @@ function normalizeGameSyncState(sync = {}) {
   };
 }
 
+function stableGameSyncState(game, options = {}) {
+  const normalized = normalizeGameSyncState(game?.sync);
+  const keepActiveSync = options.keepActiveSync && game?.id && activeCompletedGameSyncs.has(game.id);
+  if (keepActiveSync) return normalized;
+  if (normalized.status === "syncing") {
+    return {
+      ...normalized,
+      status: normalized.lastSyncedAt ? "synced" : "pending",
+      lastError: ""
+    };
+  }
+  return normalized;
+}
+
 function nextPitchCount(ballsBefore, strikesBefore, outcome) {
   let balls = ballsBefore;
   let strikes = strikesBefore;
@@ -1785,7 +1800,13 @@ function isCloudSyncedGame(game) {
 }
 
 function buildSharedSnapshot(sourceState = state) {
-  const sharedGames = (sourceState?.games || []).filter(isCloudSyncedGame).map((game) => deepClone(game));
+  const sharedGames = (sourceState?.games || [])
+    .filter(isCloudSyncedGame)
+    .map((game) => {
+      const sharedGame = deepClone(game);
+      sharedGame.sync = stableGameSyncState(game);
+      return sharedGame;
+    });
   return {
     roster: deepClone(sourceState?.roster || []),
     lineup: deepClone(sourceState?.lineup || []),
@@ -1848,6 +1869,7 @@ async function seedSupabaseFromLocalIfEmpty() {
 
 function markGameSyncPending(game) {
   if (!game) return;
+  activeCompletedGameSyncs.delete(game.id);
   game.sync = normalizeGameSyncState(game.sync);
   if (game.sync.status === "syncing") return;
   game.sync.status = "pending";
@@ -1856,6 +1878,7 @@ function markGameSyncPending(game) {
 
 function markGameSyncStarted(game) {
   if (!game) return;
+  activeCompletedGameSyncs.add(game.id);
   game.sync = normalizeGameSyncState(game.sync);
   game.sync.status = "syncing";
   game.sync.lastAttemptAt = new Date().toISOString();
@@ -1864,6 +1887,7 @@ function markGameSyncStarted(game) {
 
 function markGameSyncSucceeded(game) {
   if (!game) return;
+  activeCompletedGameSyncs.delete(game.id);
   game.sync = normalizeGameSyncState(game.sync);
   game.sync.status = "synced";
   game.sync.lastSyncedAt = new Date().toISOString();
@@ -1873,6 +1897,7 @@ function markGameSyncSucceeded(game) {
 
 function markGameSyncFailed(game, error) {
   if (!game) return;
+  activeCompletedGameSyncs.delete(game.id);
   game.sync = normalizeGameSyncState(game.sync);
   game.sync.status = "error";
   game.sync.lastAttemptAt = new Date().toISOString();
@@ -1924,6 +1949,9 @@ async function syncCompletedGame(gameId) {
   state.games.filter((item) => gameIsFinal(item)).forEach((item) => markGameSyncSucceeded(item));
   saveStateWithOptions({ markLiveGamesDirty: false });
   render();
+  syncSharedSnapshot("sync-completed-game-status").catch((persistError) => {
+    console.warn("Unable to persist completed-game sync status after publish.", persistError);
+  });
   return syncResponse;
 }
 
@@ -1943,7 +1971,7 @@ function renderLiveSyncStatus(game = activeScoreGame()) {
   if (!els.syncStatusText || !els.syncStatusRow || !els.syncGameBtn) return;
   const admin = isAdminMode();
   const online = typeof navigator === "undefined" ? true : navigator.onLine;
-  const syncState = normalizeGameSyncState(game?.sync);
+  const syncState = stableGameSyncState(game, { keepActiveSync: true });
   let message = "Local scoring is ready on this iPad.";
 
   if (!game) {
@@ -6641,7 +6669,7 @@ function renderScheduleGameCard(game, activeId = "") {
   const cardClass = `game-card${active} is-${lifecycle}`;
   const matchupImage = matchupImageForGame(game);
   const location = gameLocationLabel(game);
-  const syncState = normalizeGameSyncState(game.sync);
+  const syncState = stableGameSyncState(game, { keepActiveSync: true });
   const completedSyncMeta = completed ? completedGameSyncMeta(game, syncState) : "";
   const completedSyncButton = admin && completed
     ? `<button type="button" class="secondary-action" data-game-action="sync" data-game-id="${game.id}" ${(!canSyncGame(game) || syncState.status === "syncing") ? "disabled" : ""}>${syncState.status === "syncing" ? "Syncing..." : "Sync Completed Game"}</button>`
@@ -6686,7 +6714,7 @@ function renderScheduleGameCard(game, activeId = "") {
   </article>`;
 }
 
-function completedGameSyncMeta(game, syncState = normalizeGameSyncState(game?.sync)) {
+function completedGameSyncMeta(game, syncState = stableGameSyncState(game, { keepActiveSync: true })) {
   if (!gameIsFinal(game)) return "";
   let message = "Stored on this iPad. Sync after the game when you are back online.";
   if (syncState.status === "syncing") {
