@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Added a first-pass public/admin access mode with public read-only navigation for Home, Schedule & Scores, Stats, Archive, Scorebook, and Box Score, plus a single-password admin unlock for scoring and editing tools that stays unlocked across refreshes on the same device.
 - Corrected the Score Game header again so when the Lions are batting the pitcher row is fully replaced by Count and Outs, and Count/Outs no longer duplicate in the Current Batter card or the top header blocks during Lions at-bats.
 - Fixed the Score Game header layout so the Lions pitcher row only shows while the opponent is batting, and when the Lions are batting that same row now shows Count and Outs instead of repeating them inside the Current Batter card.
 - Removed Scorebook from the main header tabs and added a View Scorebook action at the bottom of Score Game so scorebook access stays tied to the current game being scored.

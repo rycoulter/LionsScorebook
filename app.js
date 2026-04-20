@@ -505,9 +505,14 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-70";
+const APP_VERSION = "2026.04.20-build-72";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
+const ACCESS_MODE_STORAGE_KEY = "oakmont-lions-access-mode-v1";
+const ADMIN_PASSWORD = "Lions2026!!!";
+const PUBLIC_TAB_VIEWS = new Set(["home", "games", "stats", "archive"]);
+const PUBLIC_READ_VIEWS = new Set(["home", "games", "stats", "archive", "scorebook", "boxscore"]);
+const ADMIN_TAB_VIEWS = new Set(["home", "score", "games", "lineup", "roster", "stats", "scouting", "archive", "analysis"]);
 
 const FIELD_LOCATIONS = [
   { name: "Herschel Park", address: "800 Herschel St, Pittsburgh, PA 15220" },
@@ -528,6 +533,7 @@ const FIELD_LOCATION_COORDINATES = {
 };
 
 let state = loadState();
+let accessMode = loadAccessMode();
 let optimizedIds = [];
 let pendingSpray = null;
 let lineupBuilderGameId = null;
@@ -544,6 +550,7 @@ let scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
 let scorebookGameId = "";
 let boxScoreGameId = "";
 let boxScoreTeam = "lions";
+let boxScoreReturnView = "analysis";
 let gameSummaryId = "";
 let bipOutcomeChosen = false;
 let awaitingSprayLocation = false;
@@ -556,6 +563,8 @@ let gameFilter = "all";
 let lineupBuilderReturnView = "games";
 let lineupBuilderSelectedEntryId = "";
 let selectedFieldRunnerBase = "";
+let currentView = "home";
+let pendingAdminView = "";
 const weatherCache = {};
 const weatherRequests = {};
 
@@ -564,6 +573,15 @@ const els = {
   views: [...document.querySelectorAll(".view")],
   homeScoreGameBtn: document.getElementById("homeScoreGameBtn"),
   homeStartGameBtn: document.getElementById("homeStartGameBtn"),
+  accessModeBadge: document.getElementById("accessModeBadge"),
+  adminUnlockBtn: document.getElementById("adminUnlockBtn"),
+  adminLockBtn: document.getElementById("adminLockBtn"),
+  adminAuthModal: document.getElementById("adminAuthModal"),
+  adminAuthMessage: document.getElementById("adminAuthMessage"),
+  adminAuthModeLabel: document.getElementById("adminAuthModeLabel"),
+  adminPasswordInput: document.getElementById("adminPasswordInput"),
+  adminAuthCancelBtn: document.getElementById("adminAuthCancelBtn"),
+  adminAuthSubmitBtn: document.getElementById("adminAuthSubmitBtn"),
   homeRecord: document.getElementById("homeRecord"),
   homeRunSummary: document.getElementById("homeRunSummary"),
   homeMatchupImage: document.getElementById("homeMatchupImage"),
@@ -1670,9 +1688,121 @@ function saveState() {
   storage.saveAppState(state);
 }
 
+function loadAccessMode() {
+  try {
+    return window.localStorage?.getItem(ACCESS_MODE_STORAGE_KEY) === "admin" ? "admin" : "public";
+  } catch (error) {
+    console.warn("Unable to load access mode.", error);
+    return "public";
+  }
+}
+
+function saveAccessMode() {
+  try {
+    window.localStorage?.setItem(ACCESS_MODE_STORAGE_KEY, accessMode);
+  } catch (error) {
+    console.warn("Unable to save access mode.", error);
+  }
+}
+
+function isAdminMode() {
+  return accessMode === "admin";
+}
+
+function canAccessView(view) {
+  return isAdminMode() || PUBLIC_READ_VIEWS.has(view);
+}
+
+function visibleTabViews() {
+  return isAdminMode() ? ADMIN_TAB_VIEWS : PUBLIC_TAB_VIEWS;
+}
+
+function openAdminAuthModal(message = "Enter the admin password to unlock scoring and editing.") {
+  if (!els.adminAuthModal) return;
+  if (els.adminAuthMessage) els.adminAuthMessage.textContent = message;
+  if (els.adminAuthModeLabel) els.adminAuthModeLabel.textContent = isAdminMode() ? "Admin tools are unlocked." : "Public view is read-only.";
+  els.adminAuthModal.hidden = false;
+  if (els.adminPasswordInput) {
+    els.adminPasswordInput.value = "";
+    setTimeout(() => els.adminPasswordInput.focus(), 0);
+  }
+}
+
+function closeAdminAuthModal() {
+  if (!els.adminAuthModal) return;
+  els.adminAuthModal.hidden = true;
+  if (els.adminPasswordInput) els.adminPasswordInput.value = "";
+}
+
+function requireAdminAccess(message = "Admin sign-in required.") {
+  if (isAdminMode()) return true;
+  openAdminAuthModal(message);
+  return false;
+}
+
+function setAccessMode(nextMode) {
+  accessMode = nextMode === "admin" ? "admin" : "public";
+  saveAccessMode();
+  if (!canAccessView(currentView)) currentView = "home";
+  closeAdminAuthModal();
+  render();
+  switchView(currentView);
+}
+
+function submitAdminPassword() {
+  const password = els.adminPasswordInput?.value || "";
+  if (password !== ADMIN_PASSWORD) {
+    if (els.adminAuthMessage) els.adminAuthMessage.textContent = "Password not recognized. Try again.";
+    if (els.adminPasswordInput) {
+      els.adminPasswordInput.focus();
+      els.adminPasswordInput.select();
+    }
+    return;
+  }
+  const destination = pendingAdminView && canAccessView("home") ? pendingAdminView : currentView;
+  pendingAdminView = "";
+  setAccessMode("admin");
+  if (destination && destination !== currentView) switchView(destination);
+}
+
+function renderAccessMode() {
+  document.body.dataset.accessMode = accessMode;
+  if (els.accessModeBadge) els.accessModeBadge.textContent = isAdminMode() ? "Admin Mode" : "Public View";
+  if (els.adminUnlockBtn) els.adminUnlockBtn.hidden = isAdminMode();
+  if (els.adminLockBtn) els.adminLockBtn.hidden = !isAdminMode();
+  if (els.boxScoreBackBtn) els.boxScoreBackBtn.textContent = isAdminMode() ? "Back to Analysis" : "Back to Games";
+  if (els.tabs?.length) {
+    const allowedTabs = visibleTabViews();
+    els.tabs.forEach((tab) => {
+      const visible = allowedTabs.has(tab.dataset.view);
+      tab.hidden = !visible;
+    });
+  }
+}
+
 function bindEvents() {
   els.tabs.forEach((tab) => {
     tab.addEventListener("click", () => switchView(tab.dataset.view));
+  });
+  els.adminUnlockBtn?.addEventListener("click", () => openAdminAuthModal());
+  els.adminLockBtn?.addEventListener("click", () => {
+    pendingAdminView = "";
+    setAccessMode("public");
+  });
+  els.adminAuthCancelBtn?.addEventListener("click", closeAdminAuthModal);
+  els.adminAuthSubmitBtn?.addEventListener("click", submitAdminPassword);
+  els.adminPasswordInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      submitAdminPassword();
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeAdminAuthModal();
+    }
+  });
+  els.adminAuthModal?.addEventListener("click", (event) => {
+    if (event.target === els.adminAuthModal) closeAdminAuthModal();
   });
   els.homeScoreGameBtn.addEventListener("click", openCurrentGameForScoring);
   els.homeStartGameBtn?.addEventListener("click", startNextGameFromHome);
@@ -1692,7 +1822,7 @@ function bindEvents() {
     boxScoreGameId = els.boxScoreGameSelect.value;
     renderBoxScore();
   });
-  els.boxScoreBackBtn?.addEventListener("click", () => switchView("analysis"));
+  els.boxScoreBackBtn?.addEventListener("click", () => switchView(boxScoreReturnView || (isAdminMode() ? "analysis" : "games")));
   els.boxScoreTeamTabs?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-box-score-team]");
     if (!button) return;
@@ -1721,11 +1851,15 @@ function bindEvents() {
   els.gamesGrid.addEventListener("click", (event) => {
     const button = event.target.closest("[data-game-action]");
     if (!button) return;
-    if (button.dataset.gameAction === "score" || button.dataset.gameAction === "start") scoreScheduledGame(button.dataset.gameId);
-    if (button.dataset.gameAction === "complete") completeScheduledGame(button.dataset.gameId);
-    if (button.dataset.gameAction === "edit") openGameEditor(button.dataset.gameId);
-    if (button.dataset.gameAction === "summary") openGameSummary(button.dataset.gameId);
-    if (button.dataset.gameAction === "delete") removeScheduledGame(button.dataset.gameId);
+    const action = button.dataset.gameAction;
+    if (["summary", "scorebook", "stats", "boxscore"].includes(action)) {
+      handleGameActionClick(event);
+      return;
+    }
+    if (action === "score" || action === "start") scoreScheduledGame(button.dataset.gameId);
+    if (action === "complete") completeScheduledGame(button.dataset.gameId);
+    if (action === "edit") openGameEditor(button.dataset.gameId);
+    if (action === "delete") removeScheduledGame(button.dataset.gameId);
   });
   els.gamesArchiveNote?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-game-action='archive']");
@@ -1998,6 +2132,7 @@ function bindEvents() {
   });
 
   els.applyOptimizedBtn.addEventListener("click", () => {
+    if (!requireAdminAccess("Admin sign-in required to apply lineup changes.")) return;
     if (!optimizedIds.length) optimizedIds = buildOptimizedLineup();
     const game = activeGame();
     game.lineupEntries = makeLineupEntries(optimizedIds);
@@ -2020,6 +2155,7 @@ function bindEvents() {
   });
 
   els.rosterGrid.addEventListener("change", (event) => {
+    if (!isAdminMode()) return;
     const input = event.target.closest("[data-player-edit]");
     if (!input) return;
     const card = event.target.closest("[data-player-id]");
@@ -2071,8 +2207,20 @@ function bindEvents() {
 }
 
 function switchView(view) {
-  els.tabs.forEach((tab) => tab.classList.toggle("is-active", tab.dataset.view === view));
-  els.views.forEach((panel) => panel.classList.toggle("is-visible", panel.dataset.panel === view));
+  let nextView = view;
+  if (!canAccessView(nextView)) {
+    pendingAdminView = nextView;
+    openAdminAuthModal("Admin sign-in required to open that area.");
+    nextView = canAccessView(currentView) ? currentView : "home";
+  }
+  currentView = nextView;
+  const allowedTabs = visibleTabViews();
+  els.tabs.forEach((tab) => {
+    const visible = allowedTabs.has(tab.dataset.view);
+    tab.hidden = !visible;
+    tab.classList.toggle("is-active", visible && tab.dataset.view === nextView);
+  });
+  els.views.forEach((panel) => panel.classList.toggle("is-visible", panel.dataset.panel === nextView));
 }
 
 function activeGame() {
@@ -3592,6 +3740,7 @@ function startNewGame() {
 }
 
 function scheduleGame() {
+  if (!requireAdminAccess("Admin sign-in required to create games.")) return;
   const opponent = els.opponentInput.value.trim() || "Opponent";
   const date = selectedGameDate(els.gameDateInput);
   if (isPastGameDate(date)) {
@@ -3619,6 +3768,7 @@ function scheduleGame() {
 }
 
 function showGameCreateForm() {
+  if (!requireAdminAccess("Admin sign-in required to create games.")) return;
   if (!els.gameForm) return;
   els.gameForm.hidden = false;
   els.scheduleGameBtn.hidden = true;
@@ -3662,6 +3812,7 @@ function resetGameCreationForm() {
 }
 
 function scoreScheduledGame(gameId) {
+  if (!requireAdminAccess("Admin sign-in required to score games.")) return;
   const game = state.games.find((item) => item.id === gameId);
   if (!game) return;
   if (gameIsFinal(game)) return;
@@ -3677,6 +3828,7 @@ function scoreScheduledGame(gameId) {
 }
 
 function confirmLineupAndStartGame() {
+  if (!requireAdminAccess("Admin sign-in required to start games.")) return;
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   if (!game || gameIsFinal(game)) return;
   const readiness = lineupReadiness(game);
@@ -3710,6 +3862,7 @@ function confirmLineupAndStartGame() {
 }
 
 function startNextGameFromHome() {
+  if (!requireAdminAccess("Admin sign-in required to start games.")) return;
   const next = nextScheduledGame();
   if (!next) return;
   openLineupBuilder(next.id, "home");
@@ -3722,6 +3875,7 @@ function handleGameActionClick(event) {
   if (button.dataset.gameAction === "summary") openGameSummary(gameId);
   if (button.dataset.gameAction === "scorebook") openGameScorebook(gameId);
   if (button.dataset.gameAction === "stats") openGameStats(gameId);
+  if (button.dataset.gameAction === "boxscore") openBoxScore(gameId);
 }
 
 function openGameSummary(gameId) {
@@ -3741,6 +3895,7 @@ function openGameScorebook(gameId) {
 
 function openBoxScore(gameId) {
   if (!state.games.some((game) => game.id === gameId)) return;
+  boxScoreReturnView = canAccessView(currentView) ? currentView : (isAdminMode() ? "analysis" : "games");
   boxScoreGameId = gameId;
   renderBoxScore();
   switchView("boxscore");
@@ -3758,6 +3913,7 @@ function openGameStats(gameId) {
 }
 
 function completeScheduledGame(gameId) {
+  if (!requireAdminAccess("Admin sign-in required to change game status.")) return;
   const game = state.games.find((item) => item.id === gameId);
   if (!game) return;
   if (game.status !== "active") return;
@@ -3769,6 +3925,7 @@ function completeScheduledGame(gameId) {
 }
 
 function finishGame() {
+  if (!requireAdminAccess("Admin sign-in required to complete games.")) return;
   const current = activeGame();
   if (gameIsScoreLocked(current)) return;
   current.status = "completed";
@@ -3780,6 +3937,7 @@ function finishGame() {
 }
 
 function addPlayer() {
+  if (!requireAdminAccess("Admin sign-in required to edit the roster.")) return;
   const name = els.playerName.value.trim();
   if (!name) return;
   const player = makePlayer(
@@ -3800,6 +3958,7 @@ function addPlayer() {
 
 function render() {
   const scoreGame = activeScoreGame();
+  renderAccessMode();
   renderHome();
   renderScoreEmptyState(scoreGame);
   if (scoreGame) {
@@ -3831,7 +3990,8 @@ function render() {
   renderTraditionalScorebook();
   if (!optimizedIds.length) optimizedIds = buildOptimizedLineup();
   renderOptimizedLineup();
-  if (!scoreGame || gameIsScoreLocked(scoreGame)) setScoreGameLocked(true, scoreGame);
+  if (!scoreGame || gameIsScoreLocked(scoreGame) || !isAdminMode()) setScoreGameLocked(true, scoreGame);
+  else setScoreGameLocked(false, scoreGame);
 }
 
 function renderScoreEmptyState(scoreGame = activeScoreGame()) {
@@ -3841,6 +4001,7 @@ function renderScoreEmptyState(scoreGame = activeScoreGame()) {
 }
 
 function renderHome() {
+  const admin = isAdminMode();
   const record = seasonRecord();
   const upcoming = upcomingScheduledGames(3);
   const next = upcoming[0] || null;
@@ -3848,13 +4009,16 @@ function renderHome() {
   els.homeRecord.textContent = `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""}`;
   els.homeRunSummary.textContent = `${record.runsFor} RF | ${record.runsAgainst} RA`;
   if (els.homeScoreGameBtn) {
-    els.homeScoreGameBtn.disabled = !inProgress;
+    els.homeScoreGameBtn.hidden = !admin;
+    els.homeScoreGameBtn.disabled = !admin || !inProgress;
     els.homeScoreGameBtn.textContent = inProgress ? "Score Active Game" : "No Game In Progress";
   }
   if (els.homeStartGameBtn) {
-    els.homeStartGameBtn.disabled = !next;
-    els.homeStartGameBtn.hidden = !next;
+    els.homeStartGameBtn.disabled = !admin || !next;
+    els.homeStartGameBtn.hidden = !admin || !next;
   }
+  if (els.homeScoutingBtn) els.homeScoutingBtn.hidden = !admin;
+  if (els.homeGamesBtn) els.homeGamesBtn.textContent = admin ? "Manage Games" : "Schedule & Scores";
   if (next) {
     els.homeNextGame.textContent = gameMatchupLabel(next);
     els.homeNextGameMeta.textContent = gameScheduleMeta(next);
@@ -3863,16 +4027,16 @@ function renderHome() {
       els.homeNextGameWeather.innerHTML = renderWeatherChip(next);
     }
     setHomeMatchupImage(next.opponent);
-    els.homeScoutingBtn.disabled = false;
+    if (els.homeScoutingBtn) els.homeScoutingBtn.disabled = !admin;
   } else {
     els.homeNextGame.textContent = "No upcoming game scheduled";
-    els.homeNextGameMeta.textContent = "Create a game from the Games tab.";
+    els.homeNextGameMeta.textContent = admin ? "Create a game from the Games tab." : "Schedule and score updates show up here automatically.";
     if (els.homeNextGameWeather) {
       delete els.homeNextGameWeather.dataset.weatherGameId;
       els.homeNextGameWeather.textContent = "Add date and field location for weather.";
     }
     setHomeMatchupImage("");
-    els.homeScoutingBtn.disabled = true;
+    if (els.homeScoutingBtn) els.homeScoutingBtn.disabled = true;
   }
   const nextTwo = upcoming.slice(1, 3);
   if (els.homeUpcomingGames) {
@@ -4032,7 +4196,7 @@ function renderUpcomingGameCard(game) {
       <h4>${escapeHtml(gameMatchupLabel(game))}</h4>
       <p class="player-meta">${escapeHtml(gameScheduleMeta(game))}</p>
       <div class="weather-chip" data-weather-game-id="${escapeHtml(game.id)}">${renderWeatherChip(game)}</div>
-      <button type="button" class="secondary-action upcoming-scout-button" data-home-scout-opponent="${escapeHtml(game.opponent)}">View Scouting Report</button>
+      ${isAdminMode() ? `<button type="button" class="secondary-action upcoming-scout-button" data-home-scout-opponent="${escapeHtml(game.opponent)}">View Scouting Report</button>` : ""}
     </div>
   </article>`;
 }
@@ -4047,6 +4211,7 @@ function renderPastGameCard(game) {
       <p class="player-meta">${escapeHtml(game.date || "No date")}</p>
       <div class="button-row">
         <button type="button" class="secondary-action" data-game-action="summary" data-game-id="${escapeHtml(game.id)}">View Summary</button>
+        <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">Box Score</button>
         <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">Scorebook</button>
       </div>
     </div>
@@ -4148,6 +4313,7 @@ function weatherCondition(code) {
 }
 
 function openCurrentGameForScoring() {
+  if (!requireAdminAccess("Admin sign-in required to score games.")) return;
   const current = inProgressGames()[0] || null;
   if (!current) {
     switchView("games");
@@ -4160,6 +4326,7 @@ function openCurrentGameForScoring() {
 }
 
 function openNextGameScouting() {
+  if (!requireAdminAccess("Admin sign-in required to open scouting tools.")) return;
   const next = nextScheduledGame();
   openScoutingForOpponent(next?.opponent || "");
 }
@@ -5169,6 +5336,7 @@ function renderSubControls() {
 }
 
 function applySubstitution() {
+  if (!requireAdminAccess("Admin sign-in required to change the live lineup.")) return;
   const game = activeGame();
   const entryId = els.subSpotSelect.value;
   const playerId = els.subPlayerSelect.value;
@@ -5609,6 +5777,7 @@ function renderArchiveCard(game) {
     ${topEvents || `<div class="archive-meta">No offensive events logged.</div>`}
     <div class="game-actions">
       ${final ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${escapeHtml(game.id)}">View Summary</button>` : ""}
+      <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
       ${final ? `<button type="button" class="secondary-action" data-game-action="stats" data-game-id="${escapeHtml(game.id)}">View Stats</button>` : ""}
       <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">View Scorebook</button>
     </div>
@@ -5640,6 +5809,7 @@ function renderGameSummary() {
     </div>
     <div class="button-row">
       <button type="button" class="primary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">View Scorebook</button>
+      <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
       <button type="button" class="secondary-action" data-game-action="stats" data-game-id="${escapeHtml(game.id)}">View Stats</button>
     </div>`;
 }
@@ -5694,8 +5864,16 @@ function renderGameSummaryPitcher(row) {
 }
 
 function renderGames() {
+  const admin = isAdminMode();
   const activeId = activeScoreGame()?.id || "";
   renderRecordSummary();
+  if (!admin) {
+    if (els.gameForm) els.gameForm.hidden = true;
+    if (els.scheduleGameBtn) els.scheduleGameBtn.hidden = true;
+    gameEditId = null;
+  } else if (els.scheduleGameBtn) {
+    els.scheduleGameBtn.hidden = !els.gameForm?.hidden;
+  }
   if (els.gameFilterRow) {
     els.gameFilterRow.querySelectorAll("[data-game-filter]").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.gameFilter === gameFilter);
@@ -5768,6 +5946,7 @@ function renderGameOrderSection(title, subtitle, games, activeId, type) {
 }
 
 function renderScheduleGameCard(game, activeId = "") {
+  const admin = isAdminMode();
   const locked = gameIsFinal(game);
   const lifecycle = gameLifecycle(game);
   const active = game.id === activeId && lifecycle === "active" ? " is-active" : "";
@@ -5778,10 +5957,20 @@ function renderScheduleGameCard(game, activeId = "") {
   const cardClass = `game-card${active} is-${lifecycle}`;
   const matchupImage = matchupImageForGame(game);
   const location = gameLocationLabel(game);
-  const primaryAction = lifecycle === "active"
-    ? `<button type="button" class="primary-action" data-game-action="score" data-game-id="${game.id}">${game.id === activeId ? "Continue Scoring" : "Open In Progress"}</button>`
-    : lifecycle === "future"
-      ? `<button type="button" class="primary-action" data-game-action="start" data-game-id="${game.id}">Start Game</button>`
+  const primaryAction = admin
+    ? (lifecycle === "active"
+      ? `<button type="button" class="primary-action" data-game-action="score" data-game-id="${game.id}">${game.id === activeId ? "Continue Scoring" : "Open In Progress"}</button>`
+      : lifecycle === "future"
+        ? `<button type="button" class="primary-action" data-game-action="start" data-game-id="${game.id}">Start Game</button>`
+        : "")
+    : "";
+  const publicActions = lifecycle === "completed"
+    ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${game.id}">View Summary</button>
+       <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${game.id}">View Box Score</button>
+       <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${game.id}">View Scorebook</button>`
+    : lifecycle === "active"
+      ? `<button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${game.id}">View Box Score</button>
+         <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${game.id}">View Scorebook</button>`
       : "";
   const canComplete = lifecycle === "active";
   return `<article class="${cardClass}">
@@ -5796,10 +5985,12 @@ function renderScheduleGameCard(game, activeId = "") {
     ${!completed && game.notes ? `<div class="archive-meta">${escapeHtml(game.notes)}</div>` : ""}
     <div class="game-actions">
       ${primaryAction}
-      ${completed ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${game.id}">View Summary</button>` : ""}
-      <button type="button" class="secondary-action" data-game-action="edit" data-game-id="${game.id}" ${locked ? "disabled" : ""}>Edit</button>
-      <button type="button" class="secondary-action" data-game-action="complete" data-game-id="${game.id}" ${canComplete ? "" : "disabled"}>Mark Final</button>
-      <button type="button" class="secondary-action danger-action" data-game-action="delete" data-game-id="${game.id}">Remove</button>
+      ${admin
+        ? `${completed ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${game.id}">View Summary</button>` : ""}
+           <button type="button" class="secondary-action" data-game-action="edit" data-game-id="${game.id}" ${locked ? "disabled" : ""}>Edit</button>
+           <button type="button" class="secondary-action" data-game-action="complete" data-game-id="${game.id}" ${canComplete ? "" : "disabled"}>Mark Final</button>
+           <button type="button" class="secondary-action danger-action" data-game-action="delete" data-game-id="${game.id}">Remove</button>`
+        : publicActions}
     </div>
   </article>`;
 }
@@ -5822,6 +6013,7 @@ function renderRecordSummary() {
 }
 
 function openGameEditor(gameId) {
+  if (!requireAdminAccess("Admin sign-in required to edit games.")) return;
   const game = state.games.find((item) => item.id === gameId);
   if (!game) return;
   if (gameIsFinal(game)) return;
@@ -5838,7 +6030,7 @@ function openGameEditor(gameId) {
 
 function renderGameEditor() {
   const game = state.games.find((item) => item.id === gameEditId);
-  els.gameEditPanel.classList.toggle("is-visible", Boolean(game));
+  els.gameEditPanel.classList.toggle("is-visible", Boolean(game) && isAdminMode());
   if (!game) return;
   els.gameEditTitle.textContent = `Edit ${gameMatchupLabel(game)}`;
   renderGameEditorPreview();
@@ -5856,6 +6048,7 @@ function renderGameEditorPreview() {
 }
 
 function saveGameEdits() {
+  if (!requireAdminAccess("Admin sign-in required to edit games.")) return;
   const game = state.games.find((item) => item.id === gameEditId);
   if (!game) return;
   if (gameIsFinal(game)) return;
@@ -5879,6 +6072,7 @@ function saveGameEdits() {
 }
 
 function removeScheduledGame(gameId) {
+  if (!requireAdminAccess("Admin sign-in required to remove games.")) return;
   const game = state.games.find((item) => item.id === gameId);
   if (!game) return;
   const ok = window.confirm(`Remove ${game.opponent} on ${game.date || "this date"}?`);
@@ -5891,6 +6085,7 @@ function removeScheduledGame(gameId) {
 }
 
 function openLineupBuilder(gameId, returnView = "games") {
+  if (!requireAdminAccess("Admin sign-in required to start or edit lineups.")) return;
   lineupBuilderGameId = gameId;
   lineupBuilderReturnView = returnView;
   const game = state.games.find((item) => item.id === gameId);

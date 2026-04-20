@@ -19,7 +19,14 @@
             <h1>Coach's Scorebook</h1>
           </div>
         </div>
-        <span class="app-version" id="appVersion">Build loading...</span>
+        <div class="topbar-status">
+          <span class="app-version" id="appVersion">Build loading...</span>
+          <div class="access-controls" aria-label="Access controls">
+            <span class="access-badge" id="accessModeBadge">Public View</span>
+            <button type="button" class="secondary-action compact-action" id="adminUnlockBtn">Admin Sign In</button>
+            <button type="button" class="secondary-action compact-action" id="adminLockBtn" hidden>Exit Admin</button>
+          </div>
+        </div>
         <nav class="tabs" aria-label="Scorebook sections">
           <button class="tab is-active" data-view="home">Home</button>
           <button class="tab" data-view="score">Score Game</button>
@@ -1025,6 +1032,24 @@
           </section>
         </section>
       </main>
+    </div>
+
+    <div class="modal-backdrop" id="adminAuthModal" hidden>
+      <div class="modal-card admin-auth-card" role="dialog" aria-modal="true" aria-labelledby="adminAuthTitle">
+        <div class="mini-head">
+          <h3 id="adminAuthTitle">Admin Sign In</h3>
+          <span class="player-meta" id="adminAuthModeLabel">Public view is read-only.</span>
+        </div>
+        <p class="player-meta" id="adminAuthMessage">Enter the admin password to unlock scoring and editing.</p>
+        <label class="wide">
+          Password
+          <input id="adminPasswordInput" type="password" autocomplete="current-password" placeholder="Enter admin password">
+        </label>
+        <div class="button-row">
+          <button type="button" class="secondary-action" id="adminAuthCancelBtn">Cancel</button>
+          <button type="button" class="primary-action" id="adminAuthSubmitBtn">Unlock Admin</button>
+        </div>
+      </div>
     </div>
 
     <template id="playerCardTemplate">
