@@ -1,12 +1,12 @@
 (function matchupImages(global) {
-  const MATCHUP_IMAGE_FALLBACK = "lions-logo.png";
-  const MATCHUP_IMAGE_MAP = [
-    { aliases: ["eagles", "eagle"], src: "assets/matchups/lions-vs-eagles.png" },
-    { aliases: ["ducks", "duck"], src: "assets/matchups/lions-vs-ducks.png" },
-    { aliases: ["devils", "devil", "south hills devils"], src: "assets/matchups/lions-vs-devils.png" },
-    { aliases: ["turtles", "turtle", "bauerstown turtles"], src: "assets/matchups/lions-vs-turtles.png" },
-    { aliases: ["d2", "pittsburgh d2"], src: "assets/matchups/lions-vs-d2.png" },
-    { aliases: ["bandidos", "bakery square bandidos"], src: "assets/matchups/lions-vs-bandidos.png" }
+  const MATCHUP_IMAGE_FALLBACK = "new-lion.png";
+  const OPPONENT_IMAGE_KEYS = [
+    { aliases: ["eagles", "eagle"], key: "eagles", label: "Eagles" },
+    { aliases: ["ducks", "duck"], key: "ducks", label: "Ducks" },
+    { aliases: ["devils", "devil", "south hills devils"], key: "devils", label: "Devils" },
+    { aliases: ["turtles", "turtle", "bauerstown turtles"], key: "turtles", label: "Turtles" },
+    { aliases: ["d2", "pittsburgh d2"], key: "d2", label: "D2" },
+    { aliases: ["bandidos", "bakery square bandidos"], key: "bandidos", label: "Bandidos" }
   ];
 
   function normalizeOpponentName(opponentName) {
@@ -19,23 +19,35 @@
       .trim();
   }
 
-  function getMatchupImage(opponentName) {
+  function opponentImageKey(opponentName) {
     const normalized = normalizeOpponentName(opponentName);
-    if (!normalized) return MATCHUP_IMAGE_FALLBACK;
+    if (!normalized) return "";
 
-    const match = MATCHUP_IMAGE_MAP.find((entry) =>
+    const match = OPPONENT_IMAGE_KEYS.find((entry) =>
       entry.aliases.some((alias) => {
         const normalizedAlias = normalizeOpponentName(alias);
         return normalized === normalizedAlias || normalized.includes(normalizedAlias);
       })
     );
 
-    return match?.src || MATCHUP_IMAGE_FALLBACK;
+    return match?.key || "";
+  }
+
+  function getMatchupImage(opponentName, lionsSide = "home") {
+    const key = opponentImageKey(opponentName);
+    if (!key) return MATCHUP_IMAGE_FALLBACK;
+
+    const lionsAreAway = lionsSide === "away";
+    const awayKey = lionsAreAway ? "lions" : key;
+    const homeKey = lionsAreAway ? key : "lions";
+    return `assets/matchups/${awayKey}@${homeKey}.png`;
   }
 
   global.MatchupImages = {
     fallback: MATCHUP_IMAGE_FALLBACK,
     getMatchupImage,
+    opponentImageKey,
+    knownOpponents: OPPONENT_IMAGE_KEYS.map((entry) => entry.label),
     normalizeOpponentName
   };
 })(window);

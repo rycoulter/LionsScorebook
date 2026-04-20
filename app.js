@@ -505,7 +505,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-84";
+const APP_VERSION = "2026.04.20-build-87";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 const GA_MEASUREMENT_ID = "G-JWRVWJ9XYP";
@@ -805,7 +805,26 @@ const els = {
   playerTemplate: document.getElementById("playerCardTemplate")
 };
 
+function knownOpponentOptions() {
+  return Array.isArray(window.MatchupImages?.knownOpponents) && window.MatchupImages.knownOpponents.length
+    ? window.MatchupImages.knownOpponents
+    : ["Eagles", "Ducks", "Devils", "Turtles", "D2", "Bandidos"];
+}
+
+function populateOpponentSelect() {
+  if (!els.opponentInput) return;
+  const currentValue = els.opponentInput.value || "";
+  els.opponentInput.innerHTML = [
+    '<option value="">Select opponent</option>',
+    ...knownOpponentOptions().map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+  ].join("");
+  if ([...els.opponentInput.options].some((option) => option.value === currentValue)) {
+    els.opponentInput.value = currentValue;
+  }
+}
+
 populateFieldLocationSelects();
+populateOpponentSelect();
 configureGameDateInputs();
 bindEvents();
 initializeScoutingReport();
@@ -4547,7 +4566,7 @@ function renderHome() {
       els.homeNextGameWeather.dataset.weatherGameId = next.id;
       els.homeNextGameWeather.innerHTML = renderWeatherChip(next);
     }
-    setHomeMatchupImage(next.opponent);
+    setHomeMatchupImage(next);
     if (els.homeScoutingBtn) els.homeScoutingBtn.disabled = !admin;
   } else {
     els.homeNextGame.textContent = "No upcoming game scheduled";
@@ -4556,7 +4575,7 @@ function renderHome() {
       delete els.homeNextGameWeather.dataset.weatherGameId;
       els.homeNextGameWeather.textContent = "Add date and field location for weather.";
     }
-    setHomeMatchupImage("");
+    setHomeMatchupImage(null);
     if (els.homeScoutingBtn) els.homeScoutingBtn.disabled = true;
   }
   const nextTwo = upcoming.slice(1, 3);
@@ -4694,14 +4713,15 @@ function completedGames(limit = Infinity) {
     .slice(0, limit);
 }
 
-function getMatchupImage(opponentName) {
-  return window.MatchupImages?.getMatchupImage(opponentName) || "lions-logo.png";
+function getMatchupImage(opponentName, lionsHomeAway = "home") {
+  return window.MatchupImages?.getMatchupImage(opponentName, lionsHomeAway) || "new-lion.png";
 }
 
-function setHomeMatchupImage(opponentName) {
+function setHomeMatchupImage(game = null) {
   if (!els.homeMatchupImage) return;
-  els.homeMatchupImage.src = getMatchupImage(opponentName);
-  els.homeMatchupImage.alt = opponentName ? `Lions vs ${opponentName}` : "Lions";
+  const opponentName = game?.opponent || "";
+  els.homeMatchupImage.src = getMatchupImage(opponentName, game ? lionsSide(game) : "home");
+  els.homeMatchupImage.alt = game ? `${gameMatchupLabel(game)} matchup graphic` : "Lions";
 }
 
 function gameScheduleMeta(game) {
@@ -4711,7 +4731,7 @@ function gameScheduleMeta(game) {
 
 function renderUpcomingGameCard(game) {
   return `<article class="upcoming-game-card">
-    <img src="${escapeHtml(getMatchupImage(game.opponent))}" alt="Lions vs ${escapeHtml(game.opponent)}">
+    <img src="${escapeHtml(getMatchupImage(game.opponent, lionsSide(game)))}" alt="${escapeHtml(gameMatchupLabel(game))} matchup">
     <div>
       <span class="scout-kicker">Upcoming</span>
       <h4>${escapeHtml(gameMatchupLabel(game))}</h4>
@@ -4724,7 +4744,7 @@ function renderUpcomingGameCard(game) {
 
 function renderPastGameCard(game) {
   return `<article class="upcoming-game-card">
-    <img src="${escapeHtml(getMatchupImage(game.opponent))}" alt="Lions vs ${escapeHtml(game.opponent)}">
+    <img src="${escapeHtml(getMatchupImage(game.opponent, lionsSide(game)))}" alt="${escapeHtml(gameMatchupLabel(game))} matchup">
     <div>
       <span class="scout-kicker">Final</span>
       <h4>${escapeHtml(gameMatchupLabel(game))}</h4>
@@ -6544,7 +6564,7 @@ function completedGameSyncMeta(game, syncState = normalizeGameSyncState(game?.sy
 }
 
 function matchupImageForGame(game) {
-  return window.MatchupImages?.getMatchupImage?.(game?.opponent) || window.MatchupImages?.fallback || "lions-logo.png";
+  return window.MatchupImages?.getMatchupImage?.(game?.opponent, lionsSide(game)) || window.MatchupImages?.fallback || "new-lion.png";
 }
 
 function renderRecordSummary() {
