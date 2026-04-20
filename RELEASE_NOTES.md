@@ -7,6 +7,11 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Rebuilt the live scoring field background as a simpler top-down SVG with flat grass, dirt, foul lines, bases, mound, and outfield arc while preserving overlay alignment.
+- Refreshed the PWA cache version for the top-down field update.
+- Reworked occupied baserunner field markers into smaller glowing number badges and aligned them closer to each base without changing runner actions.
+- Kept the base diamonds visually quiet so occupied runners stand out on the field.
+- Refreshed the PWA cache version for the baserunner field marker update.
 - Refactored the live scoring field into background, position marker, spray chart, and baserunner layers while preserving rendering behavior.
 - Rebuilt the live field background as layered inline SVG art and balanced the position markers against the field.
 - Refreshed the PWA cache version for the field layer and visual shell update.
