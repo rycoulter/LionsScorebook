@@ -7,6 +7,13 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Filtered the Stats pitching view down to only players who have actually pitched, added Wins to the pitching leaders/table, and froze the Player column so stats stay readable while horizontally scrolling on desktop and mobile.
+- Removed the extra Name and Number row from Roster player cards so the card stays cleaner and the stat section begins immediately below player info.
+- Removed SLG from the Roster player stat strip so cards now show AVG, OBP, and OPS with cleaner spacing and better desktop alignment.
+- Renamed the homepage header to "Season Overview" and tightened the mobile homepage layout so hero content, leader cards, and action rows scale more cleanly on phones, tablets, and desktop.
+- Reworked the bottom utility controls so Public View, Admin Sign In, and the build badge dock cleanly at the bottom on smaller screens instead of floating over page content.
+- Restyled the Roster cards with gold player-number pills, the new lion logo as the card watermark, and tighter mobile/tablet scaling for the roster form, toolbar, cards, and edit fields.
+- Added a scheduled live-game window for Home and Games so same-day games appear as Live from scheduled start through 2.5 hours later, even before an offline scoring device syncs them back.
 - Replaced the Create Game opponent text box with a dropdown populated from the known matchup teams, so scheduling stays consistent with the available opponent artwork.
 - Updated matchup artwork selection to use the new `away@home` graphic convention, so homepage and game-card visuals now switch correctly between `Lions @ Opponent` and `Opponent @ Lions`.
 - Replaced the homepage/header lion graphic and the default no-opponent game-card fallback image with the new Lions logo asset.

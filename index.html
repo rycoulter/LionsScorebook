@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <link rel="manifest" href="manifest.json?v=2026.04.20-build-87">
+    <link rel="manifest" href="manifest.json?v=2026.04.20-build-93">
     <meta name="theme-color" content="#1f2937">
     <title>Oakmont Lions Scorebook</title>
     <link rel="preconnect" href="https://images.unsplash.com">
-    <link rel="stylesheet" href="styles.css?v=2026.04.20-build-87">
+    <link rel="stylesheet" href="styles.css?v=2026.04.20-build-93">
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-block">
-          <img src="new-lion.png?v=2026.04.20-build-87" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
+          <img src="new-lion.png?v=2026.04.20-build-93" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
           <div>
             <h1>Oakmont Lions</h1>
           </div>
@@ -36,14 +36,14 @@
           <div class="section-head">
             <div>
               <p class="eyebrow">Oakmont Lions</p>
-              <h2>Season command center</h2>
+              <h2>Season Overview</h2>
             </div>
             <button type="button" class="primary-action" id="homeScoreGameBtn">Score Active Game</button>
           </div>
           <div class="home-grid">
             <section class="home-panel home-hero-panel">
               <img
-                src="new-lion.png?v=2026.04.20-build-87"
+                src="new-lion.png?v=2026.04.20-build-93"
                 alt="Lions matchup graphic"
                 id="homeMatchupImage"
                 class="home-field-image">
@@ -862,6 +862,7 @@
               <thead>
                 <tr>
                   <th><button type="button" data-pit-sort="name">Player</button></th>
+                  <th><button type="button" data-pit-sort="wins">W</button></th>
                   <th><button type="button" data-pit-sort="outs">IP</button></th>
                   <th><button type="button" data-pit-sort="pitches">NP</button></th>
                   <th><button type="button" data-pit-sort="balls">Ball</button></th>
@@ -1078,10 +1079,6 @@
               <input type="checkbox">
             </label>
           </div>
-          <div class="player-edit-row">
-            <label>Name <input data-player-edit="name" autocomplete="off"></label>
-            <label>Number <input data-player-edit="number" autocomplete="off" inputmode="numeric"></label>
-          </div>
           <div class="stat-strip"></div>
           <div class="grade-row">
             <label>Contact <input data-grade="contact" type="range" min="20" max="80"></label>
@@ -1093,11 +1090,11 @@
       </article>
     </template>
 
-    <script src="storage.js?v=2026.04.20-build-87"></script>
-    <script src="matchup-images.js?v=2026.04.20-build-87"></script>
+    <script src="storage.js?v=2026.04.20-build-93"></script>
+    <script src="matchup-images.js?v=2026.04.20-build-93"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=2026.04.20-build-87"></script>
-    <script src="supabase-storage.js?v=2026.04.20-build-87"></script>
-    <script src="app.js?v=2026.04.20-build-87"></script>
+    <script src="supabase-config.js?v=2026.04.20-build-93"></script>
+    <script src="supabase-storage.js?v=2026.04.20-build-93"></script>
+    <script src="app.js?v=2026.04.20-build-93"></script>
   </body>
 </html>

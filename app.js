@@ -505,7 +505,8 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-87";
+const APP_VERSION = "2026.04.20-build-93";
+const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 const GA_MEASUREMENT_ID = "G-JWRVWJ9XYP";
@@ -2679,15 +2680,6 @@ function bindEvents() {
     renderRoster();
   });
 
-  els.rosterGrid.addEventListener("change", (event) => {
-    if (!isAdminMode()) return;
-    const input = event.target.closest("[data-player-edit]");
-    if (!input) return;
-    const card = event.target.closest("[data-player-id]");
-    if (!card) return;
-    updatePlayerIdentity(card.dataset.playerId, input.dataset.playerEdit, input.value);
-  });
-
   els.archiveSearch.addEventListener("input", renderArchive);
   els.archiveGrid.addEventListener("click", handleGameActionClick);
   els.gameSummaryBody?.addEventListener("click", handleGameActionClick);
@@ -4551,7 +4543,9 @@ function renderHome() {
   if (els.homeScoreGameBtn) {
     els.homeScoreGameBtn.hidden = !admin;
     els.homeScoreGameBtn.disabled = !admin || !inProgress;
-    els.homeScoreGameBtn.textContent = inProgress ? "Score Active Game" : "No Game In Progress";
+    els.homeScoreGameBtn.textContent = inProgress
+      ? (inProgress.status === "active" ? "Score Active Game" : "Start Live Game")
+      : "No Game In Progress";
   }
   if (els.homeStartGameBtn) {
     els.homeStartGameBtn.disabled = !admin || !next;
@@ -4593,16 +4587,18 @@ function renderHome() {
   hydrateHomeWeather(upcoming);
 
   const hitterRows = state.roster.map((player) => ({ player, stats: statsForPlayer(player.id) }));
-  const pitcherRows = state.roster.map((player) => ({ player, stats: pitcherStats(player.id) }));
+  const pitcherRows = state.roster
+    .map((player) => ({ player, stats: pitcherStats(player.id) }))
+    .filter((row) => hasPitchingStats(row.stats));
   els.homeBattingLeaders.innerHTML = [
     leaderCard("AVG", hitterRows, (row) => row.stats.avg, (value) => formatRate(value)),
     leaderCard("RBI", hitterRows, (row) => row.stats.rbi, String),
     leaderCard("OPS", hitterRows, (row) => row.stats.ops, (value) => formatRate(value))
   ].join("");
   els.homePitchingLeaders.innerHTML = [
+    leaderCard("Wins", pitcherRows, (row) => row.stats.wins, String),
     leaderCard("Strikeouts", pitcherRows, (row) => row.stats.k, String),
-    leaderCard("WHIP", pitcherRows, (row) => row.stats.whip, (value) => value.toFixed(2), true),
-    leaderCard("Strike %", pitcherRows, (row) => row.stats.strikeRate, (value) => `${Math.round(value * 100)}%`)
+    leaderCard("WHIP", pitcherRows, (row) => row.stats.whip, (value) => value.toFixed(2), true)
   ].join("");
 }
 
@@ -4632,16 +4628,35 @@ function gameIsTied(game) {
   return Number(game?.score?.lions || 0) === Number(game?.score?.opponent || 0);
 }
 
+function parseScheduledGameStart(game) {
+  if (!game?.date || !game?.time) return null;
+  const [year, month, day] = String(game.date).split("-").map(Number);
+  const [hour, minute] = String(game.time).split(":").map(Number);
+  if (!year || !month || !day || Number.isNaN(hour) || Number.isNaN(minute)) return null;
+  const start = new Date(year, month - 1, day, hour, minute, 0, 0);
+  return Number.isNaN(start.getTime()) ? null : start;
+}
+
+function isGameInScheduledLiveWindow(game, now = new Date()) {
+  if (!game || gameIsFinal(game) || game?.status === "active") return false;
+  if ((game?.status || "scheduled") !== "scheduled") return false;
+  const start = parseScheduledGameStart(game);
+  if (!start) return false;
+  const end = new Date(start.getTime() + (SCHEDULED_LIVE_WINDOW_MINUTES * 60 * 1000));
+  return now >= start && now <= end;
+}
+
 function gameLifecycle(game) {
   if (gameIsFinal(game)) return "completed";
   if (game?.status === "active") return "active";
+  if (isGameInScheduledLiveWindow(game)) return "active";
   return "future";
 }
 
 function gameStatusLabel(game) {
-  const lifecycle = gameLifecycle(game);
-  if (lifecycle === "completed") return "Final";
-  if (lifecycle === "active") return "In progress";
+  if (gameIsFinal(game)) return "Final";
+  if (game?.status === "active") return "In progress";
+  if (isGameInScheduledLiveWindow(game)) return "Live";
   return "Future";
 }
 
@@ -4858,6 +4873,10 @@ function openCurrentGameForScoring() {
   const current = inProgressGames()[0] || null;
   if (!current) {
     switchView("games");
+    return;
+  }
+  if (current.status !== "active") {
+    scoreScheduledGame(current.id);
     return;
   }
   setActiveGame(current.id);
@@ -5626,7 +5645,13 @@ function renderPitcherSelect(game = activeGame()) {
 }
 
 function pitcherStats(playerId, gameId = null) {
-  const stats = { pitches: 0, balls: 0, strikes: 0, batters: 0, outs: 0, h: 0, hr: 0, k: 0, bb: 0, hbp: 0, runs: 0 };
+  const stats = { wins: 0, pitches: 0, balls: 0, strikes: 0, batters: 0, outs: 0, h: 0, hr: 0, k: 0, bb: 0, hbp: 0, runs: 0 };
+  state.games
+    .filter((game) => !gameId || game.id === gameId)
+    .filter((game) => gameIsFinal(game) && currentPitcherId(game) === playerId && Number(game.score?.lions || 0) > Number(game.score?.opponent || 0))
+    .forEach(() => {
+      stats.wins += 1;
+    });
   state.games
     .filter((game) => !gameId || game.id === gameId)
     .flatMap((game) => game.events)
@@ -5657,6 +5682,10 @@ function pitcherStats(playerId, gameId = null) {
   stats.whip = divide(stats.bb + stats.h, stats.ip);
   stats.pitchesPerInning = divide(stats.pitches, stats.ip);
   return stats;
+}
+
+function hasPitchingStats(stats) {
+  return Boolean(stats && (stats.outs > 0 || stats.pitches > 0 || stats.batters > 0 || stats.wins > 0));
 }
 
 function addPitchToPitcherStats(stats, pitch) {
@@ -6202,15 +6231,12 @@ function renderRoster() {
     node.querySelector(".number-pill").textContent = `#${player.number}`;
     node.querySelector("h3").textContent = player.name;
     node.querySelector("p").textContent = `${formatPositions(player.positions)} | Bats ${player.bats}`;
-    node.querySelector('[data-player-edit="name"]').value = player.name;
-    node.querySelector('[data-player-edit="number"]').value = player.number;
     const activeToggle = node.querySelector(".active-toggle input");
     activeToggle.checked = state.lineup.includes(player.id);
     activeToggle.addEventListener("change", () => togglePlayerActive(player.id, activeToggle.checked));
     node.querySelector(".stat-strip").innerHTML = [
       statCell("AVG", formatRate(stats.avg)),
       statCell("OBP", formatRate(stats.obp)),
-      statCell("SLG", formatRate(stats.slg)),
       statCell("OPS", formatRate(stats.ops))
     ].join("");
 
@@ -6238,23 +6264,6 @@ function setGradeFill(input) {
   const value = Number(input.value) || min;
   const pct = Math.max(0, Math.min(100, ((value - min) / (max - min || 1)) * 100));
   input.style.setProperty("--grade-fill", `${pct}%`);
-}
-
-function updatePlayerIdentity(playerId, field, value) {
-  const cleaned = value.trim();
-  if (!cleaned) {
-    renderRoster();
-    return;
-  }
-  state.roster = state.roster.map((player) => {
-    if (player.id !== playerId) return player;
-    if (field === "name") return { ...player, name: cleaned };
-    if (field === "number") return { ...player, number: cleaned };
-    return player;
-  });
-  saveState();
-  render();
-  requestSharedSnapshotSync(`update-player-${field}`);
 }
 
 function togglePlayerActive(playerId, isActive) {
@@ -6493,6 +6502,7 @@ function renderScheduleGameCard(game, activeId = "") {
   const admin = isAdminMode();
   const locked = gameIsFinal(game);
   const lifecycle = gameLifecycle(game);
+  const actualActive = game.status === "active" && !gameIsFinal(game);
   const active = game.id === activeId && lifecycle === "active" ? " is-active" : "";
   const score = game.events.length || locked ? gameScoreLabel(game) : gameMatchupLabel(game);
   const status = gameStatusLabel(game);
@@ -6508,7 +6518,7 @@ function renderScheduleGameCard(game, activeId = "") {
     : "";
   const primaryAction = admin
     ? (lifecycle === "active"
-      ? `<button type="button" class="primary-action" data-game-action="score" data-game-id="${game.id}">${game.id === activeId ? "Continue Scoring" : "Open In Progress"}</button>`
+      ? `<button type="button" class="primary-action" data-game-action="score" data-game-id="${game.id}">${actualActive ? (game.id === activeId ? "Continue Scoring" : "Open In Progress") : "Start Live Game"}</button>`
       : lifecycle === "future"
         ? `<button type="button" class="primary-action" data-game-action="start" data-game-id="${game.id}">Start Game</button>`
         : "")
@@ -7942,10 +7952,12 @@ function renderSeasonStats() {
     .join("");
   els.pitchingStatsBody.innerHTML = state.roster
     .map((player) => ({ player, pit: pitcherStats(player.id) }))
+    .filter(({ pit }) => hasPitchingStats(pit))
     .sort((a, b) => comparePitchingRows(a, b))
     .map(({ player, pit }) => {
       return `<tr>
         <td>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</td>
+        <td>${pit.wins}</td>
         <td>${formatInnings(pit.outs)}</td>
         <td>${pit.pitches}</td>
         <td>${pit.balls}</td>
@@ -8001,11 +8013,14 @@ function renderStatsSprayChart() {
 
 function renderLeaders() {
   const hitterRows = state.roster.map((player) => ({ player, stats: statsForPlayer(player.id) }));
-  const pitcherRows = state.roster.map((player) => ({ player, stats: pitcherStats(player.id) }));
+  const pitcherRows = state.roster
+    .map((player) => ({ player, stats: pitcherStats(player.id) }))
+    .filter((row) => hasPitchingStats(row.stats));
   els.leadersGrid.innerHTML = [
     leaderCard("AVG", hitterRows, (row) => row.stats.avg, (value) => formatRate(value)),
     leaderCard("RBI", hitterRows, (row) => row.stats.rbi, String),
     leaderCard("OPS", hitterRows, (row) => row.stats.ops, (value) => formatRate(value)),
+    leaderCard("Pitching W", pitcherRows, (row) => row.stats.wins, String),
     leaderCard("Pitching K", pitcherRows, (row) => row.stats.k, String),
     leaderCard("WHIP", pitcherRows, (row) => row.stats.whip, (value) => value.toFixed(2), true)
   ].join("");
