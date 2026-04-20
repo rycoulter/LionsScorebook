@@ -505,9 +505,10 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-72";
+const APP_VERSION = "2026.04.20-build-74";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
+const GA_MEASUREMENT_ID = "G-JWRVWJ9XYP";
 const ACCESS_MODE_STORAGE_KEY = "oakmont-lions-access-mode-v1";
 const ADMIN_PASSWORD = "Lions2026!!!";
 const PUBLIC_TAB_VIEWS = new Set(["home", "games", "stats", "archive"]);
@@ -7824,6 +7825,27 @@ function renderAppVersion() {
   node.textContent = `Build ${APP_VERSION}${serviceWorkerRegistrationDisabled() ? " | SW off" : ""}`;
 }
 
+function initializeAnalytics() {
+  if (!GA_MEASUREMENT_ID) return;
+  if (window.gtag) {
+    window.gtag("config", GA_MEASUREMENT_ID, { anonymize_ip: true });
+    return;
+  }
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function gtag() {
+    window.dataLayer.push(arguments);
+  };
+  const analyticsScript = document.createElement("script");
+  analyticsScript.async = true;
+  analyticsScript.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA_MEASUREMENT_ID)}`;
+  document.head.appendChild(analyticsScript);
+  window.gtag("js", new Date());
+  window.gtag("config", GA_MEASUREMENT_ID, {
+    anonymize_ip: true,
+    send_page_view: true
+  });
+}
+
 function unregisterServiceWorkersForDebug() {
   return navigator.serviceWorker
     .getRegistrations()
@@ -7834,6 +7856,7 @@ function unregisterServiceWorkersForDebug() {
 }
 
 renderAppVersion();
+initializeAnalytics();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

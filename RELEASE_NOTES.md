@@ -7,6 +7,9 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Activated GA4 traffic tracking for the live site using the configured measurement ID and refreshed the build/cache for production pickup.
+- Replaced the OL header badge with the Lions logo, simplified the top-left brand to Oakmont Lions, moved the build/admin controls into a bottom-left utility bar, and aligned the home pitching leader cards to match batting.
+- Added a GA4-ready analytics hook so site traffic tracking can be turned on once a live measurement ID is provided.
 - Added a first-pass public/admin access mode with public read-only navigation for Home, Schedule & Scores, Stats, Archive, Scorebook, and Box Score, plus a single-password admin unlock for scoring and editing tools that stays unlocked across refreshes on the same device.
 - Corrected the Score Game header again so when the Lions are batting the pitcher row is fully replaced by Count and Outs, and Count/Outs no longer duplicate in the Current Batter card or the top header blocks during Lions at-bats.
 - Fixed the Score Game header layout so the Lions pitcher row only shows while the opponent is batting, and when the Lions are batting that same row now shows Count and Outs instead of repeating them inside the Current Batter card.
