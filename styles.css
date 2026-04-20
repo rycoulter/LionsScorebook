@@ -624,6 +624,13 @@ main {
   min-height: 26px;
 }
 
+.game-sync-meta {
+  border: 1px solid rgba(245, 189, 33, 0.18);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(245, 189, 33, 0.06);
+}
+
 #scoreView .score-form {
   justify-content: center;
   border: 0;
