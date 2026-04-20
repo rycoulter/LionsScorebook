@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Fixed state normalization so empty saved roster/lineup arrays are treated as missing data and automatically restored from the built-in Lions roster instead of being kept as a blank team.
 - Fixed shared roster recovery so empty Supabase roster/lineup data no longer overrides the built-in Lions roster, and approved admin sign-in now heals the shared roster automatically when the backend copy is blank.
 - Added a final offline trusted-admin restore path so if the iPad has previously verified an approved admin online, reopening the PWA offline preserves admin mode for scoring instead of falling back to public view.
 - Fixed admin session persistence for field use by restoring approved admin mode from the cached Supabase session plus cached approved admin email when the scorer reopens the PWA offline.

@@ -505,7 +505,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-82";
+const APP_VERSION = "2026.04.20-build-83";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 const GA_MEASUREMENT_ID = "G-JWRVWJ9XYP";
@@ -1310,7 +1310,7 @@ function loadState() {
   try {
     const library = storage.loadLibrary();
     const parsed = storage.loadAppState();
-    const hasAppState = parsed?.roster && parsed?.lineup;
+    const hasAppState = Array.isArray(parsed?.roster) && Array.isArray(parsed?.lineup);
     const nextState = hasAppState
       ? parsed
       : {
@@ -1349,8 +1349,10 @@ function loadState() {
 
 function normalizeState(nextState) {
   nextState.roster = normalizeRoster(nextState.roster);
-  const rosterWasReplaced = nextState.rosterVersion !== ROSTER_VERSION;
-  if (nextState.rosterVersion !== ROSTER_VERSION) {
+  const rosterMissing = !Array.isArray(nextState.roster) || !nextState.roster.length;
+  const lineupMissing = !Array.isArray(nextState.lineup) || !nextState.lineup.length;
+  const rosterWasReplaced = nextState.rosterVersion !== ROSTER_VERSION || rosterMissing || lineupMissing;
+  if (rosterWasReplaced) {
     nextState.roster = deepClone(defaultRoster);
     nextState.lineup = defaultRoster.filter((player) => player.active).map((player) => player.id);
     nextState.rosterVersion = ROSTER_VERSION;
