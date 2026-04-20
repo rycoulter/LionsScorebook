@@ -294,29 +294,74 @@
                   </select>
                 </div>
                 <div class="spray-chart" id="sprayChart" role="button" tabindex="0" aria-label="Tap to set batted ball location">
-                  <div class="foul-line left-line"></div>
-                  <div class="foul-line right-line"></div>
-                  <div class="fence-line"></div>
-                  <div class="infield-arc"></div>
-                  <div class="outfield-arc"></div>
-                  <div class="spray-base spray-first-base">1B</div>
-                  <div class="spray-base spray-second-base">2B</div>
-                  <div class="spray-base spray-third-base">3B</div>
-                  <div class="field-runner-markers" id="runnerFieldMarkers"></div>
-                  <div class="fielder-icon fielder-p">P</div>
-                  <div class="fielder-icon fielder-c">C</div>
-                  <div class="fielder-icon fielder-1b">1B</div>
-                  <div class="fielder-icon fielder-2b">2B</div>
-                  <div class="fielder-icon fielder-ss">SS</div>
-                  <div class="fielder-icon fielder-3b">3B</div>
-                  <div class="fielder-icon fielder-lf">LF</div>
-                  <div class="fielder-icon fielder-cf">CF</div>
-                  <div class="fielder-icon fielder-rf">RF</div>
-                  <div class="spray-label left-field">LF</div>
-                  <div class="spray-label center-field">CF</div>
-                  <div class="spray-label right-field">RF</div>
-                  <div class="spray-label plate-label">HP</div>
-                  <div class="spray-markers" id="sprayMarkers"></div>
+                  <div class="field-layer field-background" aria-hidden="true">
+                    <svg class="field-background-art" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false" aria-hidden="true">
+                      <defs>
+                        <radialGradient id="fieldLight" cx="72%" cy="22%" r="58%">
+                          <stop offset="0%" stop-color="#f4c95f" stop-opacity="0.34"></stop>
+                          <stop offset="42%" stop-color="#8fbf5d" stop-opacity="0.12"></stop>
+                          <stop offset="100%" stop-color="#06111f" stop-opacity="0"></stop>
+                        </radialGradient>
+                        <radialGradient id="outfieldFill" cx="50%" cy="36%" r="74%">
+                          <stop offset="0%" stop-color="#315d3d"></stop>
+                          <stop offset="62%" stop-color="#173d2f"></stop>
+                          <stop offset="100%" stop-color="#0a1d20"></stop>
+                        </radialGradient>
+                        <linearGradient id="infieldDirt" x1="50%" y1="43%" x2="50%" y2="88%">
+                          <stop offset="0%" stop-color="#c38a4c"></stop>
+                          <stop offset="58%" stop-color="#9c6a3d"></stop>
+                          <stop offset="100%" stop-color="#6f4b31"></stop>
+                        </linearGradient>
+                        <linearGradient id="infieldGrass" x1="50%" y1="46%" x2="50%" y2="86%">
+                          <stop offset="0%" stop-color="#3d7342"></stop>
+                          <stop offset="100%" stop-color="#244d34"></stop>
+                        </linearGradient>
+                        <filter id="fieldBlur" x="-20%" y="-20%" width="140%" height="140%">
+                          <feGaussianBlur stdDeviation="2.4"></feGaussianBlur>
+                        </filter>
+                      </defs>
+                      <rect width="100" height="100" fill="#07111f"></rect>
+                      <ellipse cx="50" cy="49" rx="63" ry="45" fill="url(#outfieldFill)"></ellipse>
+                      <ellipse cx="50" cy="55" rx="58" ry="44" fill="#071520" opacity="0.28"></ellipse>
+                      <path d="M5 35 Q50 3 95 35" fill="none" stroke="#e7c06d" stroke-width="1.4" stroke-opacity="0.4" filter="url(#fieldBlur)"></path>
+                      <path d="M5 35 Q50 3 95 35" fill="none" stroke="#f4d083" stroke-width="0.55" stroke-opacity="0.62"></path>
+                      <path d="M50 84 L8 37" fill="none" stroke="#f2efe3" stroke-width="0.55" stroke-opacity="0.48"></path>
+                      <path d="M50 84 L92 37" fill="none" stroke="#f2efe3" stroke-width="0.55" stroke-opacity="0.48"></path>
+                      <path d="M27 67 Q50 45 73 67 Q65 82 50 88 Q35 82 27 67Z" fill="url(#infieldDirt)" opacity="0.94"></path>
+                      <path d="M50 46 L68 67 L50 84 L32 67Z" fill="url(#infieldGrass)" opacity="0.94"></path>
+                      <path d="M28 67 Q50 78 72 67" fill="none" stroke="#d59a5a" stroke-width="7.5" stroke-linecap="round" stroke-opacity="0.7"></path>
+                      <circle cx="50" cy="61" r="6.2" fill="#9c6a3d" opacity="0.8"></circle>
+                      <rect x="48.2" y="60.4" width="3.6" height="1.4" rx="0.4" fill="#fff2ce" opacity="0.82"></rect>
+                      <rect x="49" y="84" width="2" height="2" rx="0.25" fill="#fff5df" opacity="0.9" transform="rotate(45 50 85)"></rect>
+                      <rect x="69" y="66" width="2" height="2" rx="0.25" fill="#fff5df" opacity="0.88" transform="rotate(45 70 67)"></rect>
+                      <rect x="49" y="41" width="2" height="2" rx="0.25" fill="#fff5df" opacity="0.88" transform="rotate(45 50 42)"></rect>
+                      <rect x="29" y="66" width="2" height="2" rx="0.25" fill="#fff5df" opacity="0.88" transform="rotate(45 30 67)"></rect>
+                      <rect width="100" height="100" fill="url(#fieldLight)"></rect>
+                      <rect width="100" height="100" fill="#000000" opacity="0.01"></rect>
+                    </svg>
+                  </div>
+                  <div class="field-layer position-marker-layer" aria-hidden="true">
+                    <div class="spray-base spray-first-base">1B</div>
+                    <div class="spray-base spray-second-base">2B</div>
+                    <div class="spray-base spray-third-base">3B</div>
+                    <div class="fielder-icon fielder-p">P</div>
+                    <div class="fielder-icon fielder-c">C</div>
+                    <div class="fielder-icon fielder-1b">1B</div>
+                    <div class="fielder-icon fielder-2b">2B</div>
+                    <div class="fielder-icon fielder-ss">SS</div>
+                    <div class="fielder-icon fielder-3b">3B</div>
+                    <div class="fielder-icon fielder-lf">LF</div>
+                    <div class="fielder-icon fielder-cf">CF</div>
+                    <div class="fielder-icon fielder-rf">RF</div>
+                    <div class="spray-label left-field">LF</div>
+                    <div class="spray-label center-field">CF</div>
+                    <div class="spray-label right-field">RF</div>
+                    <div class="spray-label plate-label">HP</div>
+                  </div>
+                  <div class="field-layer spray-chart-overlay">
+                    <div class="spray-markers" id="sprayMarkers"></div>
+                  </div>
+                  <div class="field-layer base-runners-overlay field-runner-markers" id="runnerFieldMarkers"></div>
                 </div>
               </section>
 
@@ -943,6 +988,81 @@
               <div id="valueBoard" class="value-board"></div>
             </div>
           </div>
+        </section>
+
+        <section class="view" id="boxScoreView" data-panel="boxscore">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Box Score</p>
+              <h2 id="boxScoreTitle">Game box score</h2>
+            </div>
+            <div class="button-row">
+              <label class="scorebook-game-picker">
+                Game
+                <select id="boxScoreGameSelect"></select>
+              </label>
+              <button type="button" class="secondary-action" id="boxScoreBackBtn">Back to Analysis</button>
+            </div>
+          </div>
+          <p class="player-meta scorebook-meta" id="boxScoreMeta">Choose a game to view the box score.</p>
+          <section class="box-score-card box-score-summary" id="boxScoreSummary"></section>
+          <section class="box-score-card">
+            <div class="mini-head">
+              <h3>Line Score</h3>
+              <span>Runs, hits, and errors by team</span>
+            </div>
+            <div class="box-score-table-wrap">
+              <table class="box-score-table line-score-table">
+                <thead id="boxScoreLineHead"></thead>
+                <tbody id="boxScoreLineBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <div class="box-score-tabs" id="boxScoreTeamTabs" role="tablist" aria-label="Box score team"></div>
+          <section class="box-score-card">
+            <div class="mini-head">
+              <h3 id="boxScoreBattingTitle">Batting</h3>
+              <span>AB, runs, hits, and run production</span>
+            </div>
+            <div class="box-score-table-wrap">
+              <table class="box-score-table">
+                <thead>
+                  <tr>
+                    <th>Player</th>
+                    <th>AB</th>
+                    <th>R</th>
+                    <th>H</th>
+                    <th>RBI</th>
+                    <th>BB</th>
+                    <th>SO</th>
+                  </tr>
+                </thead>
+                <tbody id="boxScoreBattingBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="box-score-card">
+            <div class="mini-head">
+              <h3 id="boxScorePitchingTitle">Pitching</h3>
+              <span>Current v1 pitching line</span>
+            </div>
+            <div class="box-score-table-wrap">
+              <table class="box-score-table">
+                <thead>
+                  <tr>
+                    <th>Pitcher</th>
+                    <th>IP</th>
+                    <th>H</th>
+                    <th>R</th>
+                    <th>ER</th>
+                    <th>BB</th>
+                    <th>SO</th>
+                  </tr>
+                </thead>
+                <tbody id="boxScorePitchingBody"></tbody>
+              </table>
+            </div>
+          </section>
         </section>
       </main>
     </div>

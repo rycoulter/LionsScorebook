@@ -7,9 +7,15 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Refactored the live scoring field into background, position marker, spray chart, and baserunner layers while preserving rendering behavior.
+- Rebuilt the live field background as layered inline SVG art and balanced the position markers against the field.
+- Refreshed the PWA cache version for the field layer and visual shell update.
+- Added a routed Box Score screen from Analysis with a game summary, inning line score, team tabs, batting table, and pitching table.
+- Derived Box Score v1 runs, hits, errors, batting lines, and pitching lines from existing saved game events.
+- Refreshed the PWA cache version for the Box Score screen.
 - Cleaned up Analysis by replacing Hard-hit rate with team AVG and replacing game OBP with game AVG.
 - Removed verbose lineup/play-by-play text, the static tracking explainer, and the Export JSON action from Analysis.
-- Added disabled View Box Score buttons to Analysis game breakdowns without adding Box Score functionality.
+- Added View Box Score buttons to Analysis game breakdowns.
 - Refreshed the PWA cache version for the Analysis cleanup.
 - Kept Lions lineup positions on Select Position when players are added, swapped, normalized, or reloaded.
 - Allowed Lions batting lineups to keep more than nine hitters while still requiring at least nine hitters and every defensive position.

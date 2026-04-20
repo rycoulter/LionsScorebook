@@ -503,7 +503,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-45";
+const APP_VERSION = "2026.04.20-build-48";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 
@@ -540,6 +540,8 @@ let selectedScoutingTeamId = "";
 let scoutingRefreshState = "snapshot";
 let scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
 let scorebookGameId = "";
+let boxScoreGameId = "";
+let boxScoreTeam = "lions";
 let gameSummaryId = "";
 let bipOutcomeChosen = false;
 let awaitingSprayLocation = false;
@@ -722,6 +724,18 @@ const els = {
   closeGameSummaryBtn: document.getElementById("closeGameSummaryBtn"),
   metricsGrid: document.getElementById("metricsGrid"),
   gameBreakdown: document.getElementById("gameBreakdown"),
+  boxScoreTitle: document.getElementById("boxScoreTitle"),
+  boxScoreGameSelect: document.getElementById("boxScoreGameSelect"),
+  boxScoreBackBtn: document.getElementById("boxScoreBackBtn"),
+  boxScoreMeta: document.getElementById("boxScoreMeta"),
+  boxScoreSummary: document.getElementById("boxScoreSummary"),
+  boxScoreLineHead: document.getElementById("boxScoreLineHead"),
+  boxScoreLineBody: document.getElementById("boxScoreLineBody"),
+  boxScoreTeamTabs: document.getElementById("boxScoreTeamTabs"),
+  boxScoreBattingTitle: document.getElementById("boxScoreBattingTitle"),
+  boxScoreBattingBody: document.getElementById("boxScoreBattingBody"),
+  boxScorePitchingTitle: document.getElementById("boxScorePitchingTitle"),
+  boxScorePitchingBody: document.getElementById("boxScorePitchingBody"),
   valueBoard: document.getElementById("valueBoard"),
   leadersGrid: document.getElementById("leadersGrid"),
   hittingStatsBody: document.getElementById("hittingStatsBody"),
@@ -1659,6 +1673,22 @@ function bindEvents() {
   els.scorebookGameSelect.addEventListener("change", () => {
     scorebookGameId = els.scorebookGameSelect.value;
     renderTraditionalScorebook();
+  });
+  els.boxScoreGameSelect?.addEventListener("change", () => {
+    boxScoreGameId = els.boxScoreGameSelect.value;
+    renderBoxScore();
+  });
+  els.boxScoreBackBtn?.addEventListener("click", () => switchView("analysis"));
+  els.boxScoreTeamTabs?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-box-score-team]");
+    if (!button) return;
+    boxScoreTeam = button.dataset.boxScoreTeam || "lions";
+    renderBoxScore();
+  });
+  els.gameBreakdown?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-box-score-game]");
+    if (!button) return;
+    openBoxScore(button.dataset.boxScoreGame);
   });
 
   els.scoreForm.addEventListener("submit", (event) => {
@@ -3612,6 +3642,13 @@ function openGameScorebook(gameId) {
   switchView("scorebook");
 }
 
+function openBoxScore(gameId) {
+  if (!state.games.some((game) => game.id === gameId)) return;
+  boxScoreGameId = gameId;
+  renderBoxScore();
+  switchView("boxscore");
+}
+
 function openGameStats(gameId) {
   if (!state.games.some((game) => game.id === gameId)) return;
   const select = els.statsSprayGameSelect;
@@ -3684,6 +3721,7 @@ function render() {
   renderRoster();
   renderArchive();
   renderAnalysis();
+  renderBoxScore();
   renderGameSetupPreview();
   renderGames();
   renderGameEditor();
@@ -6178,7 +6216,7 @@ function renderGameBreakdown() {
             <h3>${escapeHtml(game.date || "No date")} ${escapeHtml(gameMatchupLabel(game))}</h3>
             <span class="player-meta">${escapeHtml(gameScoreLabel(game))} | ${escapeHtml(gameStatusLabel(game))}</span>
           </div>
-          <button type="button" class="secondary-action" disabled aria-disabled="true">View Box Score</button>
+          <button type="button" class="secondary-action" data-box-score-game="${escapeHtml(game.id)}">View Box Score</button>
         </div>
         <div class="stat-strip">
           ${statCell("AVG", formatRate(stats.avg))}
@@ -6190,6 +6228,236 @@ function renderGameBreakdown() {
       </article>`;
     })
     .join("") || `<p class="player-meta">Game analysis appears after scorekeeping begins.</p>`;
+}
+
+function renderBoxScore() {
+  if (!els.boxScoreSummary) return;
+  const active = activeScoreGame() || [...state.games].sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0] || null;
+  if (!active) {
+    boxScoreGameId = "";
+    els.boxScoreGameSelect.innerHTML = "";
+    els.boxScoreTitle.textContent = "Game box score";
+    els.boxScoreMeta.textContent = "No games saved yet.";
+    els.boxScoreSummary.innerHTML = `<p class="player-meta">Box scores appear after a game is created.</p>`;
+    els.boxScoreLineHead.innerHTML = "";
+    els.boxScoreLineBody.innerHTML = "";
+    els.boxScoreTeamTabs.innerHTML = "";
+    els.boxScoreBattingBody.innerHTML = "";
+    els.boxScorePitchingBody.innerHTML = "";
+    return;
+  }
+  if (!boxScoreGameId || !state.games.some((game) => game.id === boxScoreGameId)) boxScoreGameId = active.id;
+  const game = state.games.find((item) => item.id === boxScoreGameId) || active;
+  const teams = boxScoreTeams(game);
+  if (!teams.some((team) => team.key === boxScoreTeam)) boxScoreTeam = "lions";
+  const selectedTeam = teams.find((team) => team.key === boxScoreTeam) || teams[0];
+  const innings = boxScoreInnings(game);
+  const lineScores = teams.map((team) => boxScoreLineForTeam(game, team, innings));
+
+  els.boxScoreGameSelect.innerHTML = [...state.games]
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+    .map((item) => `<option value="${item.id}" ${item.id === game.id ? "selected" : ""}>${escapeHtml(item.date || "No date")} ${escapeHtml(gameMatchupLabel(item))}</option>`)
+    .join("");
+  els.boxScoreTitle.textContent = gameMatchupLabel(game);
+  els.boxScoreMeta.textContent = `${game.date || "No date"} | ${gameTeamMeta(game)} | ${gameStatusLabel(game)}`;
+  els.boxScoreSummary.innerHTML = renderBoxScoreSummary(game, teams);
+  els.boxScoreLineHead.innerHTML = `<tr><th>Team</th>${innings.map((inning) => `<th>${inning}</th>`).join("")}<th>R</th><th>H</th><th>E</th></tr>`;
+  els.boxScoreLineBody.innerHTML = lineScores.map((line) => renderBoxScoreLineRow(line, innings)).join("");
+  els.boxScoreTeamTabs.innerHTML = teams
+    .map((team) => `<button type="button" class="${team.key === selectedTeam.key ? "is-active" : ""}" data-box-score-team="${team.key}" role="tab" aria-selected="${team.key === selectedTeam.key ? "true" : "false"}">${escapeHtml(team.name)}</button>`)
+    .join("");
+  els.boxScoreBattingTitle.textContent = `${selectedTeam.name} Batting`;
+  els.boxScorePitchingTitle.textContent = `${selectedTeam.name} Pitching`;
+  const battingRows = boxScoreBattingRows(game, selectedTeam);
+  const pitchingRows = boxScorePitchingRows(game, selectedTeam);
+  els.boxScoreBattingBody.innerHTML = battingRows.length
+    ? battingRows.map(renderBoxScoreBattingRow).join("")
+    : `<tr><td colspan="7" class="box-score-empty">No batting events logged for this team.</td></tr>`;
+  els.boxScorePitchingBody.innerHTML = pitchingRows.length
+    ? pitchingRows.map(renderBoxScorePitchingRow).join("")
+    : `<tr><td colspan="7" class="box-score-empty">No pitching events logged for this team.</td></tr>`;
+}
+
+function boxScoreTeams(game) {
+  return [
+    { key: "lions", name: "Lions", side: lionsSide(game), score: game.score?.lions || 0 },
+    { key: "opponent", name: game.opponent || "Opponent", side: opponentSide(game), score: game.score?.opponent || 0 }
+  ].sort((a, b) => (a.side === "away" ? 0 : 1) - (b.side === "away" ? 0 : 1));
+}
+
+function boxScoreInnings(game) {
+  const highestEventInning = Math.max(0, ...(game.events || []).map((event) => Number(event.inning || 0)));
+  const highest = Math.max(9, Number(game.inning || 1), highestEventInning);
+  return Array.from({ length: highest }, (_, index) => index + 1);
+}
+
+function boxScoreBattingEvents(game, team) {
+  const scope = team.key === "lions" ? "offense" : "defense";
+  return (game.events || []).filter((event) => event.scope === scope && eventRules[event.result]?.pa);
+}
+
+function boxScoreFieldingErrorEvents(game, team) {
+  const battingScopeAgainstTeam = team.key === "lions" ? "defense" : "offense";
+  return (game.events || []).filter((event) => event.scope === battingScopeAgainstTeam && event.errorOnPlay);
+}
+
+function boxScoreLineForTeam(game, team, innings) {
+  const events = boxScoreBattingEvents(game, team);
+  const runsByInning = {};
+  innings.forEach((inning) => {
+    runsByInning[inning] = events
+      .filter((event) => Number(event.inning || 0) === inning)
+      .reduce((sum, event) => sum + (event.runs || 0), 0);
+  });
+  return {
+    ...team,
+    runsByInning,
+    runs: team.score,
+    hits: events.filter((event) => eventRules[event.result]?.hit).length,
+    errors: boxScoreFieldingErrorEvents(game, team).length
+  };
+}
+
+function renderBoxScoreSummary(game, teams) {
+  const away = teams.find((team) => team.side === "away") || teams[0];
+  const home = teams.find((team) => team.side === "home") || teams[1] || teams[0];
+  return `<div class="box-score-summary-grid">
+    ${renderBoxScoreTeamSummary(away)}
+    <div class="box-score-final">
+      <span>${escapeHtml(gameStatusLabel(game))}</span>
+      <strong>${away.score} - ${home.score}</strong>
+    </div>
+    ${renderBoxScoreTeamSummary(home)}
+  </div>`;
+}
+
+function renderBoxScoreTeamSummary(team) {
+  return `<div class="box-score-team-summary">
+    <span class="box-score-abbrev">${escapeHtml(teamAbbrev(team.name))}</span>
+    <strong>${escapeHtml(team.name)}</strong>
+    <span>${team.side === "away" ? "Away" : "Home"}</span>
+  </div>`;
+}
+
+function renderBoxScoreLineRow(line, innings) {
+  return `<tr>
+    <th>${escapeHtml(line.name)}</th>
+    ${innings.map((inning) => `<td>${line.runsByInning[inning] || 0}</td>`).join("")}
+    <td><strong>${line.runs}</strong></td>
+    <td>${line.hits}</td>
+    <td>${line.errors}</td>
+  </tr>`;
+}
+
+function boxScoreBattingRows(game, team) {
+  const rows = new Map();
+  const ensureRow = (id, name, position = "") => {
+    if (!rows.has(id)) {
+      rows.set(id, { id, name, position, pa: 0, ab: 0, r: 0, h: 0, rbi: 0, bb: 0, so: 0 });
+    }
+    return rows.get(id);
+  };
+  if (team.key === "lions") {
+    gameLineupEntries(game).forEach((entry) => {
+      const player = state.roster.find((item) => item.id === entry.playerId);
+      if (player) ensureRow(player.id, `#${player.number} ${player.name}`, entry.role || "");
+    });
+  } else {
+    opponentLineupEntriesForGame(game).forEach((entry, index) => {
+      const label = opponentBatterLabel(entry, index);
+      ensureRow(`opp:${label}`, label, "");
+    });
+  }
+  boxScoreBattingEvents(game, team).forEach((event) => {
+    const rule = eventRules[event.result] || {};
+    const id = team.key === "lions" ? event.playerId : event.playerId || `opp:${event.opponentBatter || "Opponent batter"}`;
+    const fallbackName = team.key === "lions"
+      ? state.roster.find((player) => player.id === event.playerId)?.name || "Unknown Lion"
+      : event.opponentBatter || String(event.playerId || "Opponent batter").replace(/^opp:/, "");
+    const row = ensureRow(id, fallbackName, "");
+    row.pa += rule.pa ? 1 : 0;
+    if (rule.ab) row.ab += 1;
+    if (rule.hit) row.h += 1;
+    if (rule.bb) row.bb += 1;
+    if (rule.k) row.so += 1;
+    row.rbi += event.rbi || 0;
+    row.r += boxScoreRunsScoredByBatter(event, id);
+  });
+  return [...rows.values()].filter((row) => row.pa || row.ab || row.r || row.h || row.rbi || row.bb || row.so);
+}
+
+function boxScoreRunsScoredByBatter(event, batterId) {
+  const scoredOnAdvancement = (event.runnerAdvancements || [])
+    .filter((advancement) => advancement.to === "home" && !advancement.out && !advancement.remove)
+    .filter((advancement) => advancement.runnerId === batterId)
+    .length;
+  if (scoredOnAdvancement) return scoredOnAdvancement;
+  return event.result === "HR" ? 1 : 0;
+}
+
+function renderBoxScoreBattingRow(row) {
+  return `<tr>
+    <td>${escapeHtml(row.name)}${row.position ? ` <span>${escapeHtml(row.position)}</span>` : ""}</td>
+    <td>${row.ab}</td>
+    <td>${row.r}</td>
+    <td>${row.h}</td>
+    <td>${row.rbi}</td>
+    <td>${row.bb}</td>
+    <td>${row.so}</td>
+  </tr>`;
+}
+
+function boxScorePitchingRows(game, team) {
+  const events = team.key === "lions"
+    ? (game.events || []).filter((event) => event.scope === "defense" && eventRules[event.result]?.pa)
+    : (game.events || []).filter((event) => event.scope === "offense" && eventRules[event.result]?.pa);
+  const rows = new Map();
+  const ensureRow = (id, name) => {
+    if (!rows.has(id)) rows.set(id, { id, name, pa: 0, outs: 0, h: 0, r: 0, er: 0, erUnknown: false, bb: 0, so: 0 });
+    return rows.get(id);
+  };
+  events.forEach((event) => {
+    const id = team.key === "lions" ? event.pitcherId || "lions-pitching" : "opponent-pitching";
+    const player = team.key === "lions" ? state.roster.find((item) => item.id === id) : null;
+    const row = ensureRow(id, player ? `#${player.number} ${player.name}` : `${team.name} pitching`);
+    const rule = eventRules[event.result] || {};
+    row.pa += rule.pa ? 1 : 0;
+    row.outs += boxScoreOutsRecorded(event, rule);
+    row.h += rule.hit ? 1 : 0;
+    row.r += event.runs || 0;
+    if (event.errorOnPlay) {
+      row.erUnknown = true;
+    } else {
+      row.er += event.runs || 0;
+    }
+    row.bb += event.result === "BB" ? 1 : 0;
+    row.so += event.result === "K" ? 1 : 0;
+  });
+  return [...rows.values()].filter((row) => row.pa || row.outs || row.h || row.r || row.er || row.bb || row.so);
+}
+
+function boxScoreOutsRecorded(event, rule = eventRules[event.result] || {}) {
+  const delta = Math.max(0, (event.outsAfter ?? event.outsBefore ?? 0) - (event.outsBefore ?? 0));
+  if (delta) return delta;
+  return event.outsRecorded ?? (rule.out ? 1 : 0);
+}
+
+function renderBoxScorePitchingRow(row) {
+  return `<tr>
+    <td>${escapeHtml(row.name)}</td>
+    <td>${formatInnings(row.outs)}</td>
+    <td>${row.h}</td>
+    <td>${row.r}</td>
+    <td>${row.erUnknown ? "--" : row.er}</td>
+    <td>${row.bb}</td>
+    <td>${row.so}</td>
+  </tr>`;
+}
+
+function teamAbbrev(name = "") {
+  const words = String(name || "Team").split(/\s+/).filter(Boolean);
+  const initials = words.map((word) => word[0]).join("").slice(0, 3).toUpperCase();
+  return initials || String(name || "TM").slice(0, 3).toUpperCase();
 }
 
 function initializeScoutingReport() {
