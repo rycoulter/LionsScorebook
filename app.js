@@ -505,15 +505,15 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-75";
+const APP_VERSION = "2026.04.20-build-78";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 const GA_MEASUREMENT_ID = "G-JWRVWJ9XYP";
 const ACCESS_MODE_STORAGE_KEY = "oakmont-lions-access-mode-v1";
-const ADMIN_PASSWORD = "Lions2026!!!";
 const PUBLIC_TAB_VIEWS = new Set(["home", "games", "stats", "archive"]);
 const PUBLIC_READ_VIEWS = new Set(["home", "games", "stats", "archive", "scorebook", "boxscore"]);
 const ADMIN_TAB_VIEWS = new Set(["home", "score", "games", "lineup", "roster", "stats", "scouting", "archive", "analysis"]);
+const supabaseStorage = window.ScorebookSupabaseStorage || null;
 
 const FIELD_LOCATIONS = [
   { name: "Herschel Park", address: "800 Herschel St, Pittsburgh, PA 15220" },
@@ -566,6 +566,9 @@ let lineupBuilderSelectedEntryId = "";
 let selectedFieldRunnerBase = "";
 let currentView = "home";
 let pendingAdminView = "";
+let supabaseBootstrapPromise = null;
+let sharedSyncPromise = null;
+let supabaseAdminEmail = "";
 const weatherCache = {};
 const weatherRequests = {};
 
@@ -580,6 +583,7 @@ const els = {
   adminAuthModal: document.getElementById("adminAuthModal"),
   adminAuthMessage: document.getElementById("adminAuthMessage"),
   adminAuthModeLabel: document.getElementById("adminAuthModeLabel"),
+  adminEmailInput: document.getElementById("adminEmailInput"),
   adminPasswordInput: document.getElementById("adminPasswordInput"),
   adminAuthCancelBtn: document.getElementById("adminAuthCancelBtn"),
   adminAuthSubmitBtn: document.getElementById("adminAuthSubmitBtn"),
@@ -802,6 +806,8 @@ configureGameDateInputs();
 bindEvents();
 initializeScoutingReport();
 render();
+bootstrapSupabaseState();
+initializeSupabaseAuth();
 
 function makePlayer(id, name, number, positions, bats = "R", grades = defaultPlayerGrades()) {
   return {
@@ -1689,6 +1695,110 @@ function saveState() {
   storage.saveAppState(state);
 }
 
+function hasMeaningfulSupabaseSnapshot(snapshot) {
+  if (!snapshot) return false;
+  if (Array.isArray(snapshot.games) && snapshot.games.length) return true;
+  const appState = snapshot.appState;
+  if (!appState || typeof appState !== "object") return false;
+  if (Array.isArray(appState.roster) && appState.roster.length) return true;
+  if (Array.isArray(appState.lineup) && appState.lineup.length) return true;
+  if (typeof appState.active_game_id === "string" && appState.active_game_id.trim()) return true;
+  return false;
+}
+
+async function bootstrapSupabaseState() {
+  if (!supabaseStorage?.isReady?.()) return null;
+  if (supabaseBootstrapPromise) return supabaseBootstrapPromise;
+  supabaseBootstrapPromise = (async () => {
+    try {
+      const { data, error } = await supabaseStorage.fetchBootstrap();
+      if (error) {
+        console.warn("Unable to load Supabase scorebook snapshot.", error);
+        return null;
+      }
+      if (!hasMeaningfulSupabaseSnapshot(data)) {
+        console.info("Supabase is connected, but there is no shared scorebook data yet.");
+        return null;
+      }
+      const merged = supabaseStorage.mergeRemoteSnapshot(state, data.appState, data.games);
+      state = normalizeState(merged);
+      saveState();
+      render();
+      console.info("Loaded shared scorebook data from Supabase.");
+      return state;
+    } catch (error) {
+      console.warn("Supabase bootstrap failed; continuing with local scorebook data.", error);
+      return null;
+    }
+  })();
+  return supabaseBootstrapPromise;
+}
+
+function isCloudSyncedGame(game) {
+  return Boolean(game) && game.status !== "active";
+}
+
+function buildSharedSnapshot(sourceState = state) {
+  const sharedGames = (sourceState?.games || []).filter(isCloudSyncedGame).map((game) => deepClone(game));
+  return {
+    roster: deepClone(sourceState?.roster || []),
+    lineup: deepClone(sourceState?.lineup || []),
+    rosterVersion: sourceState?.rosterVersion ?? ROSTER_VERSION,
+    activeGameId: "",
+    games: sharedGames
+  };
+}
+
+async function syncSharedSnapshot(reason = "manual") {
+  if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return null;
+  if (sharedSyncPromise) return sharedSyncPromise;
+  sharedSyncPromise = (async () => {
+    const snapshot = buildSharedSnapshot(state);
+    try {
+      const [appStateResponse, gamesResponse] = await Promise.all([
+        supabaseStorage.upsertAppState(snapshot),
+        supabaseStorage.replaceGamesSnapshot(snapshot.games)
+      ]);
+      const error = appStateResponse.error || gamesResponse.error || null;
+      if (error) {
+        console.warn(`Unable to sync shared scorebook snapshot (${reason}).`, error);
+        return { data: null, error };
+      }
+      console.info(`Synced shared scorebook snapshot to Supabase (${reason}).`);
+      return {
+        data: {
+          appState: appStateResponse.data || null,
+          games: gamesResponse.data || []
+        },
+        error: null
+      };
+    } finally {
+      sharedSyncPromise = null;
+    }
+  })();
+  return sharedSyncPromise;
+}
+
+function requestSharedSnapshotSync(reason) {
+  if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return;
+  setTimeout(() => {
+    syncSharedSnapshot(reason).catch((error) => {
+      console.warn(`Shared scorebook sync failed (${reason}).`, error);
+    });
+  }, 0);
+}
+
+async function seedSupabaseFromLocalIfEmpty() {
+  if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return null;
+  const { data, error } = await supabaseStorage.fetchBootstrap();
+  if (error) {
+    console.warn("Unable to inspect Supabase before seeding.", error);
+    return null;
+  }
+  if (hasMeaningfulSupabaseSnapshot(data)) return data;
+  return syncSharedSnapshot("initial-seed");
+}
+
 function loadAccessMode() {
   try {
     return window.localStorage?.getItem(ACCESS_MODE_STORAGE_KEY) === "admin" ? "admin" : "public";
@@ -1718,21 +1828,43 @@ function visibleTabViews() {
   return isAdminMode() ? ADMIN_TAB_VIEWS : PUBLIC_TAB_VIEWS;
 }
 
-function openAdminAuthModal(message = "Enter the admin password to unlock scoring and editing.") {
+function openAdminAuthModal(message = "Sign in with your Supabase admin account to unlock scoring and editing.") {
   if (!els.adminAuthModal) return;
   if (els.adminAuthMessage) els.adminAuthMessage.textContent = message;
-  if (els.adminAuthModeLabel) els.adminAuthModeLabel.textContent = isAdminMode() ? "Admin tools are unlocked." : "Public view is read-only.";
+  if (els.adminAuthModeLabel) {
+    els.adminAuthModeLabel.textContent = isAdminMode()
+      ? `Admin tools are unlocked${supabaseAdminEmail ? ` for ${supabaseAdminEmail}` : ""}.`
+      : "Public view is read-only until an approved admin signs in.";
+  }
   els.adminAuthModal.hidden = false;
+  if (els.adminEmailInput) {
+    els.adminEmailInput.value = supabaseAdminEmail || "";
+  }
   if (els.adminPasswordInput) {
     els.adminPasswordInput.value = "";
-    setTimeout(() => els.adminPasswordInput.focus(), 0);
+  }
+  setTimeout(() => {
+    if (els.adminEmailInput && !els.adminEmailInput.value) els.adminEmailInput.focus();
+    else els.adminPasswordInput?.focus();
+  }, 0);
+}
+
+function setAdminAuthBusy(busy, label = "Sign In") {
+  if (els.adminEmailInput) els.adminEmailInput.disabled = busy;
+  if (els.adminPasswordInput) els.adminPasswordInput.disabled = busy;
+  if (els.adminAuthCancelBtn) els.adminAuthCancelBtn.disabled = busy;
+  if (els.adminAuthSubmitBtn) {
+    els.adminAuthSubmitBtn.disabled = busy;
+    els.adminAuthSubmitBtn.textContent = busy ? "Signing In..." : label;
   }
 }
 
 function closeAdminAuthModal() {
   if (!els.adminAuthModal) return;
   els.adminAuthModal.hidden = true;
+  if (els.adminEmailInput) els.adminEmailInput.value = supabaseAdminEmail || "";
   if (els.adminPasswordInput) els.adminPasswordInput.value = "";
+  setAdminAuthBusy(false);
 }
 
 function requireAdminAccess(message = "Admin sign-in required.") {
@@ -1750,20 +1882,149 @@ function setAccessMode(nextMode) {
   switchView(currentView);
 }
 
-function submitAdminPassword() {
-  const password = els.adminPasswordInput?.value || "";
-  if (password !== ADMIN_PASSWORD) {
-    if (els.adminAuthMessage) els.adminAuthMessage.textContent = "Password not recognized. Try again.";
-    if (els.adminPasswordInput) {
-      els.adminPasswordInput.focus();
-      els.adminPasswordInput.select();
+async function applySupabaseAdminState(user, options = {}) {
+  const { allowSeed = false, preserveModal = false } = options;
+  const normalizedEmail = String(user?.email || "").trim().toLowerCase();
+  if (!normalizedEmail) {
+    supabaseAdminEmail = "";
+    if (accessMode !== "public") {
+      if (preserveModal) {
+        accessMode = "public";
+        saveAccessMode();
+        render();
+        switchView(currentView);
+      } else {
+        setAccessMode("public");
+      }
+    } else {
+      renderAccessMode();
     }
-    return;
+    return false;
   }
+  const { data: isAdmin, error } = await supabaseStorage.isAdminEmail(normalizedEmail);
+  if (error) {
+    console.warn("Unable to verify Supabase admin access.", error);
+    if (els.adminAuthMessage) els.adminAuthMessage.textContent = "Sign-in worked, but admin access could not be verified yet.";
+    supabaseAdminEmail = "";
+    if (preserveModal) {
+      accessMode = "public";
+      saveAccessMode();
+      render();
+      switchView(currentView);
+    } else {
+      setAccessMode("public");
+    }
+    return false;
+  }
+  if (!isAdmin) {
+    supabaseAdminEmail = "";
+    if (els.adminAuthMessage) els.adminAuthMessage.textContent = "This account is signed in, but it is not listed as a Scorebook admin.";
+    if (preserveModal) {
+      accessMode = "public";
+      saveAccessMode();
+      render();
+      switchView(currentView);
+    } else {
+      setAccessMode("public");
+    }
+    return false;
+  }
+
+  supabaseAdminEmail = normalizedEmail;
   const destination = pendingAdminView && canAccessView("home") ? pendingAdminView : currentView;
   pendingAdminView = "";
-  setAccessMode("admin");
-  if (destination && destination !== currentView) switchView(destination);
+  if (preserveModal) {
+    accessMode = "admin";
+    saveAccessMode();
+    closeAdminAuthModal();
+    render();
+    if (destination && destination !== currentView) switchView(destination);
+    else switchView(currentView);
+  } else {
+    setAccessMode("admin");
+    if (destination && destination !== currentView) switchView(destination);
+  }
+  if (allowSeed) {
+    seedSupabaseFromLocalIfEmpty().catch((seedError) => {
+      console.warn("Unable to seed Supabase from local scorebook data.", seedError);
+    });
+  }
+  return true;
+}
+
+async function submitAdminCredentials() {
+  const client = supabaseStorage?.getClient?.();
+  if (!client) {
+    if (els.adminAuthMessage) els.adminAuthMessage.textContent = "Supabase is not ready yet, so admin sign-in is unavailable.";
+    return;
+  }
+  const email = String(els.adminEmailInput?.value || "").trim().toLowerCase();
+  const password = els.adminPasswordInput?.value || "";
+  if (!email || !password) {
+    if (els.adminAuthMessage) els.adminAuthMessage.textContent = "Enter both your admin email and password.";
+    if (!email) els.adminEmailInput?.focus();
+    else els.adminPasswordInput?.focus();
+    return;
+  }
+  setAdminAuthBusy(true);
+  if (els.adminAuthMessage) els.adminAuthMessage.textContent = "Signing in...";
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  if (error || !data?.user) {
+    if (els.adminAuthMessage) els.adminAuthMessage.textContent = error?.message || "Sign-in failed. Check your email and password.";
+    setAdminAuthBusy(false);
+    els.adminPasswordInput?.focus();
+    els.adminPasswordInput?.select();
+    return;
+  }
+  const granted = await applySupabaseAdminState(data.user, { allowSeed: true, preserveModal: true });
+  if (granted && els.adminAuthMessage) els.adminAuthMessage.textContent = `Signed in as ${data.user.email}.`;
+  setAdminAuthBusy(false);
+}
+
+async function signOutAdmin() {
+  const client = supabaseStorage?.getClient?.();
+  pendingAdminView = "";
+  if (!client) {
+    setAccessMode("public");
+    return;
+  }
+  const { error } = await client.auth.signOut({ scope: "local" });
+  if (error) {
+    console.warn("Supabase sign-out failed.", error);
+  }
+  supabaseAdminEmail = "";
+  setAccessMode("public");
+}
+
+async function initializeSupabaseAuth() {
+  const client = supabaseStorage?.getClient?.();
+  if (!client) return;
+  client.auth.onAuthStateChange((event, session) => {
+    setTimeout(() => {
+      if (event === "SIGNED_OUT") {
+        applySupabaseAdminState(null).catch((error) => console.warn("Unable to reset admin mode after sign-out.", error));
+        return;
+      }
+      if (session?.user) {
+        applySupabaseAdminState(session.user, { allowSeed: event === "SIGNED_IN" || event === "INITIAL_SESSION" })
+          .catch((error) => console.warn("Unable to refresh Supabase admin state.", error));
+      }
+    }, 0);
+  });
+  try {
+    const { data, error } = await client.auth.getUser();
+    if (error) {
+      console.warn("Unable to fetch the current Supabase user.", error);
+      return;
+    }
+    if (data?.user) {
+      await applySupabaseAdminState(data.user, { allowSeed: true });
+    } else if (accessMode !== "public") {
+      setAccessMode("public");
+    }
+  } catch (error) {
+    console.warn("Unable to initialize Supabase auth state.", error);
+  }
 }
 
 function renderAccessMode() {
@@ -1786,22 +2047,19 @@ function bindEvents() {
     tab.addEventListener("click", () => switchView(tab.dataset.view));
   });
   els.adminUnlockBtn?.addEventListener("click", () => openAdminAuthModal());
-  els.adminLockBtn?.addEventListener("click", () => {
-    pendingAdminView = "";
-    setAccessMode("public");
-  });
+  els.adminLockBtn?.addEventListener("click", signOutAdmin);
   els.adminAuthCancelBtn?.addEventListener("click", closeAdminAuthModal);
-  els.adminAuthSubmitBtn?.addEventListener("click", submitAdminPassword);
-  els.adminPasswordInput?.addEventListener("keydown", (event) => {
+  els.adminAuthSubmitBtn?.addEventListener("click", submitAdminCredentials);
+  [els.adminEmailInput, els.adminPasswordInput].filter(Boolean).forEach((input) => input.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      submitAdminPassword();
+      submitAdminCredentials();
     }
     if (event.key === "Escape") {
       event.preventDefault();
       closeAdminAuthModal();
     }
-  });
+  }));
   els.adminAuthModal?.addEventListener("click", (event) => {
     if (event.target === els.adminAuthModal) closeAdminAuthModal();
   });
@@ -3766,6 +4024,7 @@ function scheduleGame() {
   resetGameCreationForm();
   hideGameCreateForm();
   render();
+  requestSharedSnapshotSync("schedule-game");
 }
 
 function showGameCreateForm() {
@@ -3923,6 +4182,7 @@ function completeScheduledGame(gameId) {
   moveActiveGameOffFinal(game.id);
   saveState();
   render();
+  requestSharedSnapshotSync("complete-scheduled-game");
 }
 
 function finishGame() {
@@ -3934,6 +4194,7 @@ function finishGame() {
   moveActiveGameOffFinal(current.id);
   saveState();
   render();
+  requestSharedSnapshotSync("finish-game");
   switchView("games");
 }
 
@@ -3955,6 +4216,7 @@ function addPlayer() {
   els.playerBats.value = "R";
   saveState();
   render();
+  requestSharedSnapshotSync("add-player");
 }
 
 function render() {
@@ -5685,6 +5947,7 @@ function renderRoster() {
         optimizedIds = buildOptimizedLineup();
         renderOptimizedLineup();
         renderValueBoard();
+        requestSharedSnapshotSync(`update-player-grade-${grade}`);
       });
     });
     els.rosterGrid.appendChild(node);
@@ -5713,6 +5976,7 @@ function updatePlayerIdentity(playerId, field, value) {
   });
   saveState();
   render();
+  requestSharedSnapshotSync(`update-player-${field}`);
 }
 
 function togglePlayerActive(playerId, isActive) {
@@ -5724,6 +5988,7 @@ function togglePlayerActive(playerId, isActive) {
   saveState();
   optimizedIds = buildOptimizedLineup();
   render();
+  requestSharedSnapshotSync("toggle-player-active");
 }
 
 function statCell(label, value) {
@@ -6070,6 +6335,7 @@ function saveGameEdits() {
   game.notes = els.editNotesInput.value.trim();
   saveState();
   render();
+  requestSharedSnapshotSync("save-game-edits");
 }
 
 function removeScheduledGame(gameId) {
@@ -6083,6 +6349,7 @@ function removeScheduledGame(gameId) {
   if (gameEditId === gameId) gameEditId = null;
   saveState();
   render();
+  requestSharedSnapshotSync("remove-scheduled-game");
 }
 
 function openLineupBuilder(gameId, returnView = "games") {

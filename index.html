@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <link rel="manifest" href="manifest.json?v=2026.04.20-build-75">
+    <link rel="manifest" href="manifest.json?v=2026.04.20-build-78">
     <meta name="theme-color" content="#1f2937">
     <title>Oakmont Lions Scorebook</title>
     <link rel="preconnect" href="https://images.unsplash.com">
-    <link rel="stylesheet" href="styles.css?v=2026.04.20-build-75">
+    <link rel="stylesheet" href="styles.css?v=2026.04.20-build-78">
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-block">
-          <img src="lions-logo.png?v=2026.04.20-build-75" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
+          <img src="lions-logo.png?v=2026.04.20-build-78" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
           <div>
             <h1>Oakmont Lions</h1>
           </div>
@@ -1040,14 +1040,18 @@
           <h3 id="adminAuthTitle">Admin Sign In</h3>
           <span class="player-meta" id="adminAuthModeLabel">Public view is read-only.</span>
         </div>
-        <p class="player-meta" id="adminAuthMessage">Enter the admin password to unlock scoring and editing.</p>
+        <p class="player-meta" id="adminAuthMessage">Sign in with your Supabase admin account to unlock scoring and editing.</p>
+        <label class="wide">
+          Email
+          <input id="adminEmailInput" type="email" autocomplete="username" placeholder="coach@oakmontlions.com">
+        </label>
         <label class="wide">
           Password
           <input id="adminPasswordInput" type="password" autocomplete="current-password" placeholder="Enter admin password">
         </label>
         <div class="button-row">
           <button type="button" class="secondary-action" id="adminAuthCancelBtn">Cancel</button>
-          <button type="button" class="primary-action" id="adminAuthSubmitBtn">Unlock Admin</button>
+          <button type="button" class="primary-action" id="adminAuthSubmitBtn">Sign In</button>
         </div>
       </div>
     </div>
@@ -1083,8 +1087,11 @@
       </article>
     </template>
 
-    <script src="storage.js?v=2026.04.20-build-75"></script>
-    <script src="matchup-images.js?v=2026.04.20-build-75"></script>
-    <script src="app.js?v=2026.04.20-build-75"></script>
+    <script src="storage.js?v=2026.04.20-build-78"></script>
+    <script src="matchup-images.js?v=2026.04.20-build-78"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js?v=2026.04.20-build-78"></script>
+    <script src="supabase-storage.js?v=2026.04.20-build-78"></script>
+    <script src="app.js?v=2026.04.20-build-78"></script>
   </body>
 </html>

@@ -7,6 +7,11 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Replaced the frontend-only admin password prompt with Supabase email/password admin sign-in, persisted admin sessions through Supabase Auth, and restricted shared backend writes to approved admin emails.
+- Added first-pass shared Supabase writes for roster changes plus scheduled/completed game updates while intentionally leaving in-progress Score Game work local-first for iPad/offline scoring.
+- Added a first Supabase read bootstrap so the app still opens from local data immediately, then safely loads shared roster/game data from Supabase in the background when a shared snapshot exists.
+- Added the first Supabase backend foundation files, including a browser client config, a local-first shared-storage adapter scaffold, and setup docs/SQL for shared app state and game records.
+- Wired the app shell to load the Supabase browser client and refreshed the build/cache so backend foundation changes propagate cleanly across GitHub Pages and installed PWAs.
 - Added cache-busting asset versioning for the main HTML/CSS/JS/logo paths and fixed the header logo sizing in markup so live GitHub Pages deploys do not mix new HTML with stale styling.
 - Activated GA4 traffic tracking for the live site using the configured measurement ID and refreshed the build/cache for production pickup.
 - Replaced the OL header badge with the Lions logo, simplified the top-left brand to Oakmont Lions, moved the build/admin controls into a bottom-left utility bar, and aligned the home pitching leader cards to match batting.
