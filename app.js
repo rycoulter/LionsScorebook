@@ -505,7 +505,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-96";
+const APP_VERSION = "2026.04.20-build-100";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -5284,7 +5284,7 @@ function renderScoringStepPanel() {
     els.scoringStepPanel.dataset.step = "final";
     els.scoringStepEyebrow.textContent = "Final";
     els.scoringStepTitle.textContent = "Game complete";
-    els.scoringStepHint.textContent = "This game is locked. Completed games remain available in past games and reports.";
+    els.scoringStepHint.textContent = "This game is locked. Completed games remain available in Game Archive and reports.";
     els.panelUndoPitchBtn.hidden = true;
     els.scoringStepBody.innerHTML = `<div class="auto-score">Final score: ${escapeHtml(gameScoreLabel(game))}</div>`;
     return;
@@ -6475,7 +6475,7 @@ function renderArchive() {
 
   els.archiveGrid.innerHTML = games.length
     ? games.map(renderArchiveCard).join("")
-    : `<p class="player-meta">No past games yet.</p>`;
+    : `<p class="player-meta">No games in Game Archive yet.</p>`;
 }
 
 function renderArchiveCard(game) {
@@ -6489,7 +6489,6 @@ function renderArchiveCard(game) {
     <div class="game-actions">
       ${final ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${escapeHtml(game.id)}">View Summary</button>` : ""}
       <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
-      ${final ? `<button type="button" class="secondary-action" data-game-action="stats" data-game-id="${escapeHtml(game.id)}">View Stats</button>` : ""}
       <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">View Scorebook</button>
     </div>
   </article>`;
@@ -6521,7 +6520,6 @@ function renderGameSummary() {
     <div class="button-row">
       <button type="button" class="primary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">View Scorebook</button>
       <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
-      <button type="button" class="secondary-action" data-game-action="stats" data-game-id="${escapeHtml(game.id)}">View Stats</button>
     </div>`;
 }
 
@@ -6611,8 +6609,8 @@ function renderGames() {
   }
   if (els.gamesArchiveNote) {
     els.gamesArchiveNote.innerHTML = completedTotal > 3
-      ? `<span>Showing the 3 most recent completed games.</span><button type="button" class="secondary-action" data-game-action="archive">View full history in Archive</button>`
-      : `<span>Full game history lives in the Archive.</span><button type="button" class="secondary-action" data-game-action="archive">Open Archive</button>`;
+      ? `<span>Showing the 3 most recent completed games.</span><button type="button" class="secondary-action" data-game-action="archive">View full history in Game Archive</button>`
+      : `<span>Full game history lives in Game Archive.</span><button type="button" class="secondary-action" data-game-action="archive">Open Game Archive</button>`;
   }
 }
 
@@ -7470,7 +7468,7 @@ function boxScoreTeams(game) {
 
 function boxScoreInnings(game) {
   const highestEventInning = Math.max(0, ...(game.events || []).map((event) => Number(event.inning || 0)));
-  const highest = Math.max(9, Number(game.inning || 1), highestEventInning);
+  const highest = Math.max(7, Number(game.inning || 1), highestEventInning);
   return Array.from({ length: highest }, (_, index) => index + 1);
 }
 
@@ -7514,10 +7512,14 @@ function renderBoxScoreSummary(game, teams) {
   </div>`;
 }
 
+function boxScoreTeamLogo(team) {
+  return window.MatchupImages?.getTeamLogo?.(team?.name, team?.key) || "assets/team-logos/lions.png";
+}
+
 function renderBoxScoreTeamSummary(team) {
   return `<div class="box-score-team-summary">
-    <span class="box-score-abbrev">${escapeHtml(teamAbbrev(team.name))}</span>
-    <strong>${escapeHtml(team.name)}</strong>
+    <img class="box-score-team-logo" src="${escapeHtml(boxScoreTeamLogo(team))}" alt="" loading="lazy" decoding="async">
+    <strong class="box-score-team-name">${escapeHtml(team.name)}</strong>
     <span>${team.side === "away" ? "Away" : "Home"}</span>
   </div>`;
 }
@@ -8099,6 +8101,7 @@ function renderSeasonStats() {
         <td>${formatRate(hit.ops)}</td>
         <td>${hit.rbi}</td>
         <td>${hit.bb}</td>
+        <td>${hit.hbp}</td>
         <td>${hit.k}</td>
         <td>${hit.sb}</td>
         <td>${hit.cs}</td>
@@ -8127,6 +8130,7 @@ function renderSeasonStats() {
         <td>${pit.h}</td>
         <td>${pit.runs}</td>
         <td>${pit.bb}</td>
+        <td>${pit.hbp}</td>
         <td>${pit.k}</td>
         <td>${Math.round(pit.kRate * 100)}%</td>
         <td>${Math.round(pit.bbRate * 100)}%</td>

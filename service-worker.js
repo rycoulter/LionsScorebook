@@ -1,4 +1,4 @@
-const CACHE_NAME = "baseball-scorebook-v96";
+const CACHE_NAME = "baseball-scorebook-v100";
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
@@ -11,7 +11,14 @@ const FILES_TO_CACHE = [
   "./lions-logo.png",
   "./new-lion.png",
   "./lions-watermark.png",
-  "./manifest.json"
+  "./manifest.json",
+  "./assets/team-logos/lions.png",
+  "./assets/team-logos/turtles.png",
+  "./assets/team-logos/bandidos.png",
+  "./assets/team-logos/d2.png",
+  "./assets/team-logos/eagles.png",
+  "./assets/team-logos/ducks.png",
+  "./assets/team-logos/devils.png"
 ];
 
 self.addEventListener("install", (event) => {

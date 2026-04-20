@@ -7,6 +7,10 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Renamed the completed-games section back to Game Archive and removed the extra View Stats action from completed-game cards so the game window stays tighter.
+- Added HBP columns to the Stats page for both batting and pitching so hit-by-pitch totals are visible and sortable.
+- Updated the Box Score line score to default to 7 innings and only add extra columns when a game actually goes beyond seven.
+- Added team logos to the Box Score header cards so Lions and opponent branding now appears above each team name using the supplied logo set.
 - Fixed completed-game sync status so Past Games no longer gets stuck showing `Syncing...` after a successful publish, and stale transient sync flags are now normalized back to a stable ready/synced state.
 - Added pitcher win/loss/no-decision tracking for completed games using pitcher-of-record logic from the game event history, and expanded the Stats pitching table to show W, L, and ND.
 - Simplified Game Archive into Past Games by removing the searchable-notes framing, dropping the search box, and removing the play-by-play preview text from each past-game card.
