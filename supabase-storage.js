@@ -13,6 +13,10 @@
     return Boolean(getClient());
   }
 
+  function currentSeasonValue() {
+    return new Date().getFullYear();
+  }
+
   function buildAppStateRow(state) {
     return {
       id: "primary",
@@ -127,6 +131,19 @@
     };
   }
 
+  async function fetchLeagueStandings(division = "AA", season = currentSeasonValue()) {
+    const client = getClient();
+    if (!client) return { data: [], error: new Error("Supabase client not ready.") };
+    const response = await client
+      .from("league_standings")
+      .select("*")
+      .eq("division", String(division || "AA").toUpperCase())
+      .eq("season", Number(season) || currentSeasonValue())
+      .order("rank", { ascending: true, nullsFirst: false })
+      .order("points", { ascending: false });
+    return response;
+  }
+
   async function upsertAppState(state) {
     const client = getClient();
     if (!client) return { data: null, error: new Error("Supabase client not ready.") };
@@ -204,6 +221,7 @@
     fetchAppState,
     fetchGames,
     fetchBootstrap,
+    fetchLeagueStandings,
     upsertAppState,
     upsertGames,
     pushSnapshot,

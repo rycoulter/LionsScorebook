@@ -233,12 +233,13 @@ const battedBallResults = new Set(["1B", "2B", "3B", "HR", "ROE", "FC", "DP", "G
 const scorebookFielderResults = new Set(["GO", "FO", "LO", "DP", "FC", "SAC", "ROE"]);
 const scorebookBaseRunningResults = new Set(["SB", "CS", "PO"]);
 
-const PITTSBURGH_NABA_URL = "https://www.pittsburghnaba.org/teams/?s=baseball&u=PITTSBURGHNABA";
+const PITTSBURGH_NABA_URL = "https://www.pittsburghnaba.org/teams/default.asp?s=baseball&u=PITTSBURGHNABA";
+const PITTSBURGH_NABA_STANDINGS_URL = "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA";
 
 const AA_SCOUTING_SNAPSHOT = {
   division: "AA",
-  sourceUrl: PITTSBURGH_NABA_URL,
-  sourceLabel: "Pittsburgh NABA AA listings",
+  sourceUrl: PITTSBURGH_NABA_STANDINGS_URL,
+  sourceLabel: "Pittsburgh NABA AA standings",
   updatedLabel: "Official league snapshot",
   leagueLeaders: {
     hitters: [
@@ -505,7 +506,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-106";
+const APP_VERSION = "2026.04.20-build-117";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -601,6 +602,7 @@ const els = {
   homeGamesBtn: document.getElementById("homeGamesBtn"),
   homeBattingLeaders: document.getElementById("homeBattingLeaders"),
   homePitchingLeaders: document.getElementById("homePitchingLeaders"),
+  homeLeagueStandings: document.getElementById("homeLeagueStandings"),
   homeUpcomingGames: document.getElementById("homeUpcomingGames"),
   homePastGames: document.getElementById("homePastGames"),
   gameTitle: document.getElementById("gameTitle"),
@@ -1278,30 +1280,13 @@ function makeUniqueGame(options = {}) {
 }
 
 function seedState() {
-  const seededIds = defaultRoster.map((player) => player.id);
-  const sampleGame = makeGame("Riverside Hawks");
-  sampleGame.status = "completed";
-  sampleGame.date = "2026-04-10";
-  sampleGame.score = { lions: 7, opponent: 4 };
-  sampleGame.events = [
-    seedEvent(sampleGame, seededIds[0], "BB", 1, 0, "none", "none", "high", "Opened with a disciplined walk."),
-    seedEvent(sampleGame, seededIds[1], "2B", 1, 2, "hard", "ld", "high", "Drove the outer-half pitch into the gap.", { x: 38, y: 36, zone: "LCF" }),
-    seedEvent(sampleGame, seededIds[2], "1B", 0, 1, "solid", "gb", "neutral", "Beat the throw with speed pressure.", { x: 54, y: 67, zone: "MIF" }),
-    seedEvent(sampleGame, seededIds[3], "HR", 1, 2, "barrel", "fb", "high", "Pulled a mistake with runners on.", { x: 27, y: 18, zone: "LF" }),
-    seedEvent(sampleGame, seededIds[4], "1B", 0, 0, "solid", "ld", "neutral", "Short swing with two strikes.", { x: 62, y: 48, zone: "RCF" }),
-    seedEvent(sampleGame, seededIds[5], "K", 0, 0, "none", "none", "low", "Chased above the zone."),
-    seedEvent(sampleGame, seededIds[6], "SB", 0, 0, "none", "none", "neutral", "Good jump on first move."),
-    seedEvent(sampleGame, seededIds[7], "FO", 0, 0, "weak", "fb", "low", "Got under it.", { x: 73, y: 29, zone: "RF" }),
-    seedEvent(sampleGame, seededIds[8], "1B", 1, 1, "hard", "ld", "high", "Line drive through the middle.", { x: 50, y: 42, zone: "CF" })
-  ];
-  const activeGame = makeGame("Wildcats");
   return {
     roster: defaultRoster,
     rosterVersion: ROSTER_VERSION,
     lineup: defaultRoster.filter((player) => player.active).map((player) => player.id),
     completedGameSyncQueue: [],
-    games: [sampleGame, activeGame],
-    activeGameId: activeGame.id
+    games: [],
+    activeGameId: ""
   };
 }
 
@@ -1326,6 +1311,19 @@ function seedEvent(game, playerId, result, runs, rbi, contact, launch, leverage,
     pitches: [],
     createdAt: new Date().toISOString()
   };
+}
+
+function isLegacySeedGame(game) {
+  const events = Array.isArray(game?.events) ? game.events : [];
+  return Boolean(
+    game
+    && game.opponent === "Riverside Hawks"
+    && game.date === "2026-04-10"
+    && gameIsFinal(game)
+    && Number(game.score?.lions || 0) === 7
+    && Number(game.score?.opponent || 0) === 4
+    && events.length === 9
+  );
 }
 
 function loadState() {
@@ -1383,7 +1381,9 @@ function normalizeState(nextState) {
       ? nextState.lineup.filter((playerId) => nextState.roster.some((player) => player.id === playerId))
       : nextState.roster.filter((player) => player.active).map((player) => player.id);
   }
-  nextState.games = nextState.games.map((game) => normalizeGame(game, nextState));
+  nextState.games = nextState.games
+    .map((game) => normalizeGame(game, nextState))
+    .filter((game) => !isLegacySeedGame(game));
   nextState.completedGameSyncQueue = normalizeCompletedGameSyncQueue(nextState.completedGameSyncQueue, nextState.games);
   if (rosterWasReplaced) {
     nextState.games.forEach((game) => resetGameAwayLineupToRoster(game, nextState));
@@ -4758,6 +4758,55 @@ function renderHome() {
     leaderCard("Strikeouts", pitcherRows, (row) => row.stats.k, String),
     leaderCard("WHIP", pitcherRows, (row) => row.stats.whip, (value) => value.toFixed(2), true)
   ].join("");
+  if (els.homeLeagueStandings) {
+    const totalGames = record.wins + record.losses + record.ties;
+    const lionsWinPct = totalGames ? (record.wins / totalGames).toFixed(3).replace(/^0/, ".") : "Preseason";
+    const lionsRecord = `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""}`;
+    const baseStandingsRows = (Array.isArray(scoutingData?.teams) && scoutingData.teams.length
+      ? scoutingData.teams
+      : AA_SCOUTING_SNAPSHOT.teams
+    )
+      .slice();
+    const hasLiveLionsStanding = baseStandingsRows.some((team) => /oakmont lions/i.test(String(team?.name || "")));
+    const standingsRows = baseStandingsRows
+      .filter((team) => !/oakmont lions/i.test(String(team?.name || "")))
+      .concat(hasLiveLionsStanding ? [] : [{
+        id: "oakmont-lions",
+        name: "Oakmont Lions",
+        record: lionsRecord,
+        points: 0,
+        winPct: lionsWinPct,
+        gb: totalGames ? "-" : "Pre",
+        streak: totalGames ? `${record.runsFor} RF | ${record.runsAgainst} RA` : "Preseason",
+        hitters: [],
+        pitchers: []
+      }])
+      .sort((a, b) => (Number(b?.points) || 0) - (Number(a?.points) || 0) || String(a?.name || "").localeCompare(String(b?.name || "")));
+    els.homeLeagueStandings.innerHTML = standingsRows.length
+      ? standingsRows.map((team, index) => {
+        const isLions = /oakmont lions/i.test(String(team?.name || ""));
+        return `<div class="home-standings-row${isLions ? " is-lions" : ""}">
+          <span class="home-standings-rank">${index + 1}</span>
+          <span class="home-standings-team">
+            <strong>${escapeHtml(team.name || "Team")}</strong>
+            <small>${escapeHtml(team.record || "--")} | ${escapeHtml(team.winPct || "--")}</small>
+          </span>
+          <span class="home-standings-stat">
+            <small>Pts</small>
+            <strong>${escapeHtml(team.points ?? "--")}</strong>
+          </span>
+          <span class="home-standings-stat">
+            <small>GB</small>
+            <strong>${escapeHtml(team.gb || "-")}</strong>
+          </span>
+          <span class="home-standings-stat">
+            <small>Streak</small>
+            <strong>${escapeHtml(team.streak || "--")}</strong>
+          </span>
+        </div>`;
+      }).join("")
+      : `<div class="upcoming-empty">League standings will appear here after the next refresh.</div>`;
+  }
 }
 
 function seasonRecord() {
@@ -7777,6 +7826,53 @@ function teamAbbrev(name = "") {
   return initials || String(name || "TM").slice(0, 3).toUpperCase();
 }
 
+function currentLeagueSeason() {
+  return new Date().getFullYear();
+}
+
+function mergeSupabaseLeagueStandings(rows = [], currentData) {
+  const parsed = deepClone(currentData || AA_SCOUTING_SNAPSHOT);
+  if (rows.length) {
+    parsed.sourceUrl = PITTSBURGH_NABA_STANDINGS_URL;
+    parsed.sourceLabel = "Supabase AA standings cache";
+    parsed.updatedLabel = "Supabase standings cache";
+  }
+  rows.forEach((row) => {
+    const teamName = String(row?.team_name || row?.name || "").trim();
+    if (!teamName) return;
+    const standing = {
+      name: teamName,
+      record: row.record || "--",
+      points: Number(row.points) || 0,
+      winPct: row.win_pct || row.winPct || "--",
+      gb: row.games_back || row.gb || "-",
+      rf: Number(row.runs_for ?? row.rf) || 0,
+      ra: Number(row.runs_against ?? row.ra) || 0,
+      last10: row.last_ten || row.last10 || "--",
+      streak: row.streak || "--"
+    };
+    const team = parsed.teams.find((item) => normalizeScoutName(item.name) === normalizeScoutName(teamName));
+    if (team) {
+      Object.assign(team, standing);
+      if (!team.code && row.team_code) team.code = row.team_code;
+      if (!team.url && row.source_url) team.url = row.source_url;
+      return;
+    }
+    parsed.teams.push({
+      id: scoutingTeamId(teamName),
+      code: row.team_code || teamAbbrev(teamName),
+      url: row.source_url || PITTSBURGH_NABA_STANDINGS_URL,
+      hitters: [],
+      pitchers: [],
+      ...standing
+    });
+  });
+  parsed.teams = parsed.teams
+    .slice()
+    .sort((a, b) => (Number(b?.points) || 0) - (Number(a?.points) || 0) || String(a?.name || "").localeCompare(String(b?.name || "")));
+  return parsed;
+}
+
 function initializeScoutingReport() {
   scoutingData = deepClone(AA_SCOUTING_SNAPSHOT);
   selectedScoutingTeamId = scoutingData.teams[0]?.id || "";
@@ -7787,8 +7883,20 @@ function initializeScoutingReport() {
 
 async function refreshScoutingData(options = {}) {
   if (!scoutingData) scoutingData = deepClone(AA_SCOUTING_SNAPSHOT);
+  let supabaseStandingsLoaded = false;
+  if (supabaseStorage?.isReady?.() && supabaseStorage?.fetchLeagueStandings) {
+    try {
+      const { data, error } = await supabaseStorage.fetchLeagueStandings("AA", currentLeagueSeason());
+      if (!error && Array.isArray(data) && data.length) {
+        scoutingData = mergeSupabaseLeagueStandings(data, scoutingData);
+        supabaseStandingsLoaded = true;
+      }
+    } catch (error) {
+      console.warn("Unable to load cached AA standings from Supabase.", error);
+    }
+  }
   const selectedTeam = getSelectedScoutingTeam();
-  const urls = [PITTSBURGH_NABA_URL, teamStatsPageUrl(selectedTeam)]
+  const urls = [PITTSBURGH_NABA_STANDINGS_URL, PITTSBURGH_NABA_URL, teamStatsPageUrl(selectedTeam)]
     .filter(Boolean)
     .filter((url, index, list) => list.indexOf(url) === index);
 
@@ -7812,7 +7920,7 @@ async function refreshScoutingData(options = {}) {
       const response = await fetch(url, { cache: "no-store" });
       if (!response.ok) throw new Error(`Pittsburgh NABA returned ${response.status}`);
       const html = await response.text();
-      if (url === PITTSBURGH_NABA_URL) {
+      if (url === PITTSBURGH_NABA_STANDINGS_URL || url === PITTSBURGH_NABA_URL) {
         const parsedLeague = parsePittsburghNabaScouting(html, scoutingData);
         touchedLiveData = touchedLiveData || Boolean(parsedLeague.liveDataFound);
         delete parsedLeague.liveDataFound;
@@ -7831,10 +7939,13 @@ async function refreshScoutingData(options = {}) {
   scoutingRefreshState = touchedLiveData ? "live" : "snapshot";
   scoutingStatusMessage = touchedLiveData
     ? `Updated from Pittsburgh NABA for ${selectedTeam?.name || "AA opponents"}.`
-    : "Using Pittsburgh NABA AA snapshot. Live refresh may be blocked by the league site from this browser.";
-  if (!fetchFailed && !touchedLiveData) scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
+    : supabaseStandingsLoaded
+      ? "Using Supabase AA standings cache. League-site live refresh is blocked from this browser."
+      : "Using Pittsburgh NABA AA snapshot. Live refresh may be blocked by the league site from this browser.";
+  if (!fetchFailed && !touchedLiveData && !supabaseStandingsLoaded) scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
   els.refreshScoutingBtn.disabled = false;
   renderScoutingReport();
+  renderHome();
 }
 
 function parsePittsburghNabaScouting(html, currentData) {
@@ -7843,7 +7954,18 @@ function parsePittsburghNabaScouting(html, currentData) {
   const standings = parseAaStandings(text);
   standings.forEach((standing) => {
     const team = parsed.teams.find((item) => normalizeScoutName(item.name) === normalizeScoutName(standing.name));
-    if (team) Object.assign(team, standing);
+    if (team) {
+      Object.assign(team, standing);
+    } else {
+      parsed.teams.push({
+        id: scoutingTeamId(standing.name),
+        code: teamAbbrev(standing.name),
+        url: PITTSBURGH_NABA_URL,
+        hitters: [],
+        pitchers: [],
+        ...standing
+      });
+    }
   });
   const leagueLeaders = parseLeagueAaLeaders(text);
   if (leagueLeaders.hitters.length) parsed.leagueLeaders.hitters = leagueLeaders.hitters;
@@ -7854,6 +7976,133 @@ function parsePittsburghNabaScouting(html, currentData) {
 }
 
 function parseAaStandings(text) {
+  const lines = scoutingLines(text);
+  const divisionIndex = lines.findIndex((line) => /^AA$/i.test(line));
+  if (divisionIndex >= 0) {
+    const headerIndex = lines.findIndex((line, index) => index > divisionIndex && /^Team\s*\|/i.test(line));
+    const standingsRows = [];
+    const compactRowPattern = /^(?<name>.+?)(?<record>\d+-\d+(?:-\d+)?)\s+(?<points>\d+)\s+(?<winPct>\.\d{3})\s+(?<gb>-|\d+(?:\.\d+)?)\s+(?<home>\d+-\d+(?:-\d+)?)\s+(?<away>\d+-\d+(?:-\d+)?)\s+(?<rf>\d+)\s+(?<ra>\d+)\s+(?<last10>\d+-\d+(?:-\d+)?)\s+(?<streak>(?:Won|Lost)\s+\d+)$/i;
+    for (let index = headerIndex + 1; headerIndex > -1 && index < lines.length; index += 1) {
+      const line = lines[index];
+      if (/^(AAA|AA|A)$/i.test(line)) break;
+      if (/^(PRINT|Image:|Previous|Next|Number of Visitors|\d{4}\s*-)/i.test(line)) break;
+      const cells = line.includes("|")
+        ? line.split("|").map((cell) => cell.trim()).filter(Boolean)
+        : [];
+      if (cells.length >= 11 && !/^Team$/i.test(cells[0])) {
+        standingsRows.push({
+          name: cells[0],
+          record: cells[1],
+          points: Number(cells[2]),
+          winPct: cells[3],
+          gb: cells[4],
+          rf: Number(cells[7]),
+          ra: Number(cells[8]),
+          last10: cells[9],
+          streak: cells[10]
+        });
+        continue;
+      }
+      const match = line.match(compactRowPattern);
+      if (!match?.groups) continue;
+      standingsRows.push({
+        name: match.groups.name.trim(),
+        record: match.groups.record,
+        points: Number(match.groups.points),
+        winPct: match.groups.winPct,
+        gb: match.groups.gb,
+        rf: Number(match.groups.rf),
+        ra: Number(match.groups.ra),
+        last10: match.groups.last10,
+        streak: match.groups.streak
+      });
+    }
+    if (standingsRows.length) return standingsRows;
+  }
+
+  const normalizedText = String(text || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  const allTokens = normalizedText
+    .split("|")
+    .map((token) => token.trim())
+    .filter(Boolean);
+  const aaHeader = ["AA", "Team", "Record", "Pts", "Win %", "GB", "Home", "Away", "RF", "RA", "Last 10", "Streak"];
+  const aaTokenIndex = allTokens.findIndex((token, index) => (
+    token === "AA" && aaHeader.every((expected, offset) => String(allTokens[index + offset] || "").toLowerCase() === expected.toLowerCase())
+  ));
+  if (aaTokenIndex >= 0) {
+    const standingsRows = [];
+    for (let index = aaTokenIndex + aaHeader.length; index <= allTokens.length - 11; index += 11) {
+      const maybeDivision = String(allTokens[index] || "").toUpperCase();
+      if (maybeDivision === "A" || maybeDivision === "AAA" || maybeDivision === "PRINT") break;
+      const record = allTokens[index + 1];
+      const points = allTokens[index + 2];
+      const winPct = allTokens[index + 3];
+      if (!/^\d+-\d+(?:-\d+)?$/.test(record || "") || !/^\d+$/.test(points || "") || !/^\.\d{3}$/.test(winPct || "")) {
+        continue;
+      }
+      standingsRows.push({
+        name: allTokens[index],
+        record,
+        points: Number(points),
+        winPct,
+        gb: allTokens[index + 4],
+        rf: Number(allTokens[index + 7]),
+        ra: Number(allTokens[index + 8]),
+        last10: allTokens[index + 9],
+        streak: allTokens[index + 10]
+      });
+    }
+    if (standingsRows.length) return standingsRows;
+  }
+  const aaPipeBlockMatch = normalizedText.match(/\bAA\s*\|\s*Team\s*\|\s*Record\s*\|\s*Pts\s*\|\s*Win\s*%\s*\|\s*GB\s*\|\s*Home\s*\|\s*Away\s*\|\s*RF\s*\|\s*RA\s*\|\s*Last\s*10\s*\|\s*Streak\s*\|\s*([\s\S]*?)(?:\|\s*A\s*\|\s*Team\s*\|\s*Record\s*\|\s*Pts\s*\|\s*Win\s*%|\|\s*PRINT\b|$)/i);
+  if (aaPipeBlockMatch?.[1]) {
+    const tokens = aaPipeBlockMatch[1]
+      .split("|")
+      .map((token) => token.trim())
+      .filter(Boolean);
+    const standingsRows = [];
+    for (let index = 0; index <= tokens.length - 11; index += 11) {
+      const record = tokens[index + 1];
+      const points = tokens[index + 2];
+      const winPct = tokens[index + 3];
+      if (!/^\d+-\d+(?:-\d+)?$/.test(record || "") || !/^\d+$/.test(points || "") || !/^\.\d{3}$/.test(winPct || "")) {
+        continue;
+      }
+      standingsRows.push({
+        name: tokens[index],
+        record,
+        points: Number(points),
+        winPct,
+        gb: tokens[index + 4],
+        rf: Number(tokens[index + 7]),
+        ra: Number(tokens[index + 8]),
+        last10: tokens[index + 9],
+        streak: tokens[index + 10]
+      });
+    }
+    if (standingsRows.length) return standingsRows;
+  }
+  const aaBlockMatch = normalizedText.match(/\bAA\s+Team\s+Record\s+Pts\s+Win\s+%GB\s+Home\s+Away\s+RF\s+RA\s+Last\s+10\s+Streak\s+([\s\S]*?)(?:\s+\bA\s+Team\s+Record\s+Pts\s+Win\s+%GB|\s+PRINT\b|$)/i);
+  if (aaBlockMatch?.[1]) {
+    const compactRowPattern = /(?<name>[A-Za-z0-9&'’:\-. ]+?)(?<record>\d+-\d+(?:-\d+)?)\s+(?<points>\d+)\s+(?<winPct>\.\d{3})\s+(?<gb>-|\d+(?:\.\d+)?)\s+(?<home>\d+-\d+(?:-\d+)?)\s+(?<away>\d+-\d+(?:-\d+)?)\s+(?<rf>\d+)\s+(?<ra>\d+)\s+(?<last10>\d+-\d+(?:-\d+)?)\s+(?<streak>(?:Won|Lost)\s+\d+)/gi;
+    const standingsRows = [];
+    for (const match of aaBlockMatch[1].matchAll(compactRowPattern)) {
+      if (!match.groups) continue;
+      standingsRows.push({
+        name: match.groups.name.trim(),
+        record: match.groups.record,
+        points: Number(match.groups.points),
+        winPct: match.groups.winPct,
+        gb: match.groups.gb,
+        rf: Number(match.groups.rf),
+        ra: Number(match.groups.ra),
+        last10: match.groups.last10,
+        streak: match.groups.streak
+      });
+    }
+    if (standingsRows.length) return standingsRows;
+  }
+
   const normalized = text.replace(/\u00a0/g, " ").replace(/\s+/g, " ");
   return AA_SCOUTING_SNAPSHOT.teams.map((team) => {
     const escapedName = team.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -8193,6 +8442,10 @@ function signedNumber(value) {
 
 function normalizeScoutName(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function scoutingTeamId(value) {
+  return normalizeScoutName(value) || createId("scout-team");
 }
 
 function teamStatsPageUrl(team) {

@@ -7,6 +7,18 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Added a GitHub Actions-based AA standings refresher that writes directly into Supabase `league_standings`, so the app can use the same standings cache even when Pittsburgh NABA is unreachable from Supabase Edge Functions.
+- Switched the Pittsburgh NABA AA parser to scan the full pipe-delimited token stream for the `AA` standings header directly, which is more reliable than regex slicing against the flattened edge response.
+- Added a pipe-delimited AA standings parser for the Pittsburgh NABA server response so the Supabase refresh can handle the flattened `|` token stream the live standings page returns at the edge.
+- Added a normalized-text fallback for Pittsburgh NABA AA standings parsing so both the Supabase refresh function and the in-app parser can handle flattened server responses instead of only line-broken table text.
+- Fixed the Pittsburgh NABA AA standings parser to handle the compact live row format from the league site, which lets the Supabase standings refresh capture real teams like Oakmont Lions instead of failing on the page structure.
+- Added a Supabase-backed AA standings path with a new `league_standings` table, app-side cache reads, and an Edge Function scaffold for refreshing Pittsburgh NABA standings server-side so Home standings no longer have to depend on a browser scrape.
+- Switched live AA standings refresh to the dedicated Pittsburgh NABA standings page first, so the Home standings card and scouting data have a cleaner source for current AA rows like Oakmont Lions instead of depending on the general league home page layout.
+- Switched the Home/Scouting league feed to the Pittsburgh NABA `default.asp` page and changed AA standings parsing to read the live AA table dynamically, so Oakmont Lions and any other current AA teams can flow in from the real league page instead of only from the old baked-in snapshot.
+- Added an explicit Oakmont Lions placeholder row to the Home page standings card so the team still appears while the league standings panel is using preseason snapshot data from the league page.
+- Combined the Home page batting and pitching snapshots into one centered Team Leaders panel and added a placeholder League Standings panel sourced from the existing league page snapshot so the dashboard feels cleaner before the season starts.
+- Removed the built-in seeded demo game from the real app bootstrap and added a cleanup for the legacy `Riverside Hawks` sample so fake games no longer sneak back into the shared archive after fresh loads or deploy-related refreshes.
+- Reworked the Stats page for mobile and tablet with a tighter responsive table mode, smaller sticky player column, swipe hint, and fewer low-priority columns on phones so hitting and pitching stats stay readable on smaller screens.
 - Removed the dark navy panel treatment from the live Score Game field shell, brightened the score-view field chrome to match the lighter field art, and scoped the live spray chart to the active game only so batted-ball markers no longer carry over from earlier games.
 - Added a lightweight completed-game publish retry queue so tapping Sync now survives failed/offline attempts, remembers the pending publish locally, and automatically retries after the device reconnects or an admin session comes back.
 - Hardened Supabase game sync so shared bootstrap now merges remote games by ID without wiping local-only games, normal shared sync uses upserts instead of full-snapshot deletes, and game removal issues an explicit targeted delete only for the game an admin intentionally removed.

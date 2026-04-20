@@ -1,0 +1,33 @@
+name: Refresh League Standings
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season year to refresh"
+        required: false
+        type: string
+  schedule:
+    - cron: "15 10 * * *"
+
+jobs:
+  refresh-aa-standings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Refresh AA league standings
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LEAGUE_SEASON: ${{ github.event.inputs.season }}
+        run: node ./scripts/refresh-league-standings.mjs

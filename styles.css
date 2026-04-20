@@ -435,6 +435,169 @@ main {
   align-items: stretch;
 }
 
+.home-panel-head-centered {
+  justify-content: center;
+  text-align: center;
+}
+
+.home-panel-head-centered > div {
+  width: 100%;
+}
+
+.home-panel-head-centered h3,
+.home-subhead h4 {
+  margin: 0;
+}
+
+.home-leaders-wrap {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  margin-top: 12px;
+}
+
+.home-leader-section {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 14px 0 0;
+}
+
+.home-leader-section:first-child {
+  padding-top: 0;
+}
+
+.home-leader-section + .home-leader-section {
+  margin-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.home-subhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+.home-subhead h4 {
+  font-size: 1rem;
+  color: var(--white);
+}
+
+.home-subhead span {
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-leader-section .compact-leaders {
+  margin: 0;
+}
+
+.home-leader-section .leader-card {
+  background:
+    radial-gradient(circle at 84% 0%, rgba(245, 189, 33, 0.14), transparent 32%),
+    rgba(255, 255, 255, 0.06);
+}
+
+.home-leader-section .leader-card h3 {
+  margin: 0;
+  color: var(--lion-gold);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-leader-section .leader-row {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+.home-leader-section .leader-row strong {
+  color: var(--white);
+}
+
+.home-standings-board {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.home-standings-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.5fr) repeat(3, minmax(68px, auto));
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(245, 189, 33, 0.12), transparent 34%),
+    rgba(255, 255, 255, 0.06);
+  font-size: 0.9rem;
+  color: var(--white);
+}
+
+.home-standings-row.is-lions {
+  border-color: rgba(245, 189, 33, 0.38);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(245, 189, 33, 0.18), transparent 34%),
+    linear-gradient(135deg, rgba(245, 189, 33, 0.12), rgba(255, 255, 255, 0.06));
+}
+
+.home-standings-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(245, 189, 33, 0.16);
+  color: var(--lion-gold);
+  font-weight: 900;
+}
+
+.home-standings-team {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.home-standings-team strong,
+.home-standings-team small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-standings-team small {
+  color: var(--text-soft);
+}
+
+.home-standings-stat {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  min-width: 0;
+}
+
+.home-standings-stat small {
+  color: var(--text-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-standings-stat strong {
+  color: var(--white);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .home-upcoming-panel,
 .home-past-panel {
   grid-column: 1 / -1;
@@ -2501,6 +2664,15 @@ button:focus-visible {
 
 .stats-subhead {
   padding: 14px 14px 4px;
+}
+
+.stats-mobile-hint {
+  display: none;
+  margin: 0;
+  padding: 0 14px 10px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .stats-spray-controls {
@@ -7942,6 +8114,11 @@ label {
     grid-column: 1 / -1;
   }
 
+  .home-leaders-panel,
+  .home-standings-panel {
+    grid-column: span 1;
+  }
+
   .games-grid,
   .archive-grid,
   .metrics-grid,
@@ -8160,6 +8337,27 @@ label {
     grid-template-columns: 1fr;
   }
 
+  .home-subhead {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .home-standings-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px;
+    font-size: 0.82rem;
+  }
+
+  .home-standings-team {
+    grid-column: 2;
+  }
+
+  .home-standings-stat {
+    justify-items: start;
+    grid-column: 2;
+  }
+
   .game-form-actions,
   .roster-toolbar,
   .games-archive-note,
@@ -8255,10 +8453,18 @@ label {
 
   .stats-table-wrap {
     margin-bottom: 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   .stats-subhead {
     padding: 12px 12px 4px;
+  }
+
+  .stats-mobile-hint {
+    display: block;
+    padding: 0 12px 10px;
   }
 
   .stats-spray-controls {
@@ -8268,6 +8474,108 @@ label {
   .stats-spray-chart {
     min-height: 280px;
     margin: 0 10px 12px;
+  }
+
+  #statsView .stats-table-wrap {
+    border-radius: 12px;
+  }
+
+  #statsView .stats-table {
+    min-width: 0;
+  }
+
+  #statsView .stats-table th,
+  #statsView .stats-table td {
+    padding: 8px 9px;
+    font-size: 0.78rem;
+  }
+
+  #statsView .stats-table th {
+    font-size: 0.7rem;
+  }
+
+  #statsView .stats-table th button {
+    min-height: 24px;
+    font-size: 0.72rem;
+  }
+
+  #statsView .stats-table th button::after {
+    font-size: 0.58rem;
+  }
+
+  #statsView .stats-table th:first-child,
+  #statsView .stats-table td:first-child {
+    min-width: 132px;
+    max-width: 132px;
+    padding-left: 10px;
+    padding-right: 10px;
+    box-shadow: 1px 0 0 rgba(255, 255, 255, 0.08);
+  }
+
+  #statsView .stats-table td:first-child {
+    overflow-wrap: anywhere;
+    white-space: normal;
+    line-height: 1.25;
+  }
+
+  #statsView .stats-table-hitting {
+    min-width: 860px;
+  }
+
+  #statsView .stats-table-pitching {
+    min-width: 760px;
+  }
+
+  #statsView .stats-table-hitting th:nth-child(4),
+  #statsView .stats-table-hitting td:nth-child(4),
+  #statsView .stats-table-hitting th:nth-child(6),
+  #statsView .stats-table-hitting td:nth-child(6),
+  #statsView .stats-table-hitting th:nth-child(7),
+  #statsView .stats-table-hitting td:nth-child(7),
+  #statsView .stats-table-hitting th:nth-child(8),
+  #statsView .stats-table-hitting td:nth-child(8),
+  #statsView .stats-table-hitting th:nth-child(9),
+  #statsView .stats-table-hitting td:nth-child(9),
+  #statsView .stats-table-hitting th:nth-child(11),
+  #statsView .stats-table-hitting td:nth-child(11),
+  #statsView .stats-table-hitting th:nth-child(12),
+  #statsView .stats-table-hitting td:nth-child(12),
+  #statsView .stats-table-hitting th:nth-child(19),
+  #statsView .stats-table-hitting td:nth-child(19),
+  #statsView .stats-table-hitting th:nth-child(20),
+  #statsView .stats-table-hitting td:nth-child(20),
+  #statsView .stats-table-hitting th:nth-child(21),
+  #statsView .stats-table-hitting td:nth-child(21),
+  #statsView .stats-table-hitting th:nth-child(22),
+  #statsView .stats-table-hitting td:nth-child(22) {
+    display: none;
+  }
+
+  #statsView .stats-table-pitching th:nth-child(4),
+  #statsView .stats-table-pitching td:nth-child(4),
+  #statsView .stats-table-pitching th:nth-child(6),
+  #statsView .stats-table-pitching td:nth-child(6),
+  #statsView .stats-table-pitching th:nth-child(7),
+  #statsView .stats-table-pitching td:nth-child(7),
+  #statsView .stats-table-pitching th:nth-child(8),
+  #statsView .stats-table-pitching td:nth-child(8),
+  #statsView .stats-table-pitching th:nth-child(9),
+  #statsView .stats-table-pitching td:nth-child(9),
+  #statsView .stats-table-pitching th:nth-child(10),
+  #statsView .stats-table-pitching td:nth-child(10),
+  #statsView .stats-table-pitching th:nth-child(16),
+  #statsView .stats-table-pitching td:nth-child(16),
+  #statsView .stats-table-pitching th:nth-child(17),
+  #statsView .stats-table-pitching td:nth-child(17),
+  #statsView .stats-table-pitching th:nth-child(18),
+  #statsView .stats-table-pitching td:nth-child(18),
+  #statsView .stats-table-pitching th:nth-child(19),
+  #statsView .stats-table-pitching td:nth-child(19),
+  #statsView .stats-table-pitching th:nth-child(20),
+  #statsView .stats-table-pitching td:nth-child(20),
+  #statsView .stats-table-pitching th:nth-child(22),
+  #statsView .stats-table-pitching td:nth-child(22) {
+    display: none;
   }
 
   .upcoming-game-card {
@@ -8310,6 +8618,25 @@ label {
   .lineup-builder-row .secondary-action {
     grid-column: 2 / -1;
     justify-self: start;
+  }
+
+  #statsView .stats-table-hitting {
+    min-width: 980px;
+  }
+
+  #statsView .stats-table-pitching {
+    min-width: 940px;
+  }
+
+  #statsView .stats-table th,
+  #statsView .stats-table td {
+    padding: 9px 10px;
+    font-size: 0.8rem;
+  }
+
+  #statsView .stats-table th:first-child,
+  #statsView .stats-table td:first-child {
+    min-width: 156px;
   }
 
   .upcoming-game-card {

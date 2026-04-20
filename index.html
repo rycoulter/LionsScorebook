@@ -66,19 +66,38 @@
                 </div>
               </div>
             </section>
-            <section class="home-panel">
-              <div class="mini-head">
-                <h3>Batting Leaders</h3>
-                <span>AVG | RBI | OPS</span>
+            <section class="home-panel home-leaders-panel">
+              <div class="mini-head home-panel-head home-panel-head-centered">
+                <div>
+                  <h3>Team Leaders</h3>
+                  <span>Batting and pitching snapshot</span>
+                </div>
               </div>
-              <div class="leader-grid compact-leaders" id="homeBattingLeaders"></div>
+              <div class="home-leaders-wrap">
+                <section class="home-leader-section">
+                  <div class="home-subhead">
+                    <h4>Batting</h4>
+                    <span>AVG | RBI | OPS</span>
+                  </div>
+                  <div class="leader-grid compact-leaders" id="homeBattingLeaders"></div>
+                </section>
+                <section class="home-leader-section">
+                  <div class="home-subhead">
+                    <h4>Pitching</h4>
+                    <span>W | K | WHIP</span>
+                  </div>
+                  <div class="leader-grid compact-leaders" id="homePitchingLeaders"></div>
+                </section>
+              </div>
             </section>
-            <section class="home-panel">
-              <div class="mini-head">
-                <h3>Pitching Leaders</h3>
-                <span>K | WHIP | Strike %</span>
+            <section class="home-panel home-standings-panel">
+              <div class="mini-head home-panel-head home-panel-head-centered">
+                <div>
+                  <h3>League Standings</h3>
+                  <span>League page placeholder for now</span>
+                </div>
               </div>
-              <div class="leader-grid compact-leaders" id="homePitchingLeaders"></div>
+              <div class="home-standings-board" id="homeLeagueStandings"></div>
             </section>
             <section class="home-panel home-upcoming-panel">
               <div class="mini-head">
@@ -826,7 +845,8 @@
           </div>
           <div class="stats-table-wrap">
             <h3 class="stats-subhead">Hitting</h3>
-            <table class="stats-table">
+            <p class="stats-mobile-hint">Swipe sideways to see more stats.</p>
+            <table class="stats-table stats-table-hitting">
               <thead>
                 <tr>
                   <th><button type="button" data-hit-sort="name">Player</button></th>
@@ -858,7 +878,8 @@
           </div>
           <div class="stats-table-wrap">
             <h3 class="stats-subhead">Pitching</h3>
-            <table class="stats-table">
+            <p class="stats-mobile-hint">Swipe sideways to see more stats.</p>
+            <table class="stats-table stats-table-pitching">
               <thead>
                 <tr>
                   <th><button type="button" data-pit-sort="name">Player</button></th>
