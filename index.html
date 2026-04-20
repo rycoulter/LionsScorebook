@@ -24,7 +24,6 @@
           <button class="tab is-active" data-view="home">Home</button>
           <button class="tab" data-view="score">Score Game</button>
           <button class="tab" data-view="games">Schedule & Scores</button>
-          <button class="tab" data-view="scorebook">Scorebook</button>
           <button class="tab" data-view="lineup">Lineup Lab</button>
           <button class="tab" data-view="roster">Roster</button>
           <button class="tab" data-view="stats">Stats</button>
@@ -165,11 +164,23 @@
               </div>
             </div>
             <div class="pitcher-row game-pitcher-card">
-              <label>
-                Lions pitcher
-                <select id="pitcherSelect"></select>
-              </label>
-              <div class="pitcher-stat-strip" id="pitcherStatStrip"></div>
+              <div class="game-pitcher-content" id="gamePitcherContent">
+                <label>
+                  Lions pitcher
+                  <select id="pitcherSelect"></select>
+                </label>
+                <div class="pitcher-stat-strip" id="pitcherStatStrip"></div>
+              </div>
+              <div class="game-batting-status-row" id="gameBattingStatusRow" hidden>
+                <span class="game-batting-status">
+                  <span>Count</span>
+                  <strong id="pitcherRowCountDisplay">0-0</strong>
+                </span>
+                <span class="game-batting-status">
+                  <span>Outs</span>
+                  <strong id="pitcherRowOutsDisplay">0</strong>
+                </span>
+              </div>
             </div>
             <p class="player-meta game-state-context" id="gameContext" hidden>Top 1, 0 outs</p>
           </section>
@@ -387,8 +398,9 @@
                   Coach note
                   <input id="noteInput" name="note" autocomplete="off" placeholder="Two-strike approach, hit-and-run, baserunning read...">
                 </label>
-                  <div class="button-row wide">
+                <div class="button-row wide">
                   <button type="button" class="secondary-action" id="undoBtn">Undo Last Play</button>
+                  <button type="button" class="secondary-action" id="viewCurrentScorebookBtn">View Scorebook</button>
                   <button type="button" class="secondary-action" id="endHalfBtn">End Half</button>
                   <button type="button" class="secondary-action" id="finishGameBtn">Complete Game</button>
                 </div>

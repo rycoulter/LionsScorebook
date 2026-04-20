@@ -5776,6 +5776,60 @@ label {
     0 12px 26px rgba(0, 0, 0, 0.24);
 }
 
+#scoreView .game-pitcher-content {
+  display: contents;
+}
+
+#scoreView #headerBatterStatus[hidden],
+#scoreView #headerCountFocus[hidden],
+#scoreView #headerOutsFocus[hidden],
+#scoreView #gamePitcherContent[hidden],
+#scoreView #gameBattingStatusRow[hidden] {
+  display: none !important;
+}
+
+#scoreView .game-pitcher-card.is-batting-status {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#scoreView .game-batting-status-row {
+  display: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+#scoreView .game-batting-status {
+  display: grid;
+  gap: 4px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+#scoreView .game-batting-status span {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+#scoreView .game-batting-status strong {
+  color: var(--white);
+  font-size: 1rem;
+}
+
+#scoreView #pitcherRowCountDisplay {
+  color: #65e88e;
+}
+
+#scoreView #pitcherRowOutsDisplay {
+  color: #ff8e96;
+}
+
 #scoreView .game-pitcher-card label {
   display: grid;
   gap: 5px;

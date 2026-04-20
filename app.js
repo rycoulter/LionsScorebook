@@ -505,7 +505,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-67";
+const APP_VERSION = "2026.04.20-build-70";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 
@@ -582,6 +582,8 @@ const els = {
   headerBatterStatus: document.getElementById("headerBatterStatus"),
   headerBatterCountDisplay: document.getElementById("headerBatterCountDisplay"),
   headerBatterOutsDisplay: document.getElementById("headerBatterOutsDisplay"),
+  pitcherRowCountDisplay: document.getElementById("pitcherRowCountDisplay"),
+  pitcherRowOutsDisplay: document.getElementById("pitcherRowOutsDisplay"),
   headerCountDisplay: document.getElementById("headerCountDisplay"),
   headerCountFocus: document.getElementById("headerCountFocus"),
   gameContext: document.getElementById("gameContext"),
@@ -627,6 +629,8 @@ const els = {
   pitcherSelect: document.getElementById("pitcherSelect"),
   pitcherStatStrip: document.getElementById("pitcherStatStrip"),
   gamePitcherCard: document.querySelector(".game-pitcher-card"),
+  gamePitcherContent: document.getElementById("gamePitcherContent"),
+  gameBattingStatusRow: document.getElementById("gameBattingStatusRow"),
   opponentOutcomeButtons: [...document.querySelectorAll("[data-opponent-result]")],
   runnerBases: [...document.querySelectorAll("[data-runner-base]")],
   runnerSummary: document.getElementById("runnerSummary"),
@@ -694,6 +698,7 @@ const els = {
   noteInput: document.getElementById("noteInput"),
   newGameBtn: document.getElementById("newGameBtn"),
   undoBtn: document.getElementById("undoBtn"),
+  viewCurrentScorebookBtn: document.getElementById("viewCurrentScorebookBtn"),
   endHalfBtn: document.getElementById("endHalfBtn"),
   finishGameBtn: document.getElementById("finishGameBtn"),
   liveLineup: document.getElementById("liveLineup"),
@@ -1965,6 +1970,11 @@ function bindEvents() {
   els.scoreEmptyHomeBtn?.addEventListener("click", () => switchView("home"));
   els.scoreEmptyGamesBtn?.addEventListener("click", () => switchView("games"));
   els.undoBtn.addEventListener("click", undoLastPlay);
+  els.viewCurrentScorebookBtn?.addEventListener("click", () => {
+    const game = activeGame();
+    if (!game?.id) return;
+    openGameScorebook(game.id);
+  });
   els.endHalfBtn.addEventListener("click", () => {
     const game = activeGame();
     if (gameIsScoreLocked(game)) return;
@@ -4212,10 +4222,27 @@ function renderScoreboard() {
   els.outsStateDisplay.textContent = String(game.outs);
   if (els.headerBatterCountDisplay) els.headerBatterCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   if (els.headerBatterOutsDisplay) els.headerBatterOutsDisplay.textContent = `${game.outs}`;
-  if (els.headerBatterStatus) els.headerBatterStatus.hidden = !lionsBatting;
-  if (els.headerCountFocus) els.headerCountFocus.hidden = lionsBatting;
-  if (els.headerOutsFocus) els.headerOutsFocus.hidden = lionsBatting;
-  if (els.gamePitcherCard) els.gamePitcherCard.hidden = lionsBatting;
+  if (els.pitcherRowCountDisplay) els.pitcherRowCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
+  if (els.pitcherRowOutsDisplay) els.pitcherRowOutsDisplay.textContent = `${game.outs}`;
+  if (els.headerBatterStatus) els.headerBatterStatus.hidden = true;
+  if (els.headerCountFocus) {
+    els.headerCountFocus.hidden = lionsBatting;
+    els.headerCountFocus.style.display = lionsBatting ? "none" : "";
+  }
+  if (els.headerOutsFocus) {
+    els.headerOutsFocus.hidden = lionsBatting;
+    els.headerOutsFocus.style.display = lionsBatting ? "none" : "";
+  }
+  if (els.gamePitcherCard) els.gamePitcherCard.hidden = false;
+  if (els.gamePitcherContent) {
+    els.gamePitcherContent.hidden = lionsBatting;
+    els.gamePitcherContent.style.display = lionsBatting ? "none" : "";
+  }
+  if (els.gameBattingStatusRow) {
+    els.gameBattingStatusRow.hidden = !lionsBatting;
+    els.gameBattingStatusRow.style.display = lionsBatting ? "grid" : "none";
+  }
+  if (els.gamePitcherCard) els.gamePitcherCard.classList.toggle("is-batting-status", lionsBatting);
   els.gameContext.textContent = gameIsFinal(game)
     ? `${gameTeamMeta(game)} | Final after ${completedInningCount(game)} innings`
     : `${gameTeamMeta(game)} | ${game.half === "top" ? "Top" : "Bottom"} ${game.inning}, ${game.outs} ${game.outs === 1 ? "out" : "outs"}`;
