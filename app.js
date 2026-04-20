@@ -505,7 +505,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-80";
+const APP_VERSION = "2026.04.20-build-81";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 const GA_MEASUREMENT_ID = "G-JWRVWJ9XYP";
@@ -2004,6 +2004,16 @@ function saveStoredAdminEmail(email) {
   }
 }
 
+function restoreOfflineTrustedAdminMode() {
+  const cachedAdminEmail = loadStoredAdminEmail();
+  const offline = typeof navigator !== "undefined" && !navigator.onLine;
+  if (!offline || !cachedAdminEmail || accessMode !== "admin") return false;
+  supabaseAdminEmail = cachedAdminEmail;
+  render();
+  switchView(currentView);
+  return true;
+}
+
 function isAdminMode() {
   return accessMode === "admin";
 }
@@ -2249,6 +2259,8 @@ async function initializeSupabaseAuth() {
     const sessionUser = data?.session?.user || null;
     if (sessionUser) {
       await applySupabaseAdminState(sessionUser, { allowSeed: true, allowOfflineCache: true });
+    } else if (restoreOfflineTrustedAdminMode()) {
+      console.info("Restored trusted admin mode for offline PWA use.");
     } else if (accessMode !== "public") {
       setAccessMode("public");
     }
