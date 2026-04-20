@@ -505,7 +505,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-78";
+const APP_VERSION = "2026.04.20-build-79";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 const GA_MEASUREMENT_ID = "G-JWRVWJ9XYP";
@@ -722,6 +722,9 @@ const els = {
   newGameBtn: document.getElementById("newGameBtn"),
   undoBtn: document.getElementById("undoBtn"),
   viewCurrentScorebookBtn: document.getElementById("viewCurrentScorebookBtn"),
+  syncGameBtn: document.getElementById("syncGameBtn"),
+  syncStatusRow: document.getElementById("syncStatusRow"),
+  syncStatusText: document.getElementById("syncStatusText"),
   endHalfBtn: document.getElementById("endHalfBtn"),
   finishGameBtn: document.getElementById("finishGameBtn"),
   liveLineup: document.getElementById("liveLineup"),
@@ -1452,6 +1455,7 @@ function normalizeGame(game, nextState = state) {
     })),
     substitutions: game.substitutions || []
   };
+  normalized.sync = normalizeGameSyncState(game.sync);
   normalized.current = {
     inning: normalized.inning,
     half: normalized.half,
@@ -1571,6 +1575,15 @@ function normalizePitchTrail(pitches = []) {
   });
 }
 
+function normalizeGameSyncState(sync = {}) {
+  return {
+    status: sync?.status || "local",
+    lastAttemptAt: sync?.lastAttemptAt || "",
+    lastSyncedAt: sync?.lastSyncedAt || "",
+    lastError: sync?.lastError || ""
+  };
+}
+
 function nextPitchCount(ballsBefore, strikesBefore, outcome) {
   let balls = ballsBefore;
   let strikes = strikesBefore;
@@ -1682,7 +1695,13 @@ function exportSeasonAsJson(library = loadGameLibrary()) {
   return JSON.stringify(storage.normalizeLibrary(library), null, 2);
 }
 
-function saveState() {
+function saveState(options = {}) {
+  const { markLiveGamesDirty = true } = options;
+  if (markLiveGamesDirty) {
+    state.games.forEach((game) => {
+      if (game?.status === "active" && !gameIsFinal(game)) markGameSyncPending(game);
+    });
+  }
   if (state?.games?.length) {
     state.games = state.games.map((game) => normalizeGame(game, state));
     let activeGameObject = state.games.find((game) => game.id === state.activeGameId && game.status === "active" && !gameIsFinal(game));
@@ -1693,6 +1712,10 @@ function saveState() {
     storage.saveLibrary(library);
   }
   storage.saveAppState(state);
+}
+
+function saveStateWithOptions(options = {}) {
+  saveState(options);
 }
 
 function hasMeaningfulSupabaseSnapshot(snapshot) {
@@ -1797,6 +1820,149 @@ async function seedSupabaseFromLocalIfEmpty() {
   }
   if (hasMeaningfulSupabaseSnapshot(data)) return data;
   return syncSharedSnapshot("initial-seed");
+}
+
+function markGameSyncPending(game) {
+  if (!game) return;
+  game.sync = normalizeGameSyncState(game.sync);
+  if (game.sync.status === "syncing") return;
+  game.sync.status = "pending";
+  game.sync.lastError = "";
+}
+
+function markGameSyncStarted(game) {
+  if (!game) return;
+  game.sync = normalizeGameSyncState(game.sync);
+  game.sync.status = "syncing";
+  game.sync.lastAttemptAt = new Date().toISOString();
+  game.sync.lastError = "";
+}
+
+function markGameSyncSucceeded(game) {
+  if (!game) return;
+  game.sync = normalizeGameSyncState(game.sync);
+  game.sync.status = "synced";
+  game.sync.lastSyncedAt = new Date().toISOString();
+  game.sync.lastAttemptAt = game.sync.lastSyncedAt;
+  game.sync.lastError = "";
+}
+
+function markGameSyncFailed(game, error) {
+  if (!game) return;
+  game.sync = normalizeGameSyncState(game.sync);
+  game.sync.status = "error";
+  game.sync.lastAttemptAt = new Date().toISOString();
+  game.sync.lastError = error?.message || String(error || "Unable to sync game.");
+}
+
+function canSyncGame(game) {
+  return Boolean(
+    game
+    && supabaseStorage?.isReady?.()
+    && supabaseAdminEmail
+    && typeof navigator !== "undefined"
+    && navigator.onLine
+  );
+}
+
+async function syncCurrentGame() {
+  const game = activeGame();
+  if (!game || gameIsFinal(game)) return null;
+  if (!supabaseStorage?.isReady?.()) {
+    window.alert("Supabase is not ready yet on this device.");
+    return null;
+  }
+  if (!supabaseAdminEmail) {
+    openAdminAuthModal("Sign in as an approved admin before syncing a live game.");
+    return null;
+  }
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    markGameSyncFailed(game, new Error("Device is offline."));
+    saveStateWithOptions({ markLiveGamesDirty: false });
+    render();
+    return null;
+  }
+
+  markGameSyncStarted(game);
+  saveStateWithOptions({ markLiveGamesDirty: false });
+  render();
+
+  const snapshot = {
+    roster: deepClone(state.roster || []),
+    lineup: deepClone(state.lineup || []),
+    rosterVersion: state.rosterVersion ?? ROSTER_VERSION,
+    activeGameId: game.id,
+    games: [deepClone(game)]
+  };
+
+  const [appStateResponse, gamesResponse] = await Promise.all([
+    supabaseStorage.upsertAppState(snapshot),
+    supabaseStorage.upsertGames(snapshot.games)
+  ]);
+  const error = appStateResponse.error || gamesResponse.error || null;
+  if (error) {
+    markGameSyncFailed(game, error);
+    saveStateWithOptions({ markLiveGamesDirty: false });
+    render();
+    return { data: null, error };
+  }
+
+  markGameSyncSucceeded(game);
+  saveStateWithOptions({ markLiveGamesDirty: false });
+  render();
+  return {
+    data: {
+      appState: appStateResponse.data || null,
+      games: gamesResponse.data || []
+    },
+    error: null
+  };
+}
+
+function formatSyncTimestamp(timestamp) {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString([], {
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
+function renderLiveSyncStatus(game = activeScoreGame()) {
+  if (!els.syncStatusText || !els.syncStatusRow || !els.syncGameBtn) return;
+  const admin = isAdminMode();
+  const online = typeof navigator === "undefined" ? true : navigator.onLine;
+  const syncState = normalizeGameSyncState(game?.sync);
+  let message = "Local scoring is ready.";
+
+  if (!game) {
+    message = "No active game to sync yet.";
+  } else if (!admin) {
+    message = "Admin sign-in is required to sync the live game.";
+  } else if (!supabaseStorage?.isReady?.()) {
+    message = "Supabase is still loading on this device.";
+  } else if (!online) {
+    message = "Offline - scoring stays on this iPad until you reconnect and sync.";
+  } else if (syncState.status === "syncing") {
+    message = "Syncing the current game to the shared site...";
+  } else if (syncState.status === "synced" && syncState.lastSyncedAt) {
+    message = `Last synced ${formatSyncTimestamp(syncState.lastSyncedAt)}.`;
+  } else if (syncState.status === "error") {
+    message = syncState.lastError
+      ? `Sync failed: ${syncState.lastError}`
+      : "Sync failed. Try again when the connection is stable.";
+  } else if (syncState.status === "pending") {
+    message = "Changes are on this device and ready to sync.";
+  }
+
+  els.syncStatusText.textContent = message;
+  els.syncStatusRow.hidden = false;
+  els.syncGameBtn.hidden = !admin || !game;
+  els.syncGameBtn.disabled = !game || !admin || !canSyncGame(game) || syncState.status === "syncing";
+  els.syncGameBtn.textContent = syncState.status === "syncing" ? "Syncing..." : "Sync Game";
 }
 
 function loadAccessMode() {
@@ -2368,6 +2534,14 @@ function bindEvents() {
     if (!game?.id) return;
     openGameScorebook(game.id);
   });
+  els.syncGameBtn?.addEventListener("click", () => {
+    syncCurrentGame().catch((error) => {
+      const game = activeGame();
+      markGameSyncFailed(game, error);
+      saveStateWithOptions({ markLiveGamesDirty: false });
+      render();
+    });
+  });
   els.endHalfBtn.addEventListener("click", () => {
     const game = activeGame();
     if (gameIsScoreLocked(game)) return;
@@ -2375,6 +2549,8 @@ function bindEvents() {
     saveState();
     render();
   });
+  window.addEventListener("online", render);
+  window.addEventListener("offline", render);
   els.finishGameBtn.addEventListener("click", finishGame);
 
   els.optimizeBtn.addEventListener("click", () => {
@@ -4234,8 +4410,10 @@ function render() {
     renderLiveLineup();
     renderPlayFeed();
     renderSubControls();
+    renderLiveSyncStatus(scoreGame);
   } else {
     setScoreGameLocked(true, null);
+    renderLiveSyncStatus(null);
   }
   renderRoster();
   renderArchive();
@@ -4261,6 +4439,7 @@ function renderScoreEmptyState(scoreGame = activeScoreGame()) {
   const hasActiveGame = Boolean(scoreGame);
   document.getElementById("scoreView")?.classList.toggle("has-no-game", !hasActiveGame);
   if (els.scoreEmptyState) els.scoreEmptyState.hidden = hasActiveGame;
+  if (els.syncStatusRow) els.syncStatusRow.hidden = !hasActiveGame;
 }
 
 function renderHome() {

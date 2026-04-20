@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Added a manual `Sync Game` action and visible live-game sync status for Score Game so the scoring iPad can keep working offline and push the current game snapshot to Supabase when reconnected.
 - Replaced the frontend-only admin password prompt with Supabase email/password admin sign-in, persisted admin sessions through Supabase Auth, and restricted shared backend writes to approved admin emails.
 - Added first-pass shared Supabase writes for roster changes plus scheduled/completed game updates while intentionally leaving in-progress Score Game work local-first for iPad/offline scoring.
 - Added a first Supabase read bootstrap so the app still opens from local data immediately, then safely loads shared roster/game data from Supabase in the background when a shared snapshot exists.

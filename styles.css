@@ -617,6 +617,13 @@ main {
   align-items: center;
 }
 
+.sync-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 26px;
+}
+
 #scoreView .score-form {
   justify-content: center;
   border: 0;
