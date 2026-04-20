@@ -197,6 +197,7 @@ const eventRules = {
   SAC: { label: "Sacrifice", pa: true, ab: false, out: true, sac: true, bip: true },
   SB: { label: "Stolen base", pa: false, sb: true },
   CS: { label: "Caught stealing", pa: false, cs: true, out: true },
+  PO: { label: "Picked off", pa: false, po: true, out: true },
   TAG: { label: "Tag up", pa: false }
 };
 
@@ -503,7 +504,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-52";
+const APP_VERSION = "2026.04.20-build-64";
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 
@@ -553,6 +554,7 @@ let pendingOutFielder = "";
 let gameFilter = "all";
 let lineupBuilderReturnView = "games";
 let lineupBuilderSelectedEntryId = "";
+let selectedFieldRunnerBase = "";
 const weatherCache = {};
 const weatherRequests = {};
 
@@ -622,7 +624,7 @@ const els = {
   runnerBases: [...document.querySelectorAll("[data-runner-base]")],
   runnerSummary: document.getElementById("runnerSummary"),
   runnerHint: document.getElementById("runnerHint"),
-  stealButtons: [...document.querySelectorAll("[data-steal]")],
+  runnerActionButtons: [...document.querySelectorAll("[data-runner-action]")],
   runnerPlayControls: document.getElementById("runnerPlayControls"),
   runnerOutButtons: [...document.querySelectorAll("[data-runner-out-base]")],
   resolvePlayBtn: document.querySelector("[data-resolve-play]"),
@@ -1824,12 +1826,19 @@ function bindEvents() {
     });
   });
 
-  els.stealButtons.forEach((button) => {
+  els.runnerActionButtons.forEach((button) => {
     button.addEventListener("click", () => {
+      const game = activeGame();
+      const base = selectedFieldRunnerBase;
+      if (!base || !isOccupied(game.bases?.[base])) return;
+      if (button.dataset.runnerAction === "pickoff") {
+        applyEvent(game, { type: "special_action", action: "pickoff", target: base });
+        return;
+      }
       applyEvent(activeGame(), {
-        type: button.dataset.stealResult === "out" ? "runner_out" : "runner_advance",
-        mode: "steal",
-        target: button.dataset.steal
+        type: "special_action",
+        action: button.dataset.runnerAction,
+        target: nextBaseForRunner(base)
       });
     });
   });
@@ -1934,7 +1943,6 @@ function bindEvents() {
     renderScoringStepPanel();
   });
   els.scorerStack.addEventListener("pointerdown", setSprayFromPointer);
-  els.runnerFieldMarkers?.addEventListener("click", handleFieldRunnerClick);
   els.sprayChart.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -2818,6 +2826,7 @@ function applyEvent(game = activeGame(), event = {}) {
   if (event.type === "special_action") {
     if (event.action === "steal") recordSteal(event.target, "safe");
     if (event.action === "caught_stealing") recordSteal(event.target, "out");
+    if (event.action === "pickoff") recordPickoff(event.target);
     if (event.action === "tag_up") recordTagUp(event.target);
     scoringStep = "pitch";
     renderScoringStepPanel();
@@ -3278,6 +3287,13 @@ function baseKeyForSteal(target) {
   return { from: "third", to: "home", label: "Home" };
 }
 
+function nextBaseForRunner(base) {
+  if (base === "first") return "second";
+  if (base === "second") return "third";
+  if (base === "third") return "home";
+  return "";
+}
+
 function recordSteal(target, outcome) {
   const game = activeGame();
   if (gameIsScoreLocked(game)) return;
@@ -3333,6 +3349,56 @@ function recordSteal(target, outcome) {
     snapshotBefore
   };
   game.events.push(event);
+  selectedFieldRunnerBase = outcome === "safe" && steal.to !== "home" ? steal.to : "";
+  if (game.outs >= 3) advanceHalfInning(game);
+  saveState();
+  render();
+}
+
+function recordPickoff(base) {
+  const game = activeGame();
+  if (gameIsScoreLocked(game)) return;
+  if (game.status !== "completed") game.status = "active";
+  const runner = game.bases?.[base];
+  if (!isOccupied(runner)) return;
+
+  const snapshotBefore = {
+    inning: game.inning,
+    half: game.half,
+    outs: game.outs,
+    bases: { ...game.bases },
+    batterIndex: game.batterIndex,
+    score: { ...game.score },
+    atBat: game.atBat ? cloneAtBat(game.atBat) : makeAtBat()
+  };
+
+  const movement = applyRunnerAdvancements(game, [{ runnerId: runner, from: base, out: true }]);
+  game.current.outs += movement.outsRecorded;
+  commitCurrentToLegacy(game);
+
+  game.events.push({
+    id: uuid(),
+    gameId: game.id,
+    playerId: typeof runner === "string" ? runner : currentBatterId(game),
+    result: "PO",
+    runs: 0,
+    rbi: 0,
+    contact: "none",
+    launch: "none",
+    leverage: "neutral",
+    inning: game.inning,
+    half: game.half,
+    outsBefore: snapshotBefore.outs,
+    basesBefore: { ...snapshotBefore.bases },
+    scope: isLionsAtBat(game) ? "offense" : "defense",
+    note: `Picked off at ${baseLabel(base)}`,
+    pitches: [],
+    count: game.atBat ? `${game.atBat.balls}-${game.atBat.strikes}` : "0-0",
+    spray: null,
+    createdAt: new Date().toISOString(),
+    snapshotBefore
+  });
+  selectedFieldRunnerBase = "";
   if (game.outs >= 3) advanceHalfInning(game);
   saveState();
   render();
@@ -4158,6 +4224,9 @@ function renderRunnerTracker() {
     third: ".spray-third-base"
   };
   const bases = game.bases || emptyBases(false);
+  if (selectedFieldRunnerBase && !isOccupied(bases[selectedFieldRunnerBase])) {
+    selectedFieldRunnerBase = "";
+  }
   const occupied = ["first", "second", "third"]
     .filter((key) => isOccupied(bases[key]))
     .map((key) => `${runnerName(bases[key]) || "Runner"} on ${baseLabels[key]}`);
@@ -4175,14 +4244,30 @@ function renderRunnerTracker() {
     }
   });
   els.runnerSummary.textContent = occupied.length ? occupied.join(" | ") : "Bases empty";
-  const canStealSecond = isOccupied(game.bases.first) && !isOccupied(game.bases.second);
-  const canStealThird = isOccupied(game.bases.second) && !isOccupied(game.bases.third);
-  const canStealHome = isOccupied(game.bases.third);
-  els.stealButtons.forEach((button) => {
-    const target = button.dataset.steal;
-    const enabled = target === "second" ? canStealSecond : target === "third" ? canStealThird : canStealHome;
+  const selectedBase = selectedFieldRunnerBase;
+  const selectedRunner = selectedBase ? bases[selectedBase] : null;
+  const selectedLabel = selectedBase ? baseLabels[selectedBase] : "";
+  const stealTarget = selectedBase ? nextBaseForRunner(selectedBase) : "";
+  const canSteal = Boolean(
+    selectedBase
+    && selectedRunner
+    && (stealTarget === "home" || (stealTarget && !isOccupied(bases[stealTarget])))
+  );
+  els.runnerActionButtons.forEach((button) => {
+    const action = button.dataset.runnerAction;
+    const enabled = Boolean(
+      selectedBase
+      && selectedRunner
+      && (action === "steal" ? canSteal : true)
+    );
     button.disabled = !enabled;
+    if (action === "steal") button.textContent = selectedBase ? `SB ${baseLabel(stealTarget)}` : "SB";
+    if (action === "caught_stealing") button.textContent = stealTarget ? `CS ${baseLabel(stealTarget)}` : "CS";
+    if (action === "pickoff") button.textContent = selectedLabel ? `PO ${selectedLabel}` : "PO";
   });
+  els.runnerHint.textContent = selectedBase
+    ? `${runnerName(selectedRunner) || "Runner"} selected on ${selectedLabel}. Choose SB, CS, or PO.`
+    : "Tap a runner badge to choose SB, CS, or PO.";
   const showRunnerOuts = (Boolean(game.atBat?.pendingInPlay) || awaitingSprayLocation || awaitingRunnerDecision) && isLionsAtBat(game);
   els.runnerPlayControls.classList.toggle("is-visible", showRunnerOuts);
   els.runnerOutButtons.forEach((button) => {
@@ -4217,8 +4302,9 @@ function renderFieldRunnerMarkers(game = activeGame()) {
     .map((base) => {
       const runner = bases[base];
       const pending = pendingRunnerOutBases.includes(base) ? " is-pending-out" : "";
+      const selected = selectedFieldRunnerBase === base ? " is-selected" : "";
       const label = `${runnerName(runner) || "Runner"} on ${baseLabels[base]}`;
-      return `<button type="button" class="field-runner-marker field-runner-${base}${pending}" data-field-runner-base="${base}" title="${escapeHtml(label)}">${escapeHtml(runnerNumber(runner))}</button>`;
+      return `<button type="button" class="field-runner-marker field-runner-${base}${pending}${selected}" data-field-runner-base="${base}" title="${escapeHtml(label)}" onpointerdown="window.handleFieldRunnerClick(event)">${escapeHtml(runnerNumber(runner))}</button>`;
     })
     .join("");
 }
@@ -4231,13 +4317,15 @@ function handleFieldRunnerClick(event) {
   const base = button.dataset.fieldRunnerBase;
   const game = activeGame();
   if (!game || !isOccupied(game.bases?.[base])) return;
-  const stealTarget = base === "first" ? "second" : base === "second" ? "third" : base === "third" ? "home" : "";
-  const stealButton = els.stealButtons.find((item) => item.dataset.steal === stealTarget && !item.disabled);
-  els.runnerHint.textContent = stealButton
-    ? `${runnerName(game.bases[base]) || "Runner"} selected. Use the steal controls below for SB or CS.`
-    : `${runnerName(game.bases[base]) || "Runner"} selected. Runner actions will appear here when available.`;
-  stealButton?.focus();
+  selectedFieldRunnerBase = selectedFieldRunnerBase === base ? "" : base;
+  button.classList.toggle("is-selected", selectedFieldRunnerBase === base);
+  renderRunnerTracker();
+  renderScoringStepPanel();
+  const firstVisibleAction = els.scoringStepBody?.querySelector("[data-special-action]:not([disabled])");
+  firstVisibleAction?.focus();
 }
+
+window.handleFieldRunnerClick = handleFieldRunnerClick;
 
 function togglePendingRunnerOut(base) {
   if (!base) return;
@@ -4382,6 +4470,18 @@ function renderScoringStepPanel() {
     renderOpponentScoringStepPanel(game);
     return;
   }
+  const selectedRunnerConfig = selectedRunnerActionConfig(game);
+  if (selectedRunnerConfig) {
+    els.scoringStepPanel.dataset.step = "runner_action";
+    els.scoringStepEyebrow.textContent = selectedRunnerConfig.eyebrow;
+    els.scoringStepTitle.textContent = selectedRunnerConfig.title;
+    els.scoringStepHint.textContent = selectedRunnerConfig.hint;
+    els.panelUndoPitchBtn.hidden = true;
+    const backButton = els.scoringStepPanel.querySelector("[data-score-step-back]");
+    if (backButton) backButton.hidden = true;
+    els.scoringStepBody.innerHTML = selectedRunnerConfig.body;
+    return;
+  }
   if (awaitingRunnerDecision) scoringStep = "runners";
   else if (awaitingSprayLocation) scoringStep = "spray";
   else if (game.atBat.pendingInPlay && !["out_type", "out_fielder"].includes(scoringStep)) scoringStep = "outcome";
@@ -4394,6 +4494,33 @@ function renderScoringStepPanel() {
   const backButton = els.scoringStepPanel.querySelector("[data-score-step-back]");
   if (backButton) backButton.hidden = scoringStep === "pitch";
   els.scoringStepBody.innerHTML = config.body;
+}
+
+function selectedRunnerActionConfig(game) {
+  if (!selectedFieldRunnerBase) return null;
+  if (!["pitch", "more"].includes(scoringStep)) return null;
+  if (awaitingSprayLocation || awaitingRunnerDecision || game.atBat?.pendingInPlay) return null;
+  const base = selectedFieldRunnerBase;
+  const runner = game.bases?.[base];
+  if (!isOccupied(runner)) return null;
+  const stealTarget = nextBaseForRunner(base);
+  const canSteal = Boolean(
+    stealTarget && (stealTarget === "home" || !isOccupied(game.bases?.[stealTarget]))
+  );
+  const runnerLabel = runnerName(runner) || `#${runnerNumber(runner) || ""}`.trim() || "Runner";
+  return {
+    eyebrow: "Runner Action",
+    title: `${runnerLabel} on ${baseLabel(base)}`,
+    hint: "Choose SB, CS, or PO. Tap the selected runner again to return to pitch mode.",
+    body: `<div class="special-action-group runner-action-group">
+      <span>${escapeHtml(runnerLabel)} selected on ${escapeHtml(baseLabel(base))}</span>
+      <div class="step-grid step-grid-special runner-action-grid">
+        <button type="button" class="step-button step-safe" data-special-action="steal" data-special-target="${escapeHtml(stealTarget)}"${canSteal ? "" : " disabled"}>SB ${escapeHtml(baseLabel(stealTarget))}</button>
+        <button type="button" class="step-button step-danger" data-special-action="caught_stealing" data-special-target="${escapeHtml(stealTarget)}">CS ${escapeHtml(baseLabel(stealTarget))}</button>
+        <button type="button" class="step-button step-danger" data-special-action="pickoff" data-special-target="${escapeHtml(base)}">PO ${escapeHtml(baseLabel(base))}</button>
+      </div>
+    </div>`
+  };
 }
 
 function scoringStepConfig(game) {
@@ -4574,20 +4701,23 @@ function renderSpecialActionGrid(game = activeGame()) {
   if (isOccupied(game.bases.first) && !isOccupied(game.bases.second)) {
     add("Steal 2B", "steal", "second", "hit");
     add("Caught 2B", "caught_stealing", "second", "out");
+    add("Pick Off 1B", "pickoff", "first", "out");
     add("Tag 1B to 2B", "tag_up", "second", "neutral");
   }
   if (isOccupied(game.bases.second) && !isOccupied(game.bases.third)) {
     add("Steal 3B", "steal", "third", "hit");
     add("Caught 3B", "caught_stealing", "third", "out");
+    add("Pick Off 2B", "pickoff", "second", "out");
     add("Tag 2B to 3B", "tag_up", "third", "neutral");
   }
   if (isOccupied(game.bases.third)) {
     add("Steal Home", "steal", "home", "hit");
     add("Caught Home", "caught_stealing", "home", "out");
+    add("Pick Off 3B", "pickoff", "third", "out");
     add("Tag 3B Home", "tag_up", "home", "neutral");
   }
   if (!buttons.length) {
-    return `<div class="special-action-empty">No runners are available for steal, caught stealing, or tag up.</div>`;
+    return `<div class="special-action-empty">No runners are available for steal, caught stealing, pickoff, or tag up.</div>`;
   }
   return `<div class="special-action-group">
     <span>Runner Actions</span>
@@ -6920,6 +7050,8 @@ function renderSeasonStats() {
         <td>${hit.bb}</td>
         <td>${hit.k}</td>
         <td>${hit.sb}</td>
+        <td>${hit.cs}</td>
+        <td>${hit.po}</td>
         <td>${hit.roe}</td>
         <td>${hit.errors}</td>
       </tr>`;
@@ -7235,6 +7367,7 @@ function emptyStats() {
     rbi: 0,
     sb: 0,
     cs: 0,
+    po: 0,
     roe: 0,
     errors: 0,
     bip: 0,
@@ -7276,6 +7409,7 @@ function applyEventToStats(stats, event) {
   if (rule.dp) stats.dp += 1;
   if (rule.sb) stats.sb += 1;
   if (rule.cs) stats.cs += 1;
+  if (rule.po) stats.po += 1;
   if (event.result === "ROE") stats.roe += 1;
   if (event.errorOnPlay) stats.errors += 1;
   if (rule.reach) stats.reach += 1;

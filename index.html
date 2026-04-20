@@ -296,14 +296,14 @@
                 <div class="spray-chart" id="sprayChart" role="button" tabindex="0" aria-label="Tap to set batted ball location">
                   <div class="field-layer field-background" aria-hidden="true">
                     <svg class="field-background-art" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false" aria-hidden="true">
-                      <rect width="100" height="100" fill="#3f9b46"></rect>
-                      <path d="M4 39 Q50 -12 96 39" fill="none" stroke="#d58225" stroke-width="1.35" stroke-linecap="round"></path>
+                      <rect width="100" height="100" fill="#4fb853"></rect>
+                      <path d="M4 39 Q50 -12 96 39" fill="none" stroke="#db8d32" stroke-width="1.35" stroke-linecap="round"></path>
                       <path d="M50 87 L8 40" fill="none" stroke="#f7f7ef" stroke-width="0.95" stroke-linecap="round"></path>
                       <path d="M50 87 L92 40" fill="none" stroke="#f7f7ef" stroke-width="0.95" stroke-linecap="round"></path>
-                      <path d="M19 67 A31 31 0 0 1 81 67 A17.5 17.5 0 0 0 19 67 Z" fill="#c9862f"></path>
-                      <path d="M50 49 L68 67 L50 85 L32 67 Z" fill="#3f9b46"></path>
-                      <circle cx="50" cy="86" r="8.6" fill="#c9862f"></circle>
-                      <circle cx="50" cy="61" r="5.8" fill="#c9862f"></circle>
+                      <path d="M19 67 A31 31 0 0 1 81 67 A17.5 17.5 0 0 0 19 67 Z" fill="#db9842"></path>
+                      <path d="M50 49 L68 67 L50 85 L32 67 Z" fill="#4fb853"></path>
+                      <circle cx="50" cy="86" r="8.6" fill="#db9842"></circle>
+                      <circle cx="50" cy="61" r="5.8" fill="#db9842"></circle>
                       <rect x="47.7" y="60.3" width="4.6" height="1.4" rx="0.45" fill="#f9f8f1"></rect>
                       <rect x="48.7" y="41.7" width="2.6" height="2.6" rx="0.2" fill="#f9f8f1" transform="rotate(45 50 43)"></rect>
                       <rect x="65.7" y="64.7" width="2.6" height="2.6" rx="0.2" fill="#f9f8f1" transform="rotate(45 67 66)"></rect>
@@ -323,17 +323,14 @@
                 <div class="mini-head">
                   <div>
                     <h3>Runners On Base</h3>
-                    <span class="player-meta" id="runnerHint">Tap safe or out when a runner steals.</span>
+                    <span class="player-meta" id="runnerHint">Tap a runner badge to choose SB, CS, or PO.</span>
                   </div>
                   <span class="player-meta" id="runnerSummary">Bases empty</span>
                 </div>
                 <div class="steal-grid">
-                  <button type="button" class="secondary-action" data-steal="second" data-steal-result="safe">Steal 2B Safe</button>
-                  <button type="button" class="secondary-action" data-steal="second" data-steal-result="out">Steal 2B Out</button>
-                  <button type="button" class="secondary-action" data-steal="third" data-steal-result="safe">Steal 3B Safe</button>
-                  <button type="button" class="secondary-action" data-steal="third" data-steal-result="out">Steal 3B Out</button>
-                  <button type="button" class="secondary-action" data-steal="home" data-steal-result="safe">Steal Home Safe</button>
-                  <button type="button" class="secondary-action" data-steal="home" data-steal-result="out">Steal Home Out</button>
+                  <button type="button" class="secondary-action" data-runner-action="steal" disabled>SB</button>
+                  <button type="button" class="secondary-action" data-runner-action="caught_stealing" disabled>CS</button>
+                  <button type="button" class="secondary-action" data-runner-action="pickoff" disabled>PO</button>
                 </div>
                 <div class="runner-play-grid" id="runnerPlayControls" aria-label="Runner outs on batted ball">
                   <span>Runner Out On Ball In Play</span>
@@ -824,6 +821,8 @@
                   <th><button type="button" data-hit-sort="bb">BB</button></th>
                   <th><button type="button" data-hit-sort="k">K</button></th>
                   <th><button type="button" data-hit-sort="sb">SB</button></th>
+                  <th><button type="button" data-hit-sort="cs">CS</button></th>
+                  <th><button type="button" data-hit-sort="po">PO</button></th>
                   <th><button type="button" data-hit-sort="roe">ROE</button></th>
                   <th><button type="button" data-hit-sort="errors">E</button></th>
                 </tr>

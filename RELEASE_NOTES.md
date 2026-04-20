@@ -7,6 +7,19 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Removed the tinted field container and chart backing so the live field reads as the SVG itself rather than a field sitting under a dark shell, while preserving the current runner selection and action behavior.
+- Removed the dark field veil from the live score view by flattening the chart shell, removing the inset dimming, and brightening the field SVG colors, while leaving the current runner selection and action workflow untouched.
+- Brightened the final active score-view field shell itself, including the live chart background and field SVG filter, to get back closer to the easier-to-read pre-runner-panel look without touching runner interactions or logic.
+- Restored the live score field shell colors to the pre-brightening look from the earlier runner-action builds and bumped the build/cache again, without touching the current runner selection or action logic.
+- Brightened the live score field shell and top-down SVG colors again so the field is easier to read after the runner-action panel update, then bumped the build/cache for Safari and iPad refreshes.
+- Moved selected-runner SB/CS/PO actions into the main Pitch Mode scoring panel, hid the old floating runner action strip, and bumped the build/cache for fresh local and iPad testing.
+- Surfaced the selected-runner SB/CS/PO action bar above the score field and bumped the build/cache again so local and iPad testing pick up the latest runner-action CSS.
+- Fixed runner selection double-toggle by handling on-field runner badge selection only on pointerdown and bumped the build/cache again.
+- Routed runner badge inline handlers explicitly through `window` and raised the field interaction layer above the score-field chrome for another runner-tap fix attempt.
+- Explicitly exposed the runner badge click handler on `window` and bumped the build/cache again to tighten local-file runner interactions.
+- Hardened on-field runner badge taps for iPad/Safari by making the runner overlay directly interactive and bumping the app/service-worker version.
+- Made on-field runner badges brighter, added selected-runner SB/CS/PO controls, and tracked caught stealing plus pickoffs in player hitting stats.
+- Refreshed the PWA cache version for the runner action update.
 - Pulled first and third base farther inside the foul lines and pushed the live outfield fence farther back for a larger field footprint.
 - Refreshed the PWA cache version for the field geometry refinement.
 - Moved the live field fence farther back, removed defensive position chips, and cleaned up duplicate live base rendering.
