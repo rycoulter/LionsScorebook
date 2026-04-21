@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Fixed Supabase bootstrap merge on cached devices so games that had already synced to the cloud are now pruned locally when they no longer exist remotely, which prevents deleted schedule/archive items from lingering on iPhones and iPads after refresh.
 - Updated pitcher decision logic for 7-inning games so a starter now qualifies for the win at 4 innings (12 outs), and `ND` is only assigned to the starting pitcher instead of every reliever who appeared.
 - Fixed a shared-sync race where removing or editing games could be skipped if another Supabase snapshot sync was already in flight, which let deleted schedule items reappear from the cloud on refresh or another device.
 - Fixed batting `GP` on the Stats page so scheduled/unplayed games no longer count toward every hitter's games played just because they inherit a default lineup shell.

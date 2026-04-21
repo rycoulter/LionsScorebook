@@ -44,6 +44,11 @@
     };
   }
 
+  function hasCloudSyncedGameRecord(game) {
+    const sync = game?.sync || {};
+    return Boolean(sync.lastSyncedAt) || sync.status === "synced";
+  }
+
   function mergeRemoteSnapshot(baseState, appStateRow, gamesRows) {
     const nextState = deepClone(baseState || {});
     if (appStateRow) {
@@ -81,6 +86,10 @@
           mergedGames.push(remoteGame);
           seenIds.add(gameId);
           remoteGamesById.delete(gameId);
+          return;
+        }
+        if (!remoteGame && game.status !== "active" && hasCloudSyncedGameRecord(game)) {
+          seenIds.add(gameId);
           return;
         }
         mergedGames.push(game);
