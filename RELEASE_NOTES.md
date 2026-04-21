@@ -7,6 +7,10 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Expanded the Home page Team Leaders snapshot again to a six-card batting row and six-card pitching row, adding Runs and OBP for hitters plus Strike % and K/9 for pitchers so the widened dashboard space is fully used.
+- Expanded the Home page Team Leaders panel to span the freed-up standings space on desktop and tablet, so the added Hits and ERA leader cards no longer wrap awkwardly into an empty column.
+- Expanded the Home page Team Leaders snapshot to show batting hits and pitching ERA, and added ERA to the season pitching stats views on both desktop and mobile.
+- Added earned-run tracking for Lions pitching based on runner history, so opponents who reached base on an error no longer inflate ERA later if they come around to score.
 - Fixed Supabase bootstrap merge on cached devices so games that had already synced to the cloud are now pruned locally when they no longer exist remotely, which prevents deleted schedule/archive items from lingering on iPhones and iPads after refresh.
 - Updated pitcher decision logic for 7-inning games so a starter now qualifies for the win at 4 innings (12 outs), and `ND` is only assigned to the starting pitcher instead of every reliever who appeared.
 - Fixed a shared-sync race where removing or editing games could be skipped if another Supabase snapshot sync was already in flight, which let deleted schedule items reappear from the cloud on refresh or another device.

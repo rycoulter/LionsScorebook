@@ -406,6 +406,10 @@ main {
   min-height: 100%;
 }
 
+.home-leaders-panel {
+  grid-column: 2 / -1;
+}
+
 .home-hero-panel {
   display: grid;
   gap: 18px;
@@ -433,6 +437,12 @@ main {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 10px 0 0;
   align-items: stretch;
+}
+
+@media (max-width: 1024px) {
+  .compact-leaders {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .home-panel-head-centered {
@@ -8441,9 +8451,8 @@ label {
     grid-column: 1 / -1;
   }
 
-  .home-leaders-panel,
-  .home-standings-panel {
-    grid-column: span 1;
+  .home-leaders-panel {
+    grid-column: 1 / -1;
   }
 
   .games-grid,
@@ -8881,7 +8890,7 @@ label {
   }
 
   #statsView .stats-table-pitching {
-    min-width: 940px;
+    min-width: 1020px;
   }
 
   #statsView .stats-table th,
