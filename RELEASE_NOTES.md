@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-21
 
 ### Changed
+- Fixed the Score Game field brightness by removing the dark shared panel skin from the full-field scoring overlays, keeping the pitch/runner layers transparent, and brightening the field artwork so the live spray chart no longer looks like it has a dark sheet over it.
 - Replaced the Score Game current-batter season AVG tile with game-only hitting context, showing `H-for-AB` in the header and listing prior plate-appearance outcomes such as `1B, 1B, BB` using the same AB rules as the stats engine.
 - Added hostname-based Supabase environment selection so Production can stay on the live project while QA is prepared for a separate Supabase backend, and surfaced the active DB environment in the build badge.
 - Fixed the Lions win animation asset wiring to use the new transparent `lions-left` and `lions-right` split images, tuned the overlay stage for the taller artwork, and refreshed the PWA cache so QA devices can load the updated files correctly.

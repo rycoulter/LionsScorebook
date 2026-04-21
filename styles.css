@@ -5076,7 +5076,6 @@ button:focus-visible {
 :root {
   --app-bg: #060918;
   --app-bg-2: #0d1328;
-  --panel-dark: rgba(20, 25, 43, 0.82);
   --panel-dark-solid: #151a2d;
   --panel-line: rgba(255, 255, 255, 0.12);
   --text-soft: rgba(255, 255, 255, 0.72);
@@ -8509,6 +8508,10 @@ label {
 #scoreView .pitch-panel {
   z-index: 6;
   pointer-events: none;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
   #scoreView .scoring-step-panel {
@@ -9611,11 +9614,14 @@ label {
 
 /* Layered live-field visual shell for the Score Game spray chart. */
 #scoreView .spray-panel {
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 236, 176, 0.18);
   border-radius: 8px;
   padding: 10px;
-  background: transparent;
-  box-shadow: none;
+  background:
+    linear-gradient(180deg, rgba(19, 48, 33, 0.92) 0%, rgba(15, 38, 27, 0.94) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 28px rgba(0, 0, 0, 0.16);
 }
 
 #scoreView .spray-chart {
@@ -9626,10 +9632,14 @@ label {
   aspect-ratio: 4 / 3;
   margin: 0 auto;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 8px;
-  background: transparent;
-  box-shadow: none;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.16), transparent 25%),
+    linear-gradient(180deg, #92e388 0%, #77d171 44%, #60b75e 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 10px 22px rgba(0, 0, 0, 0.1);
 }
 
 #scoreView .spray-chart > * {
@@ -9651,6 +9661,10 @@ label {
   pointer-events: none;
   border-radius: 8px;
   overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.14), transparent 26%),
+    linear-gradient(180deg, #98e78d 0%, #7dd476 44%, #65bc62 100%);
+  opacity: 1;
 }
 
 #scoreView .field-background-art {
@@ -9659,7 +9673,22 @@ label {
   display: block;
   width: 100%;
   height: 100%;
-  filter: brightness(1.4) saturate(1.24);
+  opacity: 1;
+  filter: brightness(1.24) saturate(1.14) contrast(1.04);
+}
+
+#scoreView .pitch-panel,
+#scoreView .runner-panel,
+#scoreView .ab-face,
+#scoreView .batter-face,
+#scoreView .opponent-face {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#scoreView .spray-panel.is-defense {
+  opacity: 1;
 }
 
 #scoreView .spray-panel .mini-head {
@@ -9690,11 +9719,13 @@ label {
 #scoreView .spray-chart-overlay {
   z-index: 17;
   pointer-events: none;
+  background: transparent;
 }
 
 #scoreView .base-runners-overlay {
   z-index: 18;
   pointer-events: auto;
+  background: transparent;
 }
 
 #scoreView .field-background > *,
