@@ -7,6 +7,8 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-21
 
 ### Changed
+- Added a lightweight opponent lineup move panel in Score view so scorers can substitute an opposing hitter into any lineup spot or append a new hitter to the end of the opponent order mid-game without needing a bench list.
+- Fixed the live Score spray chart so recorded spray markers stay visible for the current hitter between plate appearances instead of disappearing once the current ball-in-play placement is done, while keeping the default filter on `Current hitter`.
 - Improved the Box Score page on phones by tightening the summary layout, keeping the team tabs side-by-side, adding swipe hints above the tables, reducing the mobile table widths, and making the first table column sticky while horizontally scrolling.
 - Refined the Home page mobile leaders layout so the expanded batting and pitching stat cards now use a cleaner two-column phone grid, stack their section labels properly, and stay readable after the added second row of leader metrics.
 

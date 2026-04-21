@@ -315,7 +315,7 @@
                     <span class="player-meta" id="sprayHint">Tap the field after a ball is put in play.</span>
                   </div>
                   <select id="sprayFilter" aria-label="Spray chart filter">
-                    <option value="hitter">Current hitter</option>
+                    <option value="hitter" selected>Current hitter</option>
                     <option value="current">Current game</option>
                     <option value="hits">Game hits only</option>
                     <option value="outs">Game outs only</option>
@@ -475,6 +475,30 @@
                 Opponent lineup paste
                 <textarea id="scoreOpponentLineupInput" rows="5" placeholder="#12 Smith&#10;#4 Johnson&#10;One hitter per line"></textarea>
               </label>
+              <div class="sub-panel opponent-sub-panel is-hidden" id="opponentSubPanel">
+                <h3>Opponent Lineup Move</h3>
+                <label>
+                  Action
+                  <select id="opponentMoveTypeSelect">
+                    <option value="sub">Substitute hitter</option>
+                    <option value="append">Add hitter to end</option>
+                  </select>
+                </label>
+                <label>
+                  Lineup spot
+                  <select id="opponentMoveSpotSelect"></select>
+                </label>
+                <label>
+                  Jersey number
+                  <input id="opponentMoveNumberInput" type="text" inputmode="numeric" placeholder="#">
+                </label>
+                <label>
+                  Hitter name
+                  <input id="opponentMoveNameInput" type="text" placeholder="New opponent hitter">
+                </label>
+                <p class="player-meta" id="opponentMoveHint">Replace a hitter in an existing lineup spot or add a new hitter to the end of the order.</p>
+                <button type="button" class="secondary-action" id="applyOpponentMoveBtn">Apply Opponent Move</button>
+              </div>
               <div class="mini-head">
                 <h3>Last Plays</h3>
                 <span id="playCount">0 plays</span>

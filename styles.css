@@ -7135,10 +7135,24 @@ label {
 }
 
 #scoreView .sub-panel select,
+#scoreView .sub-panel input,
 #scoreView .opponent-lineup-editor textarea {
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(3, 10, 36, 0.78);
   color: var(--white);
+}
+
+#scoreView .opponent-sub-panel .player-meta {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+#scoreView .opponent-sub-panel input {
+  min-height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-weight: 900;
 }
 
 #scoreView .runner-base {

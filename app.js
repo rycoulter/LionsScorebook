@@ -195,6 +195,8 @@ const eventRules = {
   FO: { label: "Flyout", pa: true, ab: true, out: true, bip: true, launch: "fb" },
   LO: { label: "Lineout", pa: true, ab: true, out: true, bip: true, launch: "ld" },
   SAC: { label: "Sacrifice", pa: true, ab: false, out: true, sac: true, bip: true },
+  SUB: { label: "Substitution", pa: false },
+  ADD: { label: "Added hitter", pa: false },
   SB: { label: "Stolen base", pa: false, sb: true },
   CS: { label: "Caught stealing", pa: false, cs: true, out: true },
   PO: { label: "Picked off", pa: false, po: true, out: true },
@@ -506,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.21-build-133";
+const APP_VERSION = "2026.04.21-build-135";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -758,6 +760,13 @@ const els = {
   subTypeSelect: document.getElementById("subTypeSelect"),
   subPositionSelect: document.getElementById("subPositionSelect"),
   applySubBtn: document.getElementById("applySubBtn"),
+  opponentSubPanel: document.getElementById("opponentSubPanel"),
+  opponentMoveTypeSelect: document.getElementById("opponentMoveTypeSelect"),
+  opponentMoveSpotSelect: document.getElementById("opponentMoveSpotSelect"),
+  opponentMoveNumberInput: document.getElementById("opponentMoveNumberInput"),
+  opponentMoveNameInput: document.getElementById("opponentMoveNameInput"),
+  opponentMoveHint: document.getElementById("opponentMoveHint"),
+  applyOpponentMoveBtn: document.getElementById("applyOpponentMoveBtn"),
   optimizeBtn: document.getElementById("optimizeBtn"),
   optimizedLineup: document.getElementById("optimizedLineup"),
   optimizerMode: document.getElementById("optimizerMode"),
@@ -2790,6 +2799,9 @@ function bindEvents() {
     }
   });
 
+  els.opponentMoveTypeSelect?.addEventListener("change", renderSubControls);
+  els.applyOpponentMoveBtn?.addEventListener("click", applyOpponentLineupMove);
+
   els.pitcherSelect.addEventListener("change", () => {
     const game = activeGame();
     if (gameIsScoreLocked(game)) return;
@@ -3138,6 +3150,121 @@ function updateOpponentLineupEntry(index, updates = {}) {
 
 function updateOpponentLineupName(index, name) {
   updateOpponentLineupEntry(index, { name });
+}
+
+function opponentLineupMoveSnapshot(game = activeGame()) {
+  return {
+    inning: game.inning,
+    half: game.half,
+    outs: game.outs,
+    bases: deepClone(game.bases),
+    batterIndex: game.batterIndex,
+    opponentBatterIndex: game.opponentBatterIndex || 0,
+    score: deepClone(game.score),
+    atBat: cloneAtBat(game.atBat || makeAtBat()),
+    opponentLineupEntries: deepClone(opponentLineupEntriesForGame(game))
+  };
+}
+
+function recordOpponentLineupMove(game, { result = "SUB", playerName = "", note = "", snapshotBefore = null } = {}) {
+  if (!game?.id) return;
+  syncGameCurrent(game);
+  if (!game.events) game.events = [];
+  game.events.push({
+    id: createId("event"),
+    gameId: game.id,
+    playerId: playerName ? `opp:${playerName}` : "",
+    playerName,
+    result,
+    runs: 0,
+    rbi: 0,
+    contact: "none",
+    launch: "none",
+    leverage: "neutral",
+    inning: game.current.inning,
+    half: game.current.half,
+    outsBefore: game.current.outs,
+    basesBefore: deepClone(game.current.runners),
+    scope: "lineup",
+    teamSide: opponentSide(game),
+    teamLabel: game.opponent,
+    note,
+    pitches: [],
+    count: `${game.current.balls}-${game.current.strikes}`,
+    spray: null,
+    createdAt: new Date().toISOString(),
+    snapshotBefore: snapshotBefore || opponentLineupMoveSnapshot(game)
+  });
+}
+
+function substituteOpponentLineupHitter(game = activeGame(), lineupIndex = 0, details = {}) {
+  const entries = opponentLineupEntriesForGame(game);
+  const outgoing = entries[lineupIndex];
+  if (!outgoing) return false;
+  const snapshotBefore = opponentLineupMoveSnapshot(game);
+  const nextName = String(details.name || "").trim();
+  const nextNumber = String(details.number || "").trim();
+  entries[lineupIndex] = {
+    ...outgoing,
+    id: createId("opp"),
+    name: nextName || outgoing.name || `Batter ${lineupIndex + 1}`,
+    number: nextNumber,
+    order: lineupIndex + 1,
+    active: true
+  };
+  game.lineups.home = entries;
+  game.opponentLineup = opponentLineupSnapshot(entries);
+  recordOpponentLineupMove(game, {
+    result: "SUB",
+    playerName: entries[lineupIndex].name,
+    note: `${opponentBatterLabel(outgoing, lineupIndex)} replaced by ${opponentBatterLabel(entries[lineupIndex], lineupIndex)}.`,
+    snapshotBefore
+  });
+  return true;
+}
+
+function appendOpponentLineupHitter(game = activeGame(), details = {}) {
+  const entries = opponentLineupEntriesForGame(game);
+  const snapshotBefore = opponentLineupMoveSnapshot(game);
+  const lineupIndex = entries.length;
+  const entry = normalizeOpponentLineupEntry({
+    id: createId("opp"),
+    name: String(details.name || "").trim() || `Batter ${lineupIndex + 1}`,
+    number: String(details.number || "").trim(),
+    order: lineupIndex + 1,
+    active: true
+  }, lineupIndex);
+  entries.push(entry);
+  game.lineups.home = entries;
+  game.opponentLineup = opponentLineupSnapshot(entries);
+  recordOpponentLineupMove(game, {
+    result: "ADD",
+    playerName: entry.name,
+    note: `${opponentBatterLabel(entry, lineupIndex)} added to the end of the lineup.`,
+    snapshotBefore
+  });
+  return true;
+}
+
+function applyOpponentLineupMove() {
+  if (!requireAdminAccess("Admin sign-in required to change the opponent lineup.")) return;
+  const game = activeGame();
+  if (!game || gameIsFinal(game)) return;
+  const moveType = els.opponentMoveTypeSelect?.value || "sub";
+  const name = String(els.opponentMoveNameInput?.value || "").trim();
+  const number = String(els.opponentMoveNumberInput?.value || "").trim();
+  if (!name) {
+    els.opponentMoveNameInput?.focus();
+    return;
+  }
+  const changed = moveType === "append"
+    ? appendOpponentLineupHitter(game, { name, number })
+    : substituteOpponentLineupHitter(game, Number(els.opponentMoveSpotSelect?.value || 0), { name, number });
+  if (!changed) return;
+  if (els.opponentMoveNameInput) els.opponentMoveNameInput.value = "";
+  if (els.opponentMoveNumberInput) els.opponentMoveNumberInput.value = "";
+  saveState();
+  render();
 }
 
 function currentPitcherId(game = activeGame()) {
@@ -4690,6 +4817,12 @@ function undoLastPlay() {
     if (event.snapshotBefore.lineupEntries) {
       game.lineupEntries = deepClone(event.snapshotBefore.lineupEntries);
       game.lineups.away = deepClone(game.lineupEntries);
+    }
+    if (event.snapshotBefore.opponentLineupEntries) {
+      const restoredOpponentEntries = deepClone(event.snapshotBefore.opponentLineupEntries);
+      if (!game.lineups) game.lineups = { away: deepClone(game.lineupEntries || []), home: [] };
+      game.lineups.home = restoredOpponentEntries;
+      game.opponentLineup = opponentLineupSnapshot(restoredOpponentEntries);
     }
     clearPendingPlayState(game, false);
     pendingSpray = event.spray || null;
@@ -6530,8 +6663,7 @@ function sprayZone(x, y) {
 
 function renderSprayChart() {
   const events = sprayEvents();
-  const showRecordedSpray = els.sprayFilter?.value !== "hitter" || awaitingSprayLocation || awaitingRunnerDecision;
-  const dots = showRecordedSpray ? events.map(renderSprayDot).join("") : "";
+  const dots = events.map(renderSprayDot).join("");
   const pending = pendingSpray
     ? `<span class="spray-dot pending" style="left:${pendingSpray.x}%;top:${pendingSpray.y}%;" title="Pending ${escapeHtml(pendingSpray.zone)}">${escapeHtml(els.resultSelect?.value || "+")}</span>`
     : "";
@@ -6628,6 +6760,25 @@ function renderLiveLineup() {
 function renderSubControls() {
   const game = activeGame();
   els.subPanel.classList.toggle("is-hidden", isOpponentAtBat(game));
+  if (els.opponentSubPanel) els.opponentSubPanel.classList.toggle("is-hidden", gameIsFinal(game));
+  const opponentEntries = opponentLineupEntriesForGame(game);
+  const fallbackSelectedSpot = Math.min(game.opponentBatterIndex || 0, Math.max(opponentEntries.length - 1, 0));
+  const opponentSelectedSpot = Number(els.opponentMoveSpotSelect?.value || fallbackSelectedSpot);
+  if (els.opponentMoveSpotSelect) {
+    els.opponentMoveSpotSelect.innerHTML = opponentEntries
+      .map((entry, index) => {
+        const isCurrent = index === (game.opponentBatterIndex || 0) ? " (current)" : "";
+        return `<option value="${index}" ${index === opponentSelectedSpot ? "selected" : ""}>${index + 1}. ${escapeHtml(opponentBatterLabel(entry, index))}${isCurrent}</option>`;
+      })
+      .join("");
+  }
+  const moveType = els.opponentMoveTypeSelect?.value || "sub";
+  if (els.opponentMoveSpotSelect) els.opponentMoveSpotSelect.disabled = moveType === "append";
+  if (els.opponentMoveHint) {
+    els.opponentMoveHint.textContent = moveType === "append"
+      ? `This hitter will be added as spot ${opponentEntries.length + 1} and join the order the next time it turns over.`
+      : "Choose the lineup spot to replace, then enter the new hitter's name and number.";
+  }
   if (isOpponentAtBat(game)) {
     els.subSpotSelect.innerHTML = "";
     els.subPlayerSelect.innerHTML = "";
@@ -6680,8 +6831,16 @@ function renderPlayFeed() {
     ? recent
         .map((event) => {
           const player = state.roster.find((item) => item.id === event.playerId);
-          const name = event.scope === "defense" ? event.opponentBatter || "Opponent batter" : player ? player.name : "Opponent";
-          const scope = event.scope === "defense" ? "Opponent" : "Lions";
+          const name = event.scope === "defense"
+            ? event.opponentBatter || "Opponent batter"
+            : event.scope === "lineup"
+              ? event.playerName || player?.name || "Lineup move"
+              : player ? player.name : "Opponent";
+          const scope = event.scope === "defense"
+            ? "Opponent"
+            : event.scope === "lineup"
+              ? event.teamLabel || "Lions"
+              : "Lions";
           const rule = eventRules[event.result] || { label: event.result };
           const battedBallDetail = [
             event.launch && event.launch !== "none" ? launchLabels[event.launch] || event.launch : "",
