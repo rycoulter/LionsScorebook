@@ -8,6 +8,53 @@ The current app still saves live scoring locally on the device first. This first
 - a shared storage adapter scaffold for `app_state` and `games`
 - SQL for the initial shared tables and RLS policies
 
+## QA and Production split
+
+The app now supports separate Supabase projects for QA and Production.
+
+Environment selection rules:
+
+- `www.oakmontlions.com` and `oakmontlions.com` use `prod`
+- every other hostname uses `qa`
+
+Optional override for testing:
+
+- query string: `?supabaseEnv=qa` or `?supabaseEnv=prod`
+- localStorage key: `oakmont:supabaseEnv`
+
+Current config lives in [`supabase-config.js`](C:\Users\vikin\OneDrive\Desktop\Scorebook\ScorebookGit\supabase-config.js).
+
+Production is still wired to the current live project.
+QA is intentionally left blank until you create the QA Supabase project and paste in its URL and publishable key.
+
+Recommended setup:
+
+1. Keep the current Supabase project as Production
+2. Create a second Supabase project for QA
+3. Run the same schema in both
+4. Add admin users to both
+5. Put the QA project URL + publishable key into the `qa` block in `supabase-config.js`
+6. Deploy QA first and verify the app version badge shows `QA`
+
+## Supabase dashboard steps for a new QA project
+
+1. In Supabase, click `New project`
+2. Name it something obvious like `oakmont-scorebook-qa`
+3. Choose the same organization as Production
+4. Generate and save the database password somewhere safe
+5. Pick the closest region to your Production project
+6. Create the project and wait for it to finish provisioning
+
+When the project is ready:
+
+1. Open `Project Settings`
+2. Open `API`
+3. Copy:
+   - `Project URL`
+   - `Publishable key` / `anon public` key
+
+Those are the two frontend values you will place into the `qa` config block.
+
 ## 1. Run the schema
 
 In the Supabase dashboard:
@@ -31,6 +78,8 @@ Writes are restricted to authenticated users whose email appears in `public.app_
 
 If you already ran the earlier first-pass schema before the admin-auth update, run [`supabase-admin-auth.sql`](C:\Users\vikin\OneDrive\Desktop\Scorebook\ScorebookGit\supabase-admin-auth.sql) as a follow-up migration.
 
+Do this in both Production and QA if you want the environments to stay structurally aligned.
+
 ## 2. Create the first admin user
 
 For the next phase, create at least one admin user in Supabase Auth:
@@ -53,7 +102,33 @@ Use the same lowercase email address the admin account signs in with.
 
 The app now uses Supabase email/password sign-in for admin mode, and shared backend writes depend on that authenticated session plus the `public.app_admins` allowlist.
 
-## 3. Set up automatic league standings refresh
+If you want the same coaches to sign into both QA and Production, create the same auth users in both projects and add the same emails to `public.app_admins` in both projects.
+
+## 3. Optional: seed QA from Production
+
+If you want QA to start with a copy of the current Production data:
+
+1. In Production Supabase, open `Table Editor`
+2. Export data from:
+   - `public.app_state`
+   - `public.games`
+   - optionally `public.league_standings`
+3. In QA Supabase, import those rows into the matching tables
+
+Safer option:
+
+- seed only roster, schedule, and a few completed games
+- avoid copying everything if you want a cleaner QA sandbox
+
+For first setup, I recommend:
+
+- copy `app_state`
+- copy a small subset of `games`
+- manually add `app_admins`
+
+That gives you realistic QA data without a full production mirror.
+
+## 4. Set up automatic league standings refresh
 
 The app now expects AA standings to be cached in `public.league_standings`.
 
@@ -81,7 +156,9 @@ The workflow is also scheduled to run automatically once per day at `10:15 UTC`.
 
 The Supabase Edge Function scaffold is still in the repo, but GitHub Actions is the preferred refresher because it is less likely to hit the Pittsburgh NABA network timeout from the server runtime.
 
-## 4. What this pass does not change yet
+If you split QA and Production, use separate GitHub secrets per repo/environment so the QA workflow writes to QA Supabase and the Production workflow writes to Production Supabase.
+
+## 5. What this pass does not change yet
 
 This pass does **not** switch the live scoring workflow over to Supabase yet.
 
@@ -91,7 +168,7 @@ That is intentional. We want to keep:
 - the current PWA behavior stable
 - local save behavior intact while we build sync deliberately
 
-## 5. Recommended next implementation steps
+## 6. Recommended next implementation steps
 
 1. Add Supabase-backed read bootstrap for roster and games
 2. Push non-live data first:
@@ -100,7 +177,7 @@ That is intentional. We want to keep:
    - completed/archive games
 3. Add an offline sync queue for live Score Game work
 
-## 6. Notes on offline scoring
+## 7. Notes on offline scoring
 
 The end-state architecture should be:
 

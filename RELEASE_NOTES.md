@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-21
 
 ### Changed
+- Added hostname-based Supabase environment selection so Production can stay on the live project while QA is prepared for a separate Supabase backend, and surfaced the active DB environment in the build badge.
 - Fixed the Lions win animation asset wiring to use the new transparent `lions-left` and `lions-right` split images, tuned the overlay stage for the taller artwork, and refreshed the PWA cache so QA devices can load the updated files correctly.
 - Added a Lions-only full-screen win animation at the end of Score Game, then routed completed games into the existing Game Summary flow once the celebration finishes.
 - Improved the Box Score mobile view so opening it now resets to the top of the page, trims the phone header/summary spacing, and keeps horizontal overflow contained to the swipeable score tables instead of making the whole page feel zoomed in.

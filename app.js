@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.21-build-144";
+const APP_VERSION = "2026.04.21-build-145";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -9776,7 +9776,9 @@ function serviceWorkerRegistrationDisabled() {
 function renderAppVersion() {
   const node = document.getElementById("appVersion");
   if (!node) return;
-  node.textContent = `Build ${APP_VERSION}${serviceWorkerRegistrationDisabled() ? " | SW off" : ""}`;
+  const envLabel = window.ScorebookSupabase?.environment ? ` | ${String(window.ScorebookSupabase.environment).toUpperCase()}` : "";
+  const configuredLabel = window.ScorebookSupabase?.configured?.() ? "" : " DB off";
+  node.textContent = `Build ${APP_VERSION}${envLabel}${configuredLabel}${serviceWorkerRegistrationDisabled() ? " | SW off" : ""}`;
 }
 
 function initializeAnalytics() {
