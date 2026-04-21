@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.2";
+const APP_VERSION = "v.1.0.3";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -2000,6 +2000,19 @@ function buildSharedSnapshot(sourceState = state) {
   };
 }
 
+function markSharedSnapshotGamesSynced(gameIds = [], timestamp = new Date().toISOString()) {
+  const ids = new Set((Array.isArray(gameIds) ? gameIds : [gameIds]).filter(Boolean));
+  if (!ids.size) return;
+  state.games.forEach((game) => {
+    if (!ids.has(game?.id) || game?.status === "active") return;
+    game.sync = normalizeGameSyncState(game.sync);
+    game.sync.status = "synced";
+    game.sync.lastSyncedAt = timestamp;
+    game.sync.lastAttemptAt = timestamp;
+    game.sync.lastError = "";
+  });
+}
+
 async function syncSharedSnapshot(reason = "manual", options = {}) {
   if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return null;
   if (sharedSyncPromise) {
@@ -2040,6 +2053,15 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
       if (error) {
         console.warn(`Unable to sync shared scorebook snapshot (${reason}).`, error);
         return { data: null, error };
+      }
+      if (sourceState === state) {
+        const syncedIds = snapshot.games.map((game) => game?.id).filter(Boolean);
+        if (syncedIds.length) {
+          const syncedAt = new Date().toISOString();
+          markSharedSnapshotGamesSynced(syncedIds, syncedAt);
+          saveState();
+          render();
+        }
       }
       console.info(`Synced shared scorebook snapshot to Supabase (${reason}).`);
       return {

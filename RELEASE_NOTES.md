@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-21
 
 ### Changed
+- Fixed a regression in QA `v.1.0.2` where newly created scheduled games could disappear before saving to Supabase: unsynced local non-active games now survive the pre-sync remote merge, and once a shared snapshot push succeeds those games are marked as synced so stale devices still cannot resurrect removed older data later.
 - Hardened shared Supabase syncing so stale mobile devices can no longer resurrect removed scheduled/completed games just by reopening old local state: non-active shared games now treat the remote snapshot as authoritative during merge, every shared snapshot push first refreshes and merges the latest remote data, and automatic seed-from-local on admin session restore has been disabled to reduce the risk of older phones writing stale data back into Production.
 - Restored roster editing so existing player cards once again have an `Edit` action that loads the current player into the roster form, lets coaches update name, number, positions, and bats, and saves the changes back onto the same player record without disturbing lineup status or coach grades.
 - Switched the visible app build badge and matching service-worker cache naming over to a semver-style convention, starting at `Build v.1.0.0` for QA and Production.
