@@ -2315,7 +2315,7 @@ button:focus-visible {
 
 .player-form {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 80px minmax(180px, 1fr) 90px auto;
+  grid-template-columns: minmax(180px, 1fr) 80px minmax(180px, 1fr) 90px auto auto;
   gap: 10px;
   padding: 12px;
   margin-bottom: 10px;
@@ -2644,6 +2644,31 @@ button:focus-visible {
   margin: 5px 0 0;
   color: rgba(255, 255, 255, 0.78);
   font-weight: 800;
+}
+
+.player-card-actions {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
+.ghost-action {
+  min-height: 42px;
+  border: 1px solid rgba(245, 189, 33, 0.34);
+  border-radius: 8px;
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--white);
+  font-weight: 800;
+}
+
+.ghost-action:hover,
+.ghost-action:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.player-edit-btn {
+  min-width: 88px;
 }
 
 .active-toggle {
@@ -6230,6 +6255,10 @@ label {
   .player-card .active-toggle {
     justify-self: start;
     min-width: 90px;
+  }
+
+  .player-card-actions {
+    justify-items: start;
   }
 
   .player-card .stat-strip {

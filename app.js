@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.0";
+const APP_VERSION = "v.1.0.1";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -555,6 +555,7 @@ let scoutingRefreshState = "snapshot";
 let scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
 let scorebookGameId = "";
 let boxScoreGameId = "";
+let editingRosterPlayerId = "";
 let boxScoreTeam = "lions";
 let boxScoreReturnView = "analysis";
 const shownLineupPreviewKeys = new Set();
@@ -790,6 +791,8 @@ const els = {
   playerNumber: document.getElementById("playerNumber"),
   playerPositions: document.getElementById("playerPositions"),
   playerBats: document.getElementById("playerBats"),
+  savePlayerBtn: document.getElementById("savePlayerBtn"),
+  cancelPlayerEditBtn: document.getElementById("cancelPlayerEditBtn"),
   rosterFilter: document.getElementById("rosterFilter"),
   rosterFilterSummary: document.getElementById("rosterFilterSummary"),
   rosterGrid: document.getElementById("rosterGrid"),
@@ -2995,11 +2998,15 @@ function bindEvents() {
     switchView("score");
   });
 
-  els.addPlayerBtn.addEventListener("click", () => els.playerName.focus());
+  els.addPlayerBtn.addEventListener("click", () => {
+    resetPlayerForm();
+    els.playerName.focus();
+  });
   els.playerForm.addEventListener("submit", (event) => {
     event.preventDefault();
     addPlayer();
   });
+  els.cancelPlayerEditBtn?.addEventListener("click", () => resetPlayerForm());
 
   els.rosterFilter.addEventListener("change", () => {
     rosterFilter = els.rosterFilter.value;
@@ -5169,21 +5176,70 @@ function addPlayer() {
   if (!requireAdminAccess("Admin sign-in required to edit the roster.")) return;
   const name = els.playerName.value.trim();
   if (!name) return;
-  const player = makePlayer(
-    uuid(),
-    name,
-    els.playerNumber.value.trim() || "--",
-    els.playerPositions.value.trim() || "UTIL",
-    els.playerBats.value,
-    defaultPlayerGrades()
-  );
-  state.roster.push(player);
-  state.lineup.push(player.id);
-  els.playerForm.reset();
-  els.playerBats.value = "R";
+  const existingPlayer = editingRosterPlayerId
+    ? state.roster.find((player) => player.id === editingRosterPlayerId)
+    : null;
+  if (existingPlayer) {
+    existingPlayer.name = name;
+    existingPlayer.number = els.playerNumber.value.trim() || "--";
+    existingPlayer.positions = String(els.playerPositions.value.trim() || "UTIL")
+      .split(",")
+      .map((position) => position.trim())
+      .filter(Boolean);
+    existingPlayer.bats = els.playerBats.value || "R";
+  } else {
+    const player = makePlayer(
+      uuid(),
+      name,
+      els.playerNumber.value.trim() || "--",
+      els.playerPositions.value.trim() || "UTIL",
+      els.playerBats.value,
+      defaultPlayerGrades()
+    );
+    state.roster.push(player);
+    state.lineup.push(player.id);
+  }
+  resetPlayerForm();
   saveState();
   render();
-  requestSharedSnapshotSync("add-player");
+  requestSharedSnapshotSync(existingPlayer ? "edit-player" : "add-player");
+}
+
+function updatePlayerFormUi() {
+  const editing = Boolean(editingRosterPlayerId);
+  if (els.savePlayerBtn) {
+    els.savePlayerBtn.textContent = editing ? "Update Player" : "Save Player";
+  }
+  if (els.cancelPlayerEditBtn) {
+    els.cancelPlayerEditBtn.hidden = !editing;
+  }
+  if (els.addPlayerBtn) {
+    els.addPlayerBtn.textContent = editing ? "Add New Player" : "Add Player";
+  }
+}
+
+function resetPlayerForm() {
+  editingRosterPlayerId = "";
+  els.playerForm?.reset();
+  if (els.playerBats) els.playerBats.value = "R";
+  updatePlayerFormUi();
+}
+
+function beginPlayerEdit(playerId) {
+  if (!requireAdminAccess("Admin sign-in required to edit the roster.")) return;
+  const player = state.roster.find((item) => item.id === playerId);
+  if (!player) return;
+  editingRosterPlayerId = player.id;
+  if (els.playerName) els.playerName.value = player.name || "";
+  if (els.playerNumber) els.playerNumber.value = player.number || "";
+  if (els.playerPositions) {
+    els.playerPositions.value = Array.isArray(player.positions)
+      ? player.positions.join(", ")
+      : String(player.positions || "");
+  }
+  if (els.playerBats) els.playerBats.value = player.bats || "R";
+  updatePlayerFormUi();
+  els.playerName?.focus();
 }
 
 function render() {
@@ -7295,6 +7351,7 @@ function fielderNumber(position) {
 function renderRoster() {
   els.rosterGrid.innerHTML = "";
   els.rosterFilter.value = rosterFilter;
+  updatePlayerFormUi();
   const visiblePlayers = state.roster.filter((player) => {
     if (rosterFilter === "all") return true;
     if (rosterFilter === "inactive") return !state.lineup.includes(player.id);
@@ -7313,6 +7370,8 @@ function renderRoster() {
     node.querySelector(".number-pill").textContent = `#${player.number}`;
     node.querySelector("h3").textContent = player.name;
     node.querySelector("p").textContent = `${formatPositions(player.positions)} | Bats ${player.bats}`;
+    const editButton = node.querySelector("[data-player-edit]");
+    editButton?.addEventListener("click", () => beginPlayerEdit(player.id));
     const activeToggle = node.querySelector(".active-toggle input");
     activeToggle.checked = state.lineup.includes(player.id);
     activeToggle.addEventListener("change", () => togglePlayerActive(player.id, activeToggle.checked));

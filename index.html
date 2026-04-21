@@ -816,7 +816,8 @@
               <option>L</option>
               <option>S</option>
             </select>
-            <button class="secondary-action" type="submit">Save Player</button>
+            <button class="secondary-action" id="savePlayerBtn" type="submit">Save Player</button>
+            <button class="ghost-action" id="cancelPlayerEditBtn" type="button" hidden>Cancel</button>
           </form>
           <div class="roster-toolbar">
             <label>
@@ -1197,18 +1198,21 @@
       <article class="player-card">
         <div class="player-card-logo" aria-hidden="true"></div>
         <div class="player-card-overlay" aria-hidden="true"></div>
-        <div class="player-card-content">
-          <div class="player-topline">
-            <div>
-              <span class="number-pill"></span>
-              <h3></h3>
-              <p></p>
+          <div class="player-card-content">
+            <div class="player-topline">
+              <div>
+                <span class="number-pill"></span>
+                <h3></h3>
+                <p></p>
+              </div>
+              <div class="player-card-actions">
+                <button type="button" class="ghost-action player-edit-btn" data-player-edit>Edit</button>
+                <label class="active-toggle">
+                  <span>Active</span>
+                  <input type="checkbox">
+                </label>
+              </div>
             </div>
-            <label class="active-toggle">
-              <span>Active</span>
-              <input type="checkbox">
-            </label>
-          </div>
           <div class="stat-strip"></div>
           <div class="grade-row">
             <label>Contact <input data-grade="contact" type="range" min="20" max="80"></label>
