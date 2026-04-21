@@ -6456,6 +6456,18 @@ label {
   text-transform: uppercase;
 }
 
+#scoreView .current-batter-card .current-batter-outcomes {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: none;
+}
+
 #scoreView .current-batter-card strong {
   display: block;
   overflow: hidden;

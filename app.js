@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.21-build-145";
+const APP_VERSION = "2026.04.21-build-146";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -617,6 +617,8 @@ const els = {
   homePastGames: document.getElementById("homePastGames"),
   gameTitle: document.getElementById("gameTitle"),
   headerBatterDisplay: document.getElementById("headerBatterDisplay"),
+  headerBatterOutcomesDisplay: document.getElementById("headerBatterOutcomesDisplay"),
+  currentBatterStatLabel: document.getElementById("currentBatterStatLabel"),
   currentBatterAvgDisplay: document.getElementById("currentBatterAvgDisplay"),
   headerBatterStatus: document.getElementById("headerBatterStatus"),
   headerBatterCountDisplay: document.getElementById("headerBatterCountDisplay"),
@@ -5647,10 +5649,14 @@ function renderScoreboard() {
   const inningLabel = gameIsFinal(game) ? "Final" : `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}`;
   const headerBatter = lionsBatting ? currentBatterLabel(game) : currentOpponentBatter(game);
   els.headerBatterDisplay.textContent = lionsBatting ? headerBatter : `${headerBatter} (${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent})`;
+  const batterHeaderSummary = lionsBatting
+    ? currentGameBatterHeaderSummary(game, currentBatterId(game))
+    : currentOpponentHeaderSummary(game, currentOpponentBatter(game));
+  if (els.currentBatterStatLabel) els.currentBatterStatLabel.textContent = "Game";
   if (els.currentBatterAvgDisplay) {
-    const batterStats = lionsBatting ? statsForPlayer(currentBatterId(game)) : null;
-    els.currentBatterAvgDisplay.textContent = batterStats ? formatRate(batterStats.avg) : "--";
+    els.currentBatterAvgDisplay.textContent = batterHeaderSummary.line;
   }
+  if (els.headerBatterOutcomesDisplay) els.headerBatterOutcomesDisplay.textContent = batterHeaderSummary.outcomesLabel;
   els.inningStateDisplay.textContent = inningLabel;
   els.headerCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   els.outsStateDisplay.textContent = String(game.outs);
@@ -5689,6 +5695,38 @@ function renderScoreboard() {
     const key = base.dataset.base === "1" ? "first" : base.dataset.base === "2" ? "second" : "third";
     base.classList.toggle("is-filled", Boolean(game.bases[key]));
   });
+}
+
+function gamePlateAppearanceEvents(events = []) {
+  return events.filter((event) => eventRules[event?.result]?.pa);
+}
+
+function batterOutcomeTokens(events = []) {
+  return gamePlateAppearanceEvents(events).map((event) => event?.result || "--");
+}
+
+function batterGameLineFromEvents(events = []) {
+  const stats = emptyStats();
+  gamePlateAppearanceEvents(events).forEach((event) => applyEventToStats(stats, event));
+  return `${stats.h} for ${stats.ab}`;
+}
+
+function currentGameBatterHeaderSummary(game, playerId) {
+  const events = (game?.events || []).filter((event) => event.scope === "offense" && event.playerId === playerId);
+  return batterHeaderSummaryFromEvents(events);
+}
+
+function currentOpponentHeaderSummary(game, batterLabel) {
+  const events = (game?.events || []).filter((event) => event.scope === "defense" && event.opponentBatter === batterLabel);
+  return batterHeaderSummaryFromEvents(events);
+}
+
+function batterHeaderSummaryFromEvents(events = []) {
+  const outcomes = batterOutcomeTokens(events);
+  return {
+    line: batterGameLineFromEvents(events),
+    outcomesLabel: outcomes.length ? outcomes.join(", ") : "No previous plate appearances yet"
+  };
 }
 
 function setScoreGameLocked(locked, game = activeScoreGame()) {
