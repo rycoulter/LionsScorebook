@@ -242,6 +242,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 - Improved dark theme contrast for scoring lineups, stats tables, scouting cards, and coach plan text.
 - Hid the spray chart guide card from the scoring field header area while preserving spray chart functionality.
 - Refreshed the PWA cache version to load the latest app assets.
+- Added an opponent-side `Undo Last Play` control in Score Game and matched the Lions batter-change intro card for opponent hitters.
 
 ### Fixed
 - Fixed Games tab readability for the selected game card and lineup builder rows under the dark theme.

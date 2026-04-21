@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.10";
+const APP_VERSION = "v.1.0.11";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -686,6 +686,7 @@ const els = {
   opponentPitchTrail: document.getElementById("opponentPitchTrail"),
   resetOpponentCountBtn: document.getElementById("resetOpponentCountBtn"),
   undoOpponentPitchBtn: document.getElementById("undoOpponentPitchBtn"),
+  undoOpponentPlayBtn: document.getElementById("undoOpponentPlayBtn"),
   pitcherSelect: document.getElementById("pitcherSelect"),
   pitcherStatStrip: document.getElementById("pitcherStatStrip"),
   gamePitcherCard: document.querySelector(".game-pitcher-card"),
@@ -3073,6 +3074,7 @@ function bindEvents() {
     renderScoringStepPanel();
   });
   els.undoOpponentPitchBtn.addEventListener("click", undoPitch);
+  els.undoOpponentPlayBtn?.addEventListener("click", undoLastPlay);
   els.clearBipBtn.addEventListener("click", () => {
     const game = activeGame();
     if (gameIsScoreLocked(game)) return;
@@ -4019,9 +4021,9 @@ function applyEvent(game = activeGame(), event = {}) {
   if (gameIsScoreLocked(game)) return null;
   syncGameCurrent(game);
   if (!game.atBat) game.atBat = makeAtBat();
-  if (isLionsAtBat(game) && ["pitch", "ball_in_play", "resolve_play", "runner_out", "runner_advance", "special_action"].includes(event.type)) {
+  if (["pitch", "ball_in_play", "resolve_play", "runner_out", "runner_advance", "special_action"].includes(event.type)) {
     dismissBatterIntro(game);
-    dismissLineupPreview(game);
+    if (isLionsAtBat(game)) dismissLineupPreview(game);
   }
 
   if (event.type === "pitch") {
@@ -4379,13 +4381,33 @@ function syncBatterIntroLockState(isVisible) {
   els.scoringStepPanel?.classList.toggle("is-batter-intro-locked", Boolean(isVisible));
 }
 
-function currentBatterIntroKey(game = activeGame()) {
-  if (!game || game.status !== "active" || !isLionsAtBat(game)) return "";
-  const batterId = currentBatterId(game);
-  if (!batterId) return "";
+function currentBatterIntroContext(game = activeGame()) {
+  if (!game || game.status !== "active") return null;
   const inning = game.current?.inning ?? game.inning ?? 1;
   const half = game.current?.half ?? game.half ?? "top";
-  return `${game.id}:${inning}:${half}:${game.batterIndex || 0}:${batterId}`;
+  if (isLionsAtBat(game)) {
+    const batterId = currentBatterId(game);
+    if (!batterId) return null;
+    const currentPlayer = state.roster.find((player) => player.id === batterId);
+    const currentEntry = gameLineupEntries(game).find((entry) => entry.playerId === currentPlayer?.id);
+    return {
+      key: `${game.id}:${inning}:${half}:lions:${game.batterIndex || 0}:${batterId}`,
+      name: currentPlayer ? `#${currentPlayer.number} ${currentPlayer.name}` : "Current batter",
+      meta: `${currentEntry?.role || "UTIL"} | Lions at bat`
+    };
+  }
+  const opponentLabel = currentOpponentBatter(game);
+  if (!opponentLabel) return null;
+  const spot = Number(game.opponentBatterIndex || 0) + 1;
+  return {
+    key: `${game.id}:${inning}:${half}:opponent:${game.opponentBatterIndex || 0}:${opponentLabel}`,
+    name: opponentLabel,
+    meta: `${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent || "Opponent"} batting | Spot ${spot}`
+  };
+}
+
+function currentBatterIntroKey(game = activeGame()) {
+  return currentBatterIntroContext(game)?.key || "";
 }
 
 function upcomingBatterIntroRows(game = activeGame()) {
@@ -4489,7 +4511,7 @@ function shouldShowBatterIntro(game = activeGame()) {
   if (shouldShowLineupPreviewByState(game)) return false;
   if (game?.atBat?.pitches?.length) return false;
   if (game?.atBat?.pendingInPlay || awaitingSprayLocation || awaitingRunnerDecision) return false;
-  return Boolean(currentBatterId(game));
+  return Boolean(currentBatterIntroContext(game));
 }
 
 function dismissBatterIntro(game = activeGame(), options = {}) {
@@ -4511,6 +4533,7 @@ function dismissBatterIntro(game = activeGame(), options = {}) {
 
 function renderBatterIntro(game = activeGame()) {
   if (!els.batterIntroCard || !els.batterIntroName || !els.batterIntroMeta || !els.batterIntroList) return;
+  const intro = currentBatterIntroContext(game);
   const introKey = currentBatterIntroKey(game);
   if (!shouldShowBatterIntro(game)) {
     if (!introKey || visibleBatterIntroKey !== introKey) {
@@ -4518,10 +4541,8 @@ function renderBatterIntro(game = activeGame()) {
     }
     return;
   }
-  const currentPlayer = state.roster.find((player) => player.id === currentBatterId(game));
-  const currentEntry = gameLineupEntries(game).find((entry) => entry.playerId === currentPlayer?.id);
-  els.batterIntroName.textContent = currentPlayer ? `#${currentPlayer.number} ${currentPlayer.name}` : "Current batter";
-  els.batterIntroMeta.textContent = `${currentEntry?.role || "UTIL"} | Lions at bat`;
+  els.batterIntroName.textContent = intro?.name || "Current batter";
+  els.batterIntroMeta.textContent = intro?.meta || "";
   els.batterIntroList.innerHTML = "";
   els.batterIntroList.hidden = true;
   els.batterIntroCard.hidden = false;
@@ -6651,6 +6672,9 @@ function renderAtBat() {
         .map((pitch, index) => `<span class="pitch-chip ${pitch.type}">${index + 1}. ${escapeHtml(pitch.label)}</span>`)
         .join("")
     : `<span class="player-meta">No pitches to this opponent hitter.</span>`;
+  if (els.undoOpponentPlayBtn) {
+    els.undoOpponentPlayBtn.disabled = !game.events.length || gameIsScoreLocked(game);
+  }
   renderPitcherStatStrip(game);
   els.pitchTrail.innerHTML = game.atBat.pitches.length
     ? game.atBat.pitches

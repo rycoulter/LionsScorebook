@@ -1408,8 +1408,7 @@ main {
 .score-form.is-defense .quick-outcomes,
 .score-form.is-defense .auto-score,
 .score-form.is-defense .bip-panel,
-.score-form.is-defense button[type="submit"],
-.score-form.is-defense #undoBtn {
+.score-form.is-defense button[type="submit"] {
   display: none;
 }
 
