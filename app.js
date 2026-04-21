@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.21-build-148";
+const APP_VERSION = "2026.04.21-build-149";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -580,12 +580,16 @@ let selectedFieldRunnerBase = "";
 let currentView = "home";
 let pendingAdminView = "";
 let supabaseBootstrapPromise = null;
+let supabaseRefreshPromise = null;
 let sharedSyncPromise = null;
 let completedGameSyncQueuePromise = null;
 let supabaseAdminEmail = "";
 const activeCompletedGameSyncs = new Set();
 const weatherCache = {};
 const weatherRequests = {};
+let lastSupabaseRefreshAt = 0;
+let pendingServiceWorkerRefresh = false;
+const SUPABASE_REFRESH_THROTTLE_MS = 15000;
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
@@ -1916,6 +1920,25 @@ async function bootstrapSupabaseState() {
   if (!supabaseStorage?.isReady?.()) return null;
   if (supabaseBootstrapPromise) return supabaseBootstrapPromise;
   supabaseBootstrapPromise = (async () => {
+    const result = await refreshSupabaseState("bootstrap", { force: true, skipWhenHidden: false });
+    return result;
+  })().finally(() => {
+    supabaseBootstrapPromise = null;
+  });
+  return supabaseBootstrapPromise;
+}
+
+async function refreshSupabaseState(reason = "refresh", options = {}) {
+  if (!supabaseStorage?.isReady?.()) return null;
+  if (supabaseRefreshPromise) return supabaseRefreshPromise;
+  const { force = false, skipWhenHidden = true } = options;
+  const visibilityState = typeof document !== "undefined" ? document.visibilityState : "visible";
+  if (skipWhenHidden && visibilityState === "hidden") return null;
+  const now = Date.now();
+  if (!force && lastSupabaseRefreshAt && now - lastSupabaseRefreshAt < SUPABASE_REFRESH_THROTTLE_MS) {
+    return null;
+  }
+  supabaseRefreshPromise = (async () => {
     try {
       const { data, error } = await supabaseStorage.fetchBootstrap();
       if (error) {
@@ -1930,14 +1953,26 @@ async function bootstrapSupabaseState() {
       state = normalizeState(merged);
       saveState();
       render();
-      console.info("Loaded shared scorebook data from Supabase.");
+      lastSupabaseRefreshAt = Date.now();
+      console.info(`Loaded shared scorebook data from Supabase (${reason}).`);
       return state;
     } catch (error) {
-      console.warn("Supabase bootstrap failed; continuing with local scorebook data.", error);
+      console.warn(`Supabase refresh failed (${reason}); continuing with local scorebook data.`, error);
       return null;
+    } finally {
+      supabaseRefreshPromise = null;
     }
   })();
-  return supabaseBootstrapPromise;
+  return supabaseRefreshPromise;
+}
+
+function requestSupabaseRefresh(reason, options = {}) {
+  if (!supabaseStorage?.isReady?.()) return;
+  setTimeout(() => {
+    refreshSupabaseState(reason, options).catch((error) => {
+      console.warn(`Supabase refresh request failed (${reason}).`, error);
+    });
+  }, 0);
 }
 
 function isCloudSyncedGame(game) {
@@ -2919,8 +2954,20 @@ function bindEvents() {
   window.addEventListener("online", () => {
     render();
     requestCompletedGameSyncRetry("online");
+    requestSupabaseRefresh("online", { force: true, skipWhenHidden: false });
   });
   window.addEventListener("offline", render);
+  window.addEventListener("focus", () => {
+    requestSupabaseRefresh("focus");
+  });
+  window.addEventListener("pageshow", () => {
+    requestSupabaseRefresh("pageshow", { force: true, skipWhenHidden: false });
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      requestSupabaseRefresh("visibility");
+    }
+  });
   els.finishGameBtn.addEventListener("click", finishGame);
 
   els.optimizeBtn.addEventListener("click", () => {
@@ -9862,7 +9909,32 @@ if ("serviceWorker" in navigator) {
     }
     navigator.serviceWorker
       .register("./service-worker.js")
-      .then(() => {
+      .then((registration) => {
+        const promoteWaitingWorker = (worker) => {
+          if (!worker) return;
+          pendingServiceWorkerRefresh = true;
+          worker.postMessage({ type: "SKIP_WAITING" });
+        };
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (!pendingServiceWorkerRefresh) return;
+          pendingServiceWorkerRefresh = false;
+          window.location.reload();
+        });
+        if (registration.waiting) {
+          promoteWaitingWorker(registration.waiting);
+        }
+        registration.addEventListener("updatefound", () => {
+          const installing = registration.installing;
+          if (!installing) return;
+          installing.addEventListener("statechange", () => {
+            if (installing.state === "installed" && navigator.serviceWorker.controller) {
+              promoteWaitingWorker(registration.waiting || installing);
+            }
+          });
+        });
+        registration.update?.().catch((error) => {
+          console.warn("Service worker update check failed:", error);
+        });
         console.log("Service worker registered");
       })
       .catch((error) => {

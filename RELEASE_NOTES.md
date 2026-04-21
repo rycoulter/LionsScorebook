@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-21
 
 ### Changed
+- Improved mobile update behavior by refreshing shared Supabase state when the app comes back into focus, becomes visible again, or regains connectivity, and by promoting waiting service-worker updates automatically so Safari is less likely to require a full cache clear before showing admin changes.
 - Refined the Score Game field again by shifting to a cleaner diamond-style dirt infield, extending it behind second base while keeping it inside the foul lines, and updating the outfield fence to Lions gold.
 - Fixed the Score Game field brightness by removing the dark shared panel skin from the full-field scoring overlays, keeping the pitch/runner layers transparent, and brightening the field artwork so the live spray chart no longer looks like it has a dark sheet over it.
 - Replaced the Score Game current-batter season AVG tile with game-only hitting context, showing `H-for-AB` in the header and listing prior plate-appearance outcomes such as `1B, 1B, BB` using the same AB rules as the stats engine.
