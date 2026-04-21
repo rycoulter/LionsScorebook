@@ -8805,14 +8805,17 @@ label {
   }
 
   .box-score-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px 12px;
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .box-score-final {
     order: 0;
-    grid-column: 1 / -1;
     min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
   }
 
   .box-score-final strong {
@@ -8820,7 +8823,11 @@ label {
   }
 
   .box-score-team-summary {
-    gap: 4px;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 8px 10px;
+    align-items: center;
+    justify-items: start;
+    text-align: left;
   }
 
   .box-score-team-summary strong {
@@ -8834,6 +8841,7 @@ label {
 
   .box-score-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 10px;
   }
 
   .box-score-tabs button {
@@ -8889,6 +8897,82 @@ label {
 
   .box-score-mobile-hint {
     display: block;
+  }
+
+  .batting-box-table,
+  .pitching-box-table {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .batting-box-table thead,
+  .pitching-box-table thead {
+    display: none;
+  }
+
+  .batting-box-table tbody,
+  .pitching-box-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .batting-box-table tbody tr,
+  .pitching-box-table tbody tr {
+    display: grid;
+    gap: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .batting-box-table tbody td,
+  .pitching-box-table tbody td {
+    display: grid;
+    grid-template-columns: minmax(68px, auto) minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: left;
+    white-space: normal;
+  }
+
+  .batting-box-table tbody tr td:last-child,
+  .pitching-box-table tbody tr td:last-child {
+    border-bottom: 0;
+  }
+
+  .batting-box-table tbody td:first-child,
+  .pitching-box-table tbody td:first-child {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 10px;
+    border-bottom-color: rgba(245, 189, 33, 0.18);
+    background: rgba(245, 189, 33, 0.08);
+    box-shadow: none;
+    position: static;
+  }
+
+  .batting-box-table tbody td::before,
+  .pitching-box-table tbody td::before {
+    content: attr(data-label);
+    color: rgba(255, 255, 255, 0.66);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .batting-box-table tbody td:first-child::before,
+  .pitching-box-table tbody td:first-child::before {
+    color: var(--lion-gold);
+  }
+
+  .batting-box-table tbody td:first-child span,
+  .pitching-box-table tbody td:first-child span {
+    color: rgba(255, 255, 255, 0.68);
   }
 
   .stats-table-wrap {

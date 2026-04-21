@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.21-build-139";
+const APP_VERSION = "2026.04.21-build-140";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -8338,13 +8338,13 @@ function boxScoreRunsScoredByBatter(event, batterId) {
 
 function renderBoxScoreBattingRow(row) {
   return `<tr>
-    <td>${escapeHtml(row.name)}${row.position ? ` <span>${escapeHtml(row.position)}</span>` : ""}</td>
-    <td>${row.ab}</td>
-    <td>${row.r}</td>
-    <td>${row.h}</td>
-    <td>${row.rbi}</td>
-    <td>${row.bb}</td>
-    <td>${row.so}</td>
+    <td data-label="Player">${escapeHtml(row.name)}${row.position ? ` <span>${escapeHtml(row.position)}</span>` : ""}</td>
+    <td data-label="AB">${row.ab}</td>
+    <td data-label="R">${row.r}</td>
+    <td data-label="H">${row.h}</td>
+    <td data-label="RBI">${row.rbi}</td>
+    <td data-label="BB">${row.bb}</td>
+    <td data-label="SO">${row.so}</td>
   </tr>`;
 }
 
@@ -8388,13 +8388,13 @@ function boxScoreOutsRecorded(event, rule = eventRules[event.result] || {}) {
 
 function renderBoxScorePitchingRow(row) {
   return `<tr>
-    <td>${escapeHtml(row.name)}</td>
-    <td>${formatInnings(row.outs)}</td>
-    <td>${row.h}</td>
-    <td>${row.r}</td>
-    <td>${row.erUnknown ? "--" : row.er}</td>
-    <td>${row.bb}</td>
-    <td>${row.so}</td>
+    <td data-label="Pitcher">${escapeHtml(row.name)}</td>
+    <td data-label="IP">${formatInnings(row.outs)}</td>
+    <td data-label="H">${row.h}</td>
+    <td data-label="R">${row.r}</td>
+    <td data-label="ER">${row.erUnknown ? "--" : row.er}</td>
+    <td data-label="BB">${row.bb}</td>
+    <td data-label="SO">${row.so}</td>
   </tr>`;
 }
 
