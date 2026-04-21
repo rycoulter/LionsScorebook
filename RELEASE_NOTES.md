@@ -7,6 +7,8 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-21
 
 ### Changed
+- Tightened the desktop Home hero card so it no longer stretches to the full height of the expanded Team Leaders panel, and compressed the record/next-game/button stack to keep the Season Overview proportions cleaner after the added leader metrics.
+- Reworked the Home page on phones into a true one-column layout with a cleaner two-column tab grid, full-width hero and leaders panels, and tighter leader-card typography so the mobile dashboard no longer crams the Season Overview into awkward side-by-side columns.
 - Updated completed-game sync buttons so once a game is already published to Supabase they change to `Synced` and become non-clickable instead of continuing to show `Sync Completed Game`.
 - Fixed pitcher win logic for 7-inning games so an eligible starter who leaves after 4+ innings with a lead that is never relinquished now keeps the win instead of losing it to a later reliever after insurance runs, and tightened the permanent-lead check so tied scores no longer count as a lead held to the finish.
 - Added a lightweight opponent lineup move panel in Score view so scorers can substitute an opposing hitter into any lineup spot or append a new hitter to the end of the opponent order mid-game without needing a bench list.
