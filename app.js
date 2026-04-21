@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.21-build-141";
+const APP_VERSION = "2026.04.21-build-142";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -3015,6 +3015,7 @@ function bindEvents() {
 }
 
 function switchView(view) {
+  const previousView = currentView;
   let nextView = view;
   if (!canAccessView(nextView)) {
     pendingAdminView = nextView;
@@ -3029,6 +3030,20 @@ function switchView(view) {
     tab.classList.toggle("is-active", visible && tab.dataset.view === nextView);
   });
   els.views.forEach((panel) => panel.classList.toggle("is-visible", panel.dataset.panel === nextView));
+  if (previousView !== nextView) {
+    requestAnimationFrame(() => {
+      document.scrollingElement?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+      window.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+      if (document.body) {
+        document.body.scrollTop = 0;
+        document.body.scrollLeft = 0;
+      }
+      if (document.documentElement) {
+        document.documentElement.scrollTop = 0;
+        document.documentElement.scrollLeft = 0;
+      }
+    });
+  }
 }
 
 function activeGame() {
