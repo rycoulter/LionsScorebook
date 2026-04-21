@@ -506,7 +506,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-123";
+const APP_VERSION = "2026.04.20-build-125";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -1921,7 +1921,10 @@ function buildSharedSnapshot(sourceState = state) {
 
 async function syncSharedSnapshot(reason = "manual", options = {}) {
   if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return null;
-  if (sharedSyncPromise) return sharedSyncPromise;
+  if (sharedSyncPromise) {
+    await sharedSyncPromise;
+    return syncSharedSnapshot(reason, options);
+  }
   sharedSyncPromise = (async () => {
     const snapshot = buildSharedSnapshot(options?.sourceState || state);
     const deleteGameIds = Array.isArray(options?.deleteGameIds) ? options.deleteGameIds.filter(Boolean) : [];
@@ -8914,7 +8917,15 @@ function leaderCard(label, rows, scorer, formatter, lowWins = false) {
 }
 
 function gamesPlayedForPlayer(playerId) {
-  return state.games.filter((game) => gameLineupPlayerIds(game).includes(playerId) || game.events.some((event) => event.playerId === playerId)).length;
+  return state.games.filter((game) => {
+    if (!game || game.status === "scheduled") return false;
+    const storedLineupIds = Array.isArray(game.lineupEntries)
+      ? game.lineupEntries
+        .filter((entry) => entry?.active !== false && entry?.playerId)
+        .map((entry) => entry.playerId)
+      : [];
+    return storedLineupIds.includes(playerId) || game.events.some((event) => event.playerId === playerId);
+  }).length;
 }
 
 function updateSortIndicators() {

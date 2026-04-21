@@ -7,6 +7,8 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Fixed a shared-sync race where removing or editing games could be skipped if another Supabase snapshot sync was already in flight, which let deleted schedule items reappear from the cloud on refresh or another device.
+- Fixed batting `GP` on the Stats page so scheduled/unplayed games no longer count toward every hitter's games played just because they inherit a default lineup shell.
 - Added a stronger Lions `Now Hitting` walk-up card before each new at-bat that spotlights the current batter with On Deck and In The Hole behind them, briefly pauses pitch entry, and then auto-dismisses or lets the scorer tap `Start At-Bat` to continue immediately.
 - Added a Lions inning-start lineup preview in the Score view that pops up the next three hitters as Up Next, On Deck, and In The Hole at the start of a fresh offensive half-inning, then gets out of the way once scoring begins.
 - Reworked opponent baserunner scoring so opponent balls in play now use the same advance/hold/out runner-decision flow as Lions scoring, and runner badges on defense can also trigger SB, CS, and pickoff actions from the step panel.
