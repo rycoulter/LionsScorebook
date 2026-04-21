@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.21-build-135";
+const APP_VERSION = "2026.04.21-build-137";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -2146,14 +2146,22 @@ function requestCompletedGameSyncRetry(reason = "auto") {
 }
 
 function canSyncGame(game) {
+  const syncState = stableGameSyncState(game, { keepActiveSync: true });
   return Boolean(
     game
     && gameIsFinal(game)
+    && syncState.status !== "synced"
     && supabaseStorage?.isReady?.()
     && supabaseAdminEmail
     && typeof navigator !== "undefined"
     && navigator.onLine
   );
+}
+
+function completedGameSyncButtonLabel(syncState = {}) {
+  if (syncState.status === "syncing") return "Syncing...";
+  if (syncState.status === "synced") return "Synced";
+  return "Sync Completed Game";
 }
 
 async function syncCompletedGame(gameId) {
@@ -2228,9 +2236,10 @@ function renderLiveSyncStatus(game = activeScoreGame()) {
   els.syncStatusText.textContent = message;
   els.syncStatusRow.hidden = false;
   const canShowSyncButton = Boolean(admin && game && gameIsFinal(game));
+  const syncButtonLabel = completedGameSyncButtonLabel(syncState);
   els.syncGameBtn.hidden = !canShowSyncButton;
-  els.syncGameBtn.disabled = !canShowSyncButton || !canSyncGame(game) || syncState.status === "syncing";
-  els.syncGameBtn.textContent = syncState.status === "syncing" ? "Syncing..." : "Sync Completed Game";
+  els.syncGameBtn.disabled = !canShowSyncButton || !canSyncGame(game);
+  els.syncGameBtn.textContent = syncButtonLabel;
 }
 
 function loadAccessMode() {
@@ -6481,23 +6490,44 @@ function scoreAfterEvent(event) {
   return after;
 }
 
+function teamLeadsScore(score, team = "lions") {
+  return team === "lions"
+    ? Number(score?.lions || 0) > Number(score?.opponent || 0)
+    : Number(score?.opponent || 0) > Number(score?.lions || 0);
+}
+
+function leadHeldAfterEventIndex(game, eventIndex, team = "lions") {
+  const events = game?.events || [];
+  const baseEvent = events[eventIndex];
+  if (!baseEvent) return false;
+  const after = scoreAfterEvent(baseEvent);
+  if (!teamLeadsScore(after, team)) return false;
+  return events.slice(eventIndex + 1).every((laterEvent) => teamLeadsScore(scoreAfterEvent(laterEvent), team));
+}
+
 function decisiveLeadEventIndex(game, winningTeam = "lions") {
   const events = game?.events || [];
   const finalLions = Number(game?.score?.lions || 0);
   const finalOpponent = Number(game?.score?.opponent || 0);
   return events.findIndex((event, index) => {
     const after = scoreAfterEvent(event);
-    const teamAhead = winningTeam === "lions"
-      ? after.lions > after.opponent
-      : after.opponent > after.lions;
+    const teamAhead = teamLeadsScore(after, winningTeam);
     if (!teamAhead) return false;
-    return events.slice(index + 1).every((laterEvent) => {
-      const laterScore = scoreAfterEvent(laterEvent);
-      return winningTeam === "lions"
-        ? laterScore.lions >= laterScore.opponent
-        : laterScore.opponent >= laterScore.lions;
-    }) && (winningTeam === "lions" ? finalLions > finalOpponent : finalOpponent > finalLions);
+    return leadHeldAfterEventIndex(game, index, winningTeam)
+      && (winningTeam === "lions" ? finalLions > finalOpponent : finalOpponent > finalLions);
   });
+}
+
+function starterWinPitcherIdForLions(game, appearances = buildLionsPitcherAppearances(game)) {
+  const starter = appearances[0];
+  if (!starter?.pitcherId || starter.outs < 12) return "";
+  const events = lionsDefensiveEvents(game);
+  const nextAppearance = appearances[1] || null;
+  const starterLastEventIndex = nextAppearance
+    ? Math.max(nextAppearance.startEventIndex - 1, 0)
+    : Math.max(events.length - 1, -1);
+  if (starterLastEventIndex < 0) return "";
+  return leadHeldAfterEventIndex(game, starterLastEventIndex, "lions") ? starter.pitcherId : "";
 }
 
 function isBriefIneffectiveReliefAppearance(appearance) {
@@ -6520,6 +6550,8 @@ function winningPitcherIdForLions(game) {
   if (!gameIsFinal(game) || Number(game?.score?.lions || 0) <= Number(game?.score?.opponent || 0)) return "";
   const appearances = buildLionsPitcherAppearances(game);
   if (!appearances.length) return "";
+  const starterWinId = starterWinPitcherIdForLions(game, appearances);
+  if (starterWinId) return starterWinId;
   const decisiveIndex = decisiveLeadEventIndex(game, "lions");
   if (decisiveIndex < 0) return "";
   const pitcherOfRecordId = offensePitcherOfRecordAtEvent(game, decisiveIndex);
@@ -7392,7 +7424,7 @@ function renderScheduleGameCard(game, activeId = "") {
   const syncState = stableGameSyncState(game, { keepActiveSync: true });
   const completedSyncMeta = completed ? completedGameSyncMeta(game, syncState) : "";
   const completedSyncButton = admin && completed
-    ? `<button type="button" class="secondary-action" data-game-action="sync" data-game-id="${game.id}" ${(!canSyncGame(game) || syncState.status === "syncing") ? "disabled" : ""}>${syncState.status === "syncing" ? "Syncing..." : "Sync Completed Game"}</button>`
+    ? `<button type="button" class="secondary-action" data-game-action="sync" data-game-id="${game.id}" ${!canSyncGame(game) ? "disabled" : ""}>${escapeHtml(completedGameSyncButtonLabel(syncState))}</button>`
     : "";
   const primaryAction = admin
     ? (lifecycle === "active"

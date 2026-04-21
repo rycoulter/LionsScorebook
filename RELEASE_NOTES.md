@@ -7,6 +7,8 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-21
 
 ### Changed
+- Updated completed-game sync buttons so once a game is already published to Supabase they change to `Synced` and become non-clickable instead of continuing to show `Sync Completed Game`.
+- Fixed pitcher win logic for 7-inning games so an eligible starter who leaves after 4+ innings with a lead that is never relinquished now keeps the win instead of losing it to a later reliever after insurance runs, and tightened the permanent-lead check so tied scores no longer count as a lead held to the finish.
 - Added a lightweight opponent lineup move panel in Score view so scorers can substitute an opposing hitter into any lineup spot or append a new hitter to the end of the opponent order mid-game without needing a bench list.
 - Fixed the live Score spray chart so recorded spray markers stay visible for the current hitter between plate appearances instead of disappearing once the current ball-in-play placement is done, while keeping the default filter on `Current hitter`.
 - Improved the Box Score page on phones by tightening the summary layout, keeping the team tabs side-by-side, adding swipe hints above the tables, reducing the mobile table widths, and making the first table column sticky while horizontally scrolling.
