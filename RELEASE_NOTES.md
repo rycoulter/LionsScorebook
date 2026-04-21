@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-21
 
 ### Changed
+- Fixed the remaining stale-device delete bug where a remote deleted-game tombstone could get cleared too early during bootstrap merge just because an older local phone still had that game saved; remote tombstones now remain authoritative until the stale local copy is filtered out, so removed shared games should stop reappearing on refresh.
 - Fixed shared game removal after the new sync hardening so deleting a game no longer reattaches the same remote game during the pre-sync merge; delete tombstones are now reapplied through the merge-and-sync cycle before the final Supabase delete call runs.
 - Fixed a regression in QA `v.1.0.2` where newly created scheduled games could disappear before saving to Supabase: unsynced local non-active games now survive the pre-sync remote merge, and once a shared snapshot push succeeds those games are marked as synced so stale devices still cannot resurrect removed older data later.
 - Hardened shared Supabase syncing so stale mobile devices can no longer resurrect removed scheduled/completed games just by reopening old local state: non-active shared games now treat the remote snapshot as authoritative during merge, every shared snapshot push first refreshes and merges the latest remote data, and automatic seed-from-local on admin session restore has been disabled to reduce the risk of older phones writing stale data back into Production.

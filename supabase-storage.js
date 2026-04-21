@@ -66,9 +66,6 @@
       ...(nextState.deletedGameTombstones || {}),
       ...remoteDeletedGameTombstones
     });
-    currentGames.forEach((game) => {
-      if (game?.id && nextState.deletedGameTombstones[game.id]) delete nextState.deletedGameTombstones[game.id];
-    });
     if (appStateRow) {
       if (Array.isArray(appStateRow.roster) && appStateRow.roster.length) {
         nextState.roster = deepClone(appStateRow.roster);
@@ -127,9 +124,6 @@
         seenIds.add(gameId);
       });
       nextState.games = mergedGames;
-      mergedGames.forEach((game) => {
-        if (game?.id && nextState.deletedGameTombstones?.[game.id]) delete nextState.deletedGameTombstones[game.id];
-      });
     }
     return nextState;
   }
