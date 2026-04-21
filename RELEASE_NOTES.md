@@ -4,6 +4,12 @@ Track user-facing changes to the Oakmont Lions baseball scorebook app here.
 
 Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA assets, or data handling changes. Keep the newest entry at the top.
 
+## 2026-04-21
+
+### Changed
+- Improved the Box Score page on phones by tightening the summary layout, keeping the team tabs side-by-side, adding swipe hints above the tables, reducing the mobile table widths, and making the first table column sticky while horizontally scrolling.
+- Refined the Home page mobile leaders layout so the expanded batting and pitching stat cards now use a cleaner two-column phone grid, stack their section labels properly, and stay readable after the added second row of leader metrics.
+
 ## 2026-04-20
 
 ### Changed
