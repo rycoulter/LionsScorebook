@@ -1096,6 +1096,40 @@ main {
   min-height: 52px;
 }
 
+.lineup-preview-card {
+  display: grid;
+  gap: 10px;
+}
+
+.lineup-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lineup-preview-list {
+  display: grid;
+  gap: 8px;
+}
+
+.lineup-preview-row {
+  display: grid;
+  grid-template-columns: minmax(78px, 0.34fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.lineup-preview-row span,
+.lineup-preview-row em {
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.lineup-preview-row strong {
+  min-width: 0;
+}
+
 .summary-chip {
   display: grid;
   align-content: center;
@@ -4593,6 +4627,27 @@ button:focus-visible {
   #scoreView .pitch-trail {
     bottom: 18%;
   }
+
+  #scoreView .lineup-preview-card {
+    width: calc(100% - 20px);
+    padding: 10px 11px;
+  }
+
+  #scoreView .batter-intro-card {
+    width: calc(100% - 24px);
+    padding: 14px 14px 13px;
+  }
+
+  #scoreView .batter-intro-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    text-align: left;
+  }
+
+  #scoreView .lineup-preview-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 }
 
 /* Roster profile cards */
@@ -6384,6 +6439,177 @@ label {
 #scoreView .pitch-panel {
   background: transparent;
   box-shadow: none;
+}
+
+#scoreView .score-overlay-stack {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+}
+
+#scoreView .score-overlay-stack > * {
+  pointer-events: auto;
+}
+
+#scoreView .lineup-preview-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: min(500px, calc(100% - 28px));
+  transform: translate(-50%, -50%);
+  padding: 12px 14px;
+  border: 1px solid rgba(245, 189, 33, 0.38);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(245, 189, 33, 0.12), transparent 42%),
+    linear-gradient(145deg, rgba(7, 20, 55, 0.97), rgba(3, 10, 36, 0.94));
+  box-shadow:
+    0 0 0 999px rgba(3, 10, 36, 0.5),
+    0 18px 42px rgba(0, 0, 0, 0.34);
+  pointer-events: auto;
+}
+
+#scoreView .lineup-preview-card[hidden],
+#scoreView .batter-intro-card[hidden] {
+  display: none !important;
+}
+
+#scoreView .lineup-preview-card.is-visible,
+#scoreView .batter-intro-card.is-visible {
+  display: grid !important;
+}
+
+#scoreView .lineup-preview-head .eyebrow,
+#scoreView .lineup-preview-head h3,
+#scoreView .lineup-preview-row strong {
+  color: var(--white);
+}
+
+#scoreView .lineup-preview-row {
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+#scoreView .lineup-preview-row span,
+#scoreView .lineup-preview-row em {
+  color: rgba(255, 255, 255, 0.74);
+}
+
+#scoreView .pitch-panel.is-opponent .lineup-preview-card,
+#scoreView .pitch-panel.is-outcome .lineup-preview-card,
+#scoreView .pitch-panel.is-placing .lineup-preview-card,
+#scoreView .pitch-panel.is-runner-decision .lineup-preview-card {
+  display: none;
+}
+
+#scoreView .batter-intro-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  gap: 12px;
+  width: min(440px, calc(100% - 28px));
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(245, 189, 33, 0.54);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(245, 189, 33, 0.2), transparent 36%),
+    linear-gradient(145deg, rgba(7, 20, 55, 0.98), rgba(3, 10, 36, 0.96));
+  box-shadow:
+    0 0 0 999px rgba(3, 10, 36, 0.56),
+    0 20px 52px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  animation: batter-intro-pop 180ms ease-out;
+}
+
+#scoreView .batter-intro-card .eyebrow,
+#scoreView .batter-intro-main h3,
+#scoreView .batter-intro-row strong {
+  color: var(--white);
+}
+
+#scoreView .batter-intro-main {
+  display: grid;
+  gap: 4px;
+}
+
+#scoreView .batter-intro-main h3 {
+  margin: 0;
+  font-size: clamp(1.55rem, 3vw, 2rem);
+}
+
+#scoreView .batter-intro-main .player-meta {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+#scoreView .batter-intro-list {
+  display: grid;
+  gap: 8px;
+}
+
+#scoreView .batter-intro-row {
+  display: grid;
+  grid-template-columns: minmax(78px, 0.34fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+#scoreView .batter-intro-row span,
+#scoreView .batter-intro-row em {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.8rem;
+  font-style: normal;
+}
+
+#scoreView .batter-intro-row strong {
+  min-width: 0;
+}
+
+#scoreView .batter-intro-card .button-row {
+  justify-content: center;
+}
+
+#scoreView .pitch-panel.is-batter-intro .lineup-preview-card {
+  display: none;
+}
+
+#scoreView .pitch-panel.is-batter-intro .pitch-buttons,
+#scoreView .pitch-panel.is-batter-intro .pitch-trail,
+#scoreView .pitch-panel.is-batter-intro .batter-face > .button-row,
+#scoreView .pitch-panel.is-batter-intro .outcome-face,
+#scoreView .pitch-panel.is-batter-intro .batter-face .mini-head {
+  opacity: 0.14;
+  pointer-events: none;
+}
+
+#scoreView .scoring-step-panel.is-batter-intro-locked {
+  opacity: 0.4;
+  pointer-events: none;
+  filter: saturate(0.75);
+}
+
+@keyframes batter-intro-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -46%) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 #scoreView .batter-face .pitch-buttons,

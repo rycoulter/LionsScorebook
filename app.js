@@ -506,7 +506,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-120";
+const APP_VERSION = "2026.04.20-build-123";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -555,6 +555,11 @@ let scorebookGameId = "";
 let boxScoreGameId = "";
 let boxScoreTeam = "lions";
 let boxScoreReturnView = "analysis";
+const shownLineupPreviewKeys = new Set();
+const shownBatterIntroKeys = new Set();
+const BATTER_INTRO_DURATION_MS = 3000;
+let batterIntroTimer = null;
+let visibleBatterIntroKey = "";
 let gameSummaryId = "";
 let bipOutcomeChosen = false;
 let awaitingSprayLocation = false;
@@ -630,6 +635,15 @@ const els = {
   scorerStack: document.getElementById("scorerStack"),
   currentBatterName: document.getElementById("currentBatterName"),
   currentBatterMeta: document.getElementById("currentBatterMeta"),
+  lineupPreviewCard: document.getElementById("lineupPreviewCard"),
+  lineupPreviewTitle: document.getElementById("lineupPreviewTitle"),
+  lineupPreviewList: document.getElementById("lineupPreviewList"),
+  dismissLineupPreviewBtn: document.getElementById("dismissLineupPreviewBtn"),
+  batterIntroCard: document.getElementById("batterIntroCard"),
+  batterIntroName: document.getElementById("batterIntroName"),
+  batterIntroMeta: document.getElementById("batterIntroMeta"),
+  batterIntroList: document.getElementById("batterIntroList"),
+  dismissBatterIntroBtn: document.getElementById("dismissBatterIntroBtn"),
   batterSummary: document.getElementById("batterSummary"),
   countDisplay: document.getElementById("countDisplay"),
   currentOutsDisplay: document.getElementById("currentOutsDisplay"),
@@ -2538,6 +2552,8 @@ function bindEvents() {
 
   els.scoringStepPanel.addEventListener("click", handleScoringPanelClick);
   els.panelUndoPitchBtn.addEventListener("click", undoPitch);
+  els.dismissLineupPreviewBtn?.addEventListener("click", () => dismissLineupPreview(activeGame()));
+  els.dismissBatterIntroBtn?.addEventListener("click", () => dismissBatterIntro(activeGame(), { rerender: true }));
 
   els.gameForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -3574,6 +3590,10 @@ function applyEvent(game = activeGame(), event = {}) {
   if (gameIsScoreLocked(game)) return null;
   syncGameCurrent(game);
   if (!game.atBat) game.atBat = makeAtBat();
+  if (isLionsAtBat(game) && ["pitch", "ball_in_play", "resolve_play", "runner_out", "runner_advance", "special_action"].includes(event.type)) {
+    dismissBatterIntro(game);
+    dismissLineupPreview(game);
+  }
 
   if (event.type === "pitch") {
     const outcome = event.outcome;
@@ -3641,8 +3661,20 @@ function applyEvent(game = activeGame(), event = {}) {
       }
     }
     if (isOpponentAtBat(game)) {
+      selectChoice("result", result, true);
       if (scorebookFielderResults.has(result)) pendingOutFielder = event.fieldedBy || pendingOutFielder || "";
-      return applyEvent(game, { type: "resolve_play", result, fieldedBy: pendingOutFielder });
+      if (result === "HR") {
+        return applyEvent(game, { type: "resolve_play", result, fieldedBy: pendingOutFielder });
+      }
+      initializeRunnerDecisionChoices(game, result);
+      awaitingRunnerDecision = true;
+      awaitingSprayLocation = false;
+      if (game.atBat) game.atBat.pendingInPlay = false;
+      scoringStep = "runners";
+      renderAtBat();
+      renderRunnerTracker();
+      renderScoringStepPanel();
+      return result;
     }
     selectChoice("result", result, true);
     if (result === "HR") selectChoice("launch", "fb", true);
@@ -3896,8 +3928,183 @@ function baseLabel(base) {
 }
 
 function currentBatterLabel(game = activeGame()) {
+  if (isOpponentAtBat(game)) {
+    const opponentEntry = currentOpponentBatterEntry(game);
+    const opponentLabel = currentOpponentBatter(game);
+    return opponentEntry?.number
+      ? `#${opponentEntry.number} ${opponentLabel}`
+      : opponentLabel || "Batter";
+  }
   const player = state.roster.find((item) => item.id === currentBatterId(game));
   return player ? `#${player.number} ${player.name}` : "Batter";
+}
+
+function clearBatterIntroTimer() {
+  if (!batterIntroTimer) return;
+  window.clearTimeout(batterIntroTimer);
+  batterIntroTimer = null;
+}
+
+function syncBatterIntroLockState(isVisible) {
+  els.abCard?.classList.toggle("is-batter-intro", Boolean(isVisible));
+  els.scoringStepPanel?.classList.toggle("is-batter-intro-locked", Boolean(isVisible));
+}
+
+function currentBatterIntroKey(game = activeGame()) {
+  if (!game || game.status !== "active" || !isLionsAtBat(game)) return "";
+  const batterId = currentBatterId(game);
+  if (!batterId) return "";
+  const inning = game.current?.inning ?? game.inning ?? 1;
+  const half = game.current?.half ?? game.half ?? "top";
+  return `${game.id}:${inning}:${half}:${game.batterIndex || 0}:${batterId}`;
+}
+
+function upcomingBatterIntroRows(game = activeGame()) {
+  const entries = gameLineupEntries(game);
+  if (!entries.length) return [];
+  const slots = ["On Deck", "In The Hole"];
+  return slots.map((slot, offset) => {
+    const entry = entries[(game.batterIndex + offset + 1) % entries.length];
+    const player = state.roster.find((item) => item.id === entry?.playerId);
+    return {
+      slot,
+      name: player?.name || "Open spot",
+      number: player?.number || "",
+      role: entry?.role || "Ready"
+    };
+  });
+}
+
+function currentLineupPreviewKey(game = activeGame()) {
+  if (!game || game.status !== "active" || !isLionsAtBat(game)) return "";
+  const inning = game.current?.inning ?? game.inning ?? 1;
+  const half = game.current?.half ?? game.half ?? "top";
+  return `${game.id}:${inning}:${half}`;
+}
+
+function offensiveHalfHasStarted(game = activeGame()) {
+  const inning = Number(game?.current?.inning ?? game?.inning ?? 1);
+  const half = game?.current?.half ?? game?.half ?? "top";
+  return (game?.plateAppearances || []).some((appearance) =>
+    Number(appearance?.inning ?? 0) === inning
+    && (appearance?.half || "") === half
+    && appearance?.completedAt
+  );
+}
+
+function upcomingLineupPreviewRows(game = activeGame()) {
+  const entries = gameLineupEntries(game);
+  if (!entries.length) return [];
+  const slots = ["Up Next", "On Deck", "In The Hole"];
+  return slots.map((slot, offset) => {
+    const entry = entries[(game.batterIndex + offset) % entries.length];
+    const player = state.roster.find((item) => item.id === entry?.playerId);
+    return {
+      slot,
+      name: player?.name || "Open spot",
+      number: player?.number || "",
+      role: entry?.role || ""
+    };
+  });
+}
+
+function shouldShowLineupPreviewByState(game = activeGame()) {
+  const key = currentLineupPreviewKey(game);
+  if (!key || shownLineupPreviewKeys.has(key)) return false;
+  if (offensiveHalfHasStarted(game)) return false;
+  if (game?.atBat?.pitches?.length) return false;
+  if (game?.atBat?.pendingInPlay || awaitingSprayLocation || awaitingRunnerDecision) return false;
+  return upcomingLineupPreviewRows(game).length > 0;
+}
+
+function shouldShowLineupPreview(game = activeGame()) {
+  return shouldShowLineupPreviewByState(game);
+}
+
+function lineupPreviewHeading(game = activeGame()) {
+  const half = game?.current?.half ?? game?.half ?? "top";
+  const inning = Number(game?.current?.inning ?? game?.inning ?? 1);
+  return `${half === "top" ? "Top" : "Bottom"} Of The ${inning}${inning === 1 ? "st" : inning === 2 ? "nd" : inning === 3 ? "rd" : "th"}`;
+}
+
+function dismissLineupPreview(game = activeGame()) {
+  const key = currentLineupPreviewKey(game);
+  if (key) shownLineupPreviewKeys.add(key);
+  if (els.lineupPreviewCard) {
+    els.lineupPreviewCard.hidden = true;
+    els.lineupPreviewCard.classList.remove("is-visible");
+  }
+}
+
+function renderLineupPreview(game = activeGame()) {
+  if (!els.lineupPreviewCard || !els.lineupPreviewList) return;
+  if (!shouldShowLineupPreview(game)) {
+    els.lineupPreviewCard.hidden = true;
+    els.lineupPreviewCard.classList.remove("is-visible");
+    return;
+  }
+  const rows = upcomingLineupPreviewRows(game);
+  if (els.lineupPreviewTitle) els.lineupPreviewTitle.textContent = lineupPreviewHeading(game);
+  els.lineupPreviewList.innerHTML = rows.map((row) => `<article class="lineup-preview-row">
+    <span>${escapeHtml(row.slot)}</span>
+    <strong>${row.number ? `#${escapeHtml(row.number)} ` : ""}${escapeHtml(row.name)}</strong>
+    <em>${escapeHtml(row.role || "Ready")}</em>
+  </article>`).join("");
+  els.lineupPreviewCard.hidden = false;
+  els.lineupPreviewCard.classList.add("is-visible");
+}
+
+function shouldShowBatterIntro(game = activeGame()) {
+  const key = currentBatterIntroKey(game);
+  if (!key || shownBatterIntroKeys.has(key)) return false;
+  if (shouldShowLineupPreviewByState(game)) return false;
+  if (game?.atBat?.pitches?.length) return false;
+  if (game?.atBat?.pendingInPlay || awaitingSprayLocation || awaitingRunnerDecision) return false;
+  return Boolean(currentBatterId(game));
+}
+
+function dismissBatterIntro(game = activeGame(), options = {}) {
+  const { markShown = true, rerender = false } = options;
+  const key = visibleBatterIntroKey || currentBatterIntroKey(game);
+  if (markShown && key) shownBatterIntroKeys.add(key);
+  clearBatterIntroTimer();
+  visibleBatterIntroKey = "";
+  if (els.batterIntroCard) {
+    els.batterIntroCard.hidden = true;
+    els.batterIntroCard.classList.remove("is-visible");
+  }
+  syncBatterIntroLockState(false);
+  if (rerender) {
+    renderAtBat();
+    renderScoringStepPanel();
+  }
+}
+
+function renderBatterIntro(game = activeGame()) {
+  if (!els.batterIntroCard || !els.batterIntroName || !els.batterIntroMeta || !els.batterIntroList) return;
+  const introKey = currentBatterIntroKey(game);
+  if (!shouldShowBatterIntro(game)) {
+    if (!introKey || visibleBatterIntroKey !== introKey) {
+      dismissBatterIntro(game, { markShown: false });
+    }
+    return;
+  }
+  const currentPlayer = state.roster.find((player) => player.id === currentBatterId(game));
+  const currentEntry = gameLineupEntries(game).find((entry) => entry.playerId === currentPlayer?.id);
+  els.batterIntroName.textContent = currentPlayer ? `#${currentPlayer.number} ${currentPlayer.name}` : "Current batter";
+  els.batterIntroMeta.textContent = `${currentEntry?.role || "UTIL"} | Lions at bat`;
+  els.batterIntroList.innerHTML = "";
+  els.batterIntroList.hidden = true;
+  els.batterIntroCard.hidden = false;
+  els.batterIntroCard.classList.add("is-visible");
+  syncBatterIntroLockState(true);
+  if (visibleBatterIntroKey === introKey) return;
+  visibleBatterIntroKey = introKey;
+  clearBatterIntroTimer();
+  batterIntroTimer = window.setTimeout(() => {
+    if (visibleBatterIntroKey !== introKey) return;
+    dismissBatterIntro(activeGame(), { rerender: true });
+  }, BATTER_INTRO_DURATION_MS);
 }
 
 function logPitch(type) {
@@ -4373,8 +4580,11 @@ function logOpponentOutcome(result, options = {}) {
   if (game.status !== "completed") game.status = "active";
   const batter = currentOpponentBatter(game);
   const pitcherId = currentPitcherId(game);
-  const runs = opponentRunsForResult(game, result);
-  startPlateAppearance(game, `opp:${batter}`, pitcherId);
+  const batterId = `opp:${batter}`;
+  startPlateAppearance(game, batterId, pitcherId);
+  const runnerAdvancements = runnerAdvancementsForPlay(game, result, batterId);
+  const runs = runnerAdvancements.filter((advancement) => advancement.to === "home" && !advancement.out && !advancement.remove).length;
+  const rbi = automaticRbiForPlay(result, runs);
   const snapshotBefore = {
     inning: game.inning,
     half: game.half,
@@ -4388,30 +4598,19 @@ function logOpponentOutcome(result, options = {}) {
 
   finalizePlateAppearance(game, {
     type: result,
-    runs,
     runsScored: runs,
-    rbi: 0,
+    rbi,
     contact: "none",
     launch: eventRules[result]?.launch || "none",
     fieldedBy: options.fieldedBy || "",
     pitcherId,
-    outsRecorded: result === "DP" ? 2 : undefined,
+    runnerAdvancements,
     notes: "Opponent plate appearance",
     snapshotBefore
   });
   clearPendingPlayState(game, true);
   saveState();
   render();
-}
-
-function opponentRunsForResult(game, result) {
-  const occupied = Object.values(game.bases).filter(Boolean).length;
-  if (result === "HR") return occupied + 1;
-  if (result === "3B") return occupied;
-  if (result === "2B") return Number(Boolean(game.bases.second)) + Number(Boolean(game.bases.third));
-  if (result === "1B") return Number(Boolean(game.bases.third));
-  if (["BB", "HBP"].includes(result) && game.bases.first && game.bases.second && game.bases.third) return 1;
-  return 0;
 }
 
 function advanceHalf(game) {
@@ -5517,6 +5716,18 @@ function renderScoringStepPanel() {
     els.scoringStepBody.innerHTML = `<div class="auto-score">Final score: ${escapeHtml(gameScoreLabel(game))}</div>`;
     return;
   }
+  const selectedRunnerConfig = selectedRunnerActionConfig(game);
+  if (selectedRunnerConfig) {
+    els.scoringStepPanel.dataset.step = "runner_action";
+    els.scoringStepEyebrow.textContent = selectedRunnerConfig.eyebrow;
+    els.scoringStepTitle.textContent = selectedRunnerConfig.title;
+    els.scoringStepHint.textContent = selectedRunnerConfig.hint;
+    els.panelUndoPitchBtn.hidden = true;
+    const backButton = els.scoringStepPanel.querySelector("[data-score-step-back]");
+    if (backButton) backButton.hidden = true;
+    els.scoringStepBody.innerHTML = selectedRunnerConfig.body;
+    return;
+  }
   if (game.status !== "active") {
     els.scoringStepPanel.dataset.step = "scheduled";
     els.scoringStepEyebrow.textContent = "Future";
@@ -5528,18 +5739,6 @@ function renderScoringStepPanel() {
   }
   if (isOpponentAtBat(game)) {
     renderOpponentScoringStepPanel(game);
-    return;
-  }
-  const selectedRunnerConfig = selectedRunnerActionConfig(game);
-  if (selectedRunnerConfig) {
-    els.scoringStepPanel.dataset.step = "runner_action";
-    els.scoringStepEyebrow.textContent = selectedRunnerConfig.eyebrow;
-    els.scoringStepTitle.textContent = selectedRunnerConfig.title;
-    els.scoringStepHint.textContent = selectedRunnerConfig.hint;
-    els.panelUndoPitchBtn.hidden = true;
-    const backButton = els.scoringStepPanel.querySelector("[data-score-step-back]");
-    if (backButton) backButton.hidden = true;
-    els.scoringStepBody.innerHTML = selectedRunnerConfig.body;
     return;
   }
   if (awaitingRunnerDecision) scoringStep = "runners";
@@ -5713,18 +5912,33 @@ function renderOpponentScoringStepPanel(game) {
     return;
   }
 
+  if (scoringStep === "runners" || awaitingRunnerDecision) {
+    const result = normalizeBallInPlayOutcome(els.resultSelect.value || pendingOutType || "GO");
+    if (!Object.keys(pendingRunnerChoices).length) initializeRunnerDecisionChoices(game, result);
+    scoringStep = "runners";
+    els.scoringStepPanel.dataset.step = "runners";
+    els.scoringStepHint.textContent = "Set the opponent runner destinations, then confirm the play.";
+    els.scoringStepBody.innerHTML = `${runnerDecisionCards(game, result).map(renderRunnerDecisionCard).join("")}
+      <div class="confirm-play-row">
+        <button type="button" class="secondary-action" data-score-step-back>Back</button>
+        <button type="button" class="primary-action confirm-play-button" data-confirm-play>Confirm Play</button>
+      </div>`;
+    return;
+  }
+
   if (scoringStep === "more") {
-    els.scoringStepHint.textContent = "Use quick opponent results without a ball in play.";
+    els.scoringStepHint.textContent = "Use quick opponent results or runner actions without a ball in play.";
     els.scoringStepBody.innerHTML = `<div class="step-grid step-grid-three">
       ${stepButton("Walk", "step-auto-result", "BB", "neutral")}
       ${stepButton("Strikeout", "step-auto-result", "K", "out")}
       ${stepButton("HBP", "step-auto-result", "HBP", "hbp")}
-    </div>`;
+    </div>
+    ${renderSpecialActionGrid(game)}`;
     return;
   }
 
   scoringStep = "pitch";
-  els.scoringStepHint.textContent = "Track the count. In Play opens the outcome choices.";
+  els.scoringStepHint.textContent = "Track the count. In Play opens outcomes, and runner badges open SB, CS, or PO.";
   els.scoringStepBody.innerHTML = `<div class="step-grid step-grid-pitches">
       ${stepButton("Ball", "step-pitch", "ball", "ball")}
       ${stepButton("Called Strike", "step-pitch", "called_strike", "strike")}
@@ -5888,6 +6102,8 @@ function renderAtBat() {
   } else if (!pendingSpray && !game.atBat.pendingInPlay) {
     els.sprayHint.textContent = "Tap the field after a ball is put in play.";
   }
+  renderBatterIntro(game);
+  renderLineupPreview(game);
 }
 
 function renderPitcherSelect(game = activeGame()) {

@@ -7,6 +7,9 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Added a stronger Lions `Now Hitting` walk-up card before each new at-bat that spotlights the current batter with On Deck and In The Hole behind them, briefly pauses pitch entry, and then auto-dismisses or lets the scorer tap `Start At-Bat` to continue immediately.
+- Added a Lions inning-start lineup preview in the Score view that pops up the next three hitters as Up Next, On Deck, and In The Hole at the start of a fresh offensive half-inning, then gets out of the way once scoring begins.
+- Reworked opponent baserunner scoring so opponent balls in play now use the same advance/hold/out runner-decision flow as Lions scoring, and runner badges on defense can also trigger SB, CS, and pickoff actions from the step panel.
 - Fixed completed-game publish so the game data and final `synced` status are persisted to Supabase in the same snapshot, which prevents offline-scored games from briefly looking synced and then falling back out of sync from a stale remote status copy.
 - Reworked the Stats page on phones into a true mobile card layout with compact sort controls and stacked batting/pitching summaries, so users no longer have to fight a compressed desktop table on small screens.
 - Removed the Home page League Standings card from the live UI for now so the dashboard stays focused on the pieces that are fully dialed in, while keeping the standings sync/cache plumbing available behind the scenes.

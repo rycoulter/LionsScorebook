@@ -418,6 +418,30 @@
               </form>
             </div>
 
+            <div class="score-overlay-stack" id="scoreOverlayStack" aria-live="polite">
+              <section class="lineup-preview-card" id="lineupPreviewCard" hidden aria-label="Upcoming Lions hitters">
+                <div class="lineup-preview-head">
+                  <div>
+                    <p class="eyebrow">Lions Batting</p>
+                    <h3 id="lineupPreviewTitle">Top Of The Inning</h3>
+                  </div>
+                  <button type="button" class="secondary-action compact-action" id="dismissLineupPreviewBtn">Close</button>
+                </div>
+                <div class="lineup-preview-list" id="lineupPreviewList"></div>
+              </section>
+              <section class="batter-intro-card" id="batterIntroCard" hidden aria-label="Now hitting">
+                <p class="eyebrow">Now Hitting</p>
+                <div class="batter-intro-main">
+                  <h3 id="batterIntroName">Current batter</h3>
+                  <span class="player-meta" id="batterIntroMeta">Lions at bat</span>
+                </div>
+                <div class="batter-intro-list" id="batterIntroList"></div>
+                <div class="button-row compact-row">
+                  <button type="button" class="primary-action" id="dismissBatterIntroBtn">Start At-Bat</button>
+                </div>
+              </section>
+            </div>
+
             <aside class="play-panel">
               <div class="mini-head">
                 <h3>Current Lineup</h3>
