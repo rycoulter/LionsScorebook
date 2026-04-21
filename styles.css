@@ -2675,6 +2675,107 @@ button:focus-visible {
   font-weight: 700;
 }
 
+.stats-mobile-controls,
+.stats-mobile-list {
+  display: none;
+}
+
+.stats-mobile-controls {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 0 14px 12px;
+  align-items: end;
+}
+
+.stats-mobile-controls label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-soft);
+}
+
+.stats-mobile-controls select {
+  min-height: 42px;
+}
+
+.stats-mobile-direction-btn {
+  min-width: 108px;
+  justify-self: stretch;
+}
+
+.stats-mobile-list {
+  padding: 0 14px 14px;
+  gap: 12px;
+}
+
+.stats-mobile-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.stats-mobile-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stats-mobile-card-head strong {
+  display: block;
+  font-size: 1rem;
+  color: var(--white);
+}
+
+.stats-mobile-card-head span {
+  display: block;
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+}
+
+.stats-mobile-rank {
+  text-align: right;
+  min-width: 88px;
+}
+
+.stats-mobile-pill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stats-mobile-pill {
+  display: grid;
+  gap: 4px;
+  padding: 10px 11px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.stats-mobile-pill small {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stats-mobile-pill strong {
+  color: var(--white);
+  font-size: 0.98rem;
+}
+
+.stats-mobile-empty {
+  margin: 0;
+  padding: 0 14px 14px;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.88rem;
+}
+
 .stats-spray-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(180px, 1fr));
@@ -8463,8 +8564,25 @@ label {
   }
 
   .stats-mobile-hint {
-    display: block;
-    padding: 0 12px 10px;
+    display: none;
+  }
+
+  #statsView .stats-table-wrap:not(.stats-spray-shell) {
+    overflow: hidden;
+  }
+
+  #statsView .stats-table-wrap:not(.stats-spray-shell) .stats-mobile-controls {
+    display: grid;
+    padding: 0 12px 12px;
+  }
+
+  #statsView .stats-table-wrap:not(.stats-spray-shell) .stats-mobile-list {
+    display: grid;
+    padding: 0 12px 12px;
+  }
+
+  #statsView .stats-table-wrap:not(.stats-spray-shell) .stats-table {
+    display: none;
   }
 
   .stats-spray-controls {
@@ -8480,102 +8598,14 @@ label {
     border-radius: 12px;
   }
 
-  #statsView .stats-table {
-    min-width: 0;
+  #statsView .stats-mobile-controls label,
+  #statsView .stats-mobile-card-head span,
+  #statsView .stats-mobile-empty {
+    color: rgba(255, 255, 255, 0.78);
   }
 
-  #statsView .stats-table th,
-  #statsView .stats-table td {
-    padding: 8px 9px;
-    font-size: 0.78rem;
-  }
-
-  #statsView .stats-table th {
-    font-size: 0.7rem;
-  }
-
-  #statsView .stats-table th button {
-    min-height: 24px;
-    font-size: 0.72rem;
-  }
-
-  #statsView .stats-table th button::after {
-    font-size: 0.58rem;
-  }
-
-  #statsView .stats-table th:first-child,
-  #statsView .stats-table td:first-child {
-    min-width: 132px;
-    max-width: 132px;
-    padding-left: 10px;
-    padding-right: 10px;
-    box-shadow: 1px 0 0 rgba(255, 255, 255, 0.08);
-  }
-
-  #statsView .stats-table td:first-child {
-    overflow-wrap: anywhere;
-    white-space: normal;
-    line-height: 1.25;
-  }
-
-  #statsView .stats-table-hitting {
-    min-width: 860px;
-  }
-
-  #statsView .stats-table-pitching {
-    min-width: 760px;
-  }
-
-  #statsView .stats-table-hitting th:nth-child(4),
-  #statsView .stats-table-hitting td:nth-child(4),
-  #statsView .stats-table-hitting th:nth-child(6),
-  #statsView .stats-table-hitting td:nth-child(6),
-  #statsView .stats-table-hitting th:nth-child(7),
-  #statsView .stats-table-hitting td:nth-child(7),
-  #statsView .stats-table-hitting th:nth-child(8),
-  #statsView .stats-table-hitting td:nth-child(8),
-  #statsView .stats-table-hitting th:nth-child(9),
-  #statsView .stats-table-hitting td:nth-child(9),
-  #statsView .stats-table-hitting th:nth-child(11),
-  #statsView .stats-table-hitting td:nth-child(11),
-  #statsView .stats-table-hitting th:nth-child(12),
-  #statsView .stats-table-hitting td:nth-child(12),
-  #statsView .stats-table-hitting th:nth-child(19),
-  #statsView .stats-table-hitting td:nth-child(19),
-  #statsView .stats-table-hitting th:nth-child(20),
-  #statsView .stats-table-hitting td:nth-child(20),
-  #statsView .stats-table-hitting th:nth-child(21),
-  #statsView .stats-table-hitting td:nth-child(21),
-  #statsView .stats-table-hitting th:nth-child(22),
-  #statsView .stats-table-hitting td:nth-child(22) {
-    display: none;
-  }
-
-  #statsView .stats-table-pitching th:nth-child(4),
-  #statsView .stats-table-pitching td:nth-child(4),
-  #statsView .stats-table-pitching th:nth-child(6),
-  #statsView .stats-table-pitching td:nth-child(6),
-  #statsView .stats-table-pitching th:nth-child(7),
-  #statsView .stats-table-pitching td:nth-child(7),
-  #statsView .stats-table-pitching th:nth-child(8),
-  #statsView .stats-table-pitching td:nth-child(8),
-  #statsView .stats-table-pitching th:nth-child(9),
-  #statsView .stats-table-pitching td:nth-child(9),
-  #statsView .stats-table-pitching th:nth-child(10),
-  #statsView .stats-table-pitching td:nth-child(10),
-  #statsView .stats-table-pitching th:nth-child(16),
-  #statsView .stats-table-pitching td:nth-child(16),
-  #statsView .stats-table-pitching th:nth-child(17),
-  #statsView .stats-table-pitching td:nth-child(17),
-  #statsView .stats-table-pitching th:nth-child(18),
-  #statsView .stats-table-pitching td:nth-child(18),
-  #statsView .stats-table-pitching th:nth-child(19),
-  #statsView .stats-table-pitching td:nth-child(19),
-  #statsView .stats-table-pitching th:nth-child(20),
-  #statsView .stats-table-pitching td:nth-child(20),
-  #statsView .stats-table-pitching th:nth-child(22),
-  #statsView .stats-table-pitching td:nth-child(22) {
-    display: none;
+  #statsView .stats-mobile-pill-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .upcoming-game-card {

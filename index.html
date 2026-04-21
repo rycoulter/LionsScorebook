@@ -90,15 +90,6 @@
                 </section>
               </div>
             </section>
-            <section class="home-panel home-standings-panel">
-              <div class="mini-head home-panel-head home-panel-head-centered">
-                <div>
-                  <h3>League Standings</h3>
-                  <span>League page placeholder for now</span>
-                </div>
-              </div>
-              <div class="home-standings-board" id="homeLeagueStandings"></div>
-            </section>
             <section class="home-panel home-upcoming-panel">
               <div class="mini-head">
                 <h3>Upcoming Games</h3>
@@ -846,6 +837,37 @@
           <div class="stats-table-wrap">
             <h3 class="stats-subhead">Hitting</h3>
             <p class="stats-mobile-hint">Swipe sideways to see more stats.</p>
+            <div class="stats-mobile-controls">
+              <label>
+                Sort by
+                <select id="mobileHitSortSelect">
+                  <option value="name">Name</option>
+                  <option value="gp">GP</option>
+                  <option value="pa">PA</option>
+                  <option value="ab">AB</option>
+                  <option value="h">Hits</option>
+                  <option value="singles">1B</option>
+                  <option value="doubles">2B</option>
+                  <option value="triples">3B</option>
+                  <option value="hr">HR</option>
+                  <option value="avg">AVG</option>
+                  <option value="obp">OBP</option>
+                  <option value="slg">SLG</option>
+                  <option value="ops">OPS</option>
+                  <option value="rbi">RBI</option>
+                  <option value="bb">BB</option>
+                  <option value="hbp">HBP</option>
+                  <option value="k">K</option>
+                  <option value="sb">SB</option>
+                  <option value="cs">CS</option>
+                  <option value="po">PO</option>
+                  <option value="roe">ROE</option>
+                  <option value="errors">E</option>
+                </select>
+              </label>
+              <button type="button" class="secondary-action stats-mobile-direction-btn" id="mobileHitSortDirectionBtn">High to low</button>
+            </div>
+            <div class="stats-mobile-list" id="mobileHittingStatsList"></div>
             <table class="stats-table stats-table-hitting">
               <thead>
                 <tr>
@@ -879,6 +901,37 @@
           <div class="stats-table-wrap">
             <h3 class="stats-subhead">Pitching</h3>
             <p class="stats-mobile-hint">Swipe sideways to see more stats.</p>
+            <div class="stats-mobile-controls">
+              <label>
+                Sort by
+                <select id="mobilePitSortSelect">
+                  <option value="name">Name</option>
+                  <option value="wins">Wins</option>
+                  <option value="losses">Losses</option>
+                  <option value="noDecision">ND</option>
+                  <option value="outs">IP</option>
+                  <option value="pitches">NP</option>
+                  <option value="balls">Balls</option>
+                  <option value="strikes">Strikes</option>
+                  <option value="whip">WHIP</option>
+                  <option value="k">K</option>
+                  <option value="batters">BF</option>
+                  <option value="h">Hits</option>
+                  <option value="runs">Runs</option>
+                  <option value="bb">BB</option>
+                  <option value="hbp">HBP</option>
+                  <option value="strikeRate">Strike %</option>
+                  <option value="kRate">K %</option>
+                  <option value="bbRate">BB %</option>
+                  <option value="kbb">K/BB</option>
+                  <option value="k9">K/9</option>
+                  <option value="r9">R/9</option>
+                  <option value="pitchesPerInning">P/IP</option>
+                </select>
+              </label>
+              <button type="button" class="secondary-action stats-mobile-direction-btn" id="mobilePitSortDirectionBtn">High to low</button>
+            </div>
+            <div class="stats-mobile-list" id="mobilePitchingStatsList"></div>
             <table class="stats-table stats-table-pitching">
               <thead>
                 <tr>

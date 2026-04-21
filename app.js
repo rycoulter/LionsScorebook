@@ -506,7 +506,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-117";
+const APP_VERSION = "2026.04.20-build-119";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -785,6 +785,12 @@ const els = {
   leadersGrid: document.getElementById("leadersGrid"),
   hittingStatsBody: document.getElementById("hittingStatsBody"),
   pitchingStatsBody: document.getElementById("pitchingStatsBody"),
+  mobileHitSortSelect: document.getElementById("mobileHitSortSelect"),
+  mobileHitSortDirectionBtn: document.getElementById("mobileHitSortDirectionBtn"),
+  mobileHittingStatsList: document.getElementById("mobileHittingStatsList"),
+  mobilePitSortSelect: document.getElementById("mobilePitSortSelect"),
+  mobilePitSortDirectionBtn: document.getElementById("mobilePitSortDirectionBtn"),
+  mobilePitchingStatsList: document.getElementById("mobilePitchingStatsList"),
   recordSummary: document.getElementById("recordSummary"),
   gameEditPanel: document.getElementById("gameEditPanel"),
   gameEditTitle: document.getElementById("gameEditTitle"),
@@ -2878,6 +2884,28 @@ function bindEvents() {
       };
       renderSeasonStats();
     });
+  });
+  els.mobileHitSortSelect?.addEventListener("change", () => {
+    hittingSort = { ...hittingSort, key: els.mobileHitSortSelect.value || "avg" };
+    renderSeasonStats();
+  });
+  els.mobileHitSortDirectionBtn?.addEventListener("click", () => {
+    hittingSort = {
+      ...hittingSort,
+      direction: hittingSort.direction === "desc" ? "asc" : "desc"
+    };
+    renderSeasonStats();
+  });
+  els.mobilePitSortSelect?.addEventListener("change", () => {
+    pitchingSort = { ...pitchingSort, key: els.mobilePitSortSelect.value || "outs" };
+    renderSeasonStats();
+  });
+  els.mobilePitSortDirectionBtn?.addEventListener("click", () => {
+    pitchingSort = {
+      ...pitchingSort,
+      direction: pitchingSort.direction === "desc" ? "asc" : "desc"
+    };
+    renderSeasonStats();
   });
 }
 
@@ -8496,10 +8524,11 @@ function renderSeasonStats() {
       </tr>`;
     })
     .join("");
-  els.pitchingStatsBody.innerHTML = state.roster
+  const pitchingRows = state.roster
     .map((player) => ({ player, pit: pitcherStats(player.id) }))
     .filter(({ pit }) => hasPitchingStats(pit))
-    .sort((a, b) => comparePitchingRows(a, b))
+    .sort((a, b) => comparePitchingRows(a, b));
+  els.pitchingStatsBody.innerHTML = pitchingRows
     .map(({ player, pit }) => {
       return `<tr>
         <td>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</td>
@@ -8527,6 +8556,66 @@ function renderSeasonStats() {
       </tr>`;
     })
     .join("");
+  if (els.mobileHittingStatsList) {
+    els.mobileHittingStatsList.innerHTML = hittingRows.length
+      ? hittingRows.map(({ player, hit, gp }) => {
+        const sortValue = formatMobileHittingSortValue(hit, gp, player);
+        return `<article class="stats-mobile-card">
+          <div class="stats-mobile-card-head">
+            <div>
+              <strong>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</strong>
+              <span>${gp} G · ${hit.pa} PA</span>
+            </div>
+            <div class="stats-mobile-rank">
+              <span>Sorted by</span>
+              <strong>${escapeHtml(mobileHittingSortLabel())}</strong>
+              <span>${escapeHtml(sortValue)}</span>
+            </div>
+          </div>
+          <div class="stats-mobile-pill-grid">
+            ${mobileStatPill("AVG", formatRate(hit.avg))}
+            ${mobileStatPill("OPS", formatRate(hit.ops))}
+            ${mobileStatPill("H", hit.h)}
+            ${mobileStatPill("RBI", hit.rbi)}
+            ${mobileStatPill("BB", hit.bb)}
+            ${mobileStatPill("HBP", hit.hbp)}
+            ${mobileStatPill("SB", hit.sb)}
+            ${mobileStatPill("K", hit.k)}
+          </div>
+        </article>`;
+      }).join("")
+      : `<p class="stats-mobile-empty">No batting stats yet.</p>`;
+  }
+  if (els.mobilePitchingStatsList) {
+    els.mobilePitchingStatsList.innerHTML = pitchingRows.length
+      ? pitchingRows.map(({ player, pit }) => {
+        const sortValue = formatMobilePitchingSortValue(pit, player);
+        return `<article class="stats-mobile-card">
+          <div class="stats-mobile-card-head">
+            <div>
+              <strong>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</strong>
+              <span>${formatInnings(pit.outs)} IP · ${pit.batters} BF</span>
+            </div>
+            <div class="stats-mobile-rank">
+              <span>Sorted by</span>
+              <strong>${escapeHtml(mobilePitchingSortLabel())}</strong>
+              <span>${escapeHtml(sortValue)}</span>
+            </div>
+          </div>
+          <div class="stats-mobile-pill-grid">
+            ${mobileStatPill("WHIP", pit.whip.toFixed(2))}
+            ${mobileStatPill("K", pit.k)}
+            ${mobileStatPill("BB", pit.bb)}
+            ${mobileStatPill("HBP", pit.hbp)}
+            ${mobileStatPill("W-L", `${pit.wins}-${pit.losses}`)}
+            ${mobileStatPill("Str%", `${Math.round(pit.strikeRate * 100)}%`)}
+            ${mobileStatPill("P/IP", pit.pitchesPerInning.toFixed(1))}
+            ${mobileStatPill("R/9", pit.r9.toFixed(1))}
+          </div>
+        </article>`;
+      }).join("")
+      : `<p class="stats-mobile-empty">No pitching stats yet.</p>`;
+  }
 }
 
 function renderStatsSprayControls() {
@@ -8604,6 +8693,88 @@ function updateSortIndicators() {
     button.classList.toggle("is-sorted", active);
     button.dataset.direction = active ? pitchingSort.direction : "";
   });
+  if (els.mobileHitSortSelect) els.mobileHitSortSelect.value = hittingSort.key;
+  if (els.mobileHitSortDirectionBtn) els.mobileHitSortDirectionBtn.textContent = hittingSort.direction === "desc" ? "High to low" : "Low to high";
+  if (els.mobilePitSortSelect) els.mobilePitSortSelect.value = pitchingSort.key;
+  if (els.mobilePitSortDirectionBtn) els.mobilePitSortDirectionBtn.textContent = pitchingSort.direction === "desc" ? "High to low" : "Low to high";
+}
+
+function mobileStatPill(label, value) {
+  return `<span class="stats-mobile-pill"><small>${escapeHtml(label)}</small><strong>${escapeHtml(String(value))}</strong></span>`;
+}
+
+function mobileHittingSortLabel() {
+  if (hittingSort.key === "name") return "Name";
+  const labels = {
+    gp: "Games",
+    pa: "PA",
+    ab: "AB",
+    singles: "1B",
+    doubles: "2B",
+    triples: "3B",
+    hr: "HR",
+    avg: "AVG",
+    obp: "OBP",
+    slg: "SLG",
+    ops: "OPS",
+    h: "Hits",
+    rbi: "RBI",
+    bb: "BB",
+    hbp: "HBP",
+    k: "K",
+    sb: "SB",
+    cs: "CS",
+    po: "PO",
+    roe: "ROE",
+    errors: "E"
+  };
+  return labels[hittingSort.key] || hittingSort.key.toUpperCase();
+}
+
+function mobilePitchingSortLabel() {
+  if (pitchingSort.key === "name") return "Name";
+  const labels = {
+    losses: "Losses",
+    noDecision: "ND",
+    outs: "IP",
+    pitches: "NP",
+    balls: "Balls",
+    strikes: "Strikes",
+    whip: "WHIP",
+    k: "K",
+    wins: "Wins",
+    batters: "BF",
+    h: "Hits",
+    runs: "Runs",
+    strikeRate: "Strike %",
+    kRate: "K %",
+    bbRate: "BB %",
+    bb: "BB",
+    hbp: "HBP",
+    kbb: "K/BB",
+    k9: "K/9",
+    r9: "R/9",
+    pitchesPerInning: "P/IP"
+  };
+  return labels[pitchingSort.key] || pitchingSort.key.toUpperCase();
+}
+
+function formatMobileHittingSortValue(hit, gp, player) {
+  if (hittingSort.key === "name") return player.name;
+  if (hittingSort.key === "gp") return String(gp);
+  const value = hit[hittingSort.key] ?? 0;
+  if (["avg", "obp", "slg", "ops"].includes(hittingSort.key)) return formatRate(value);
+  return String(value);
+}
+
+function formatMobilePitchingSortValue(pit, player) {
+  if (pitchingSort.key === "name") return player.name;
+  if (pitchingSort.key === "outs") return formatInnings(pit.outs);
+  const value = pit[pitchingSort.key] ?? 0;
+  if (pitchingSort.key === "whip") return Number(value).toFixed(2);
+  if (["k9", "r9", "pitchesPerInning", "kbb"].includes(pitchingSort.key)) return Number(value).toFixed(1);
+  if (["strikeRate", "kRate", "bbRate"].includes(pitchingSort.key)) return `${Math.round(Number(value) * 100)}%`;
+  return String(value);
 }
 
 function compareHittingRows(a, b) {

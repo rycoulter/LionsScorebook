@@ -7,6 +7,8 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Reworked the Stats page on phones into a true mobile card layout with compact sort controls and stacked batting/pitching summaries, so users no longer have to fight a compressed desktop table on small screens.
+- Removed the Home page League Standings card from the live UI for now so the dashboard stays focused on the pieces that are fully dialed in, while keeping the standings sync/cache plumbing available behind the scenes.
 - Added a GitHub Actions-based AA standings refresher that writes directly into Supabase `league_standings`, so the app can use the same standings cache even when Pittsburgh NABA is unreachable from Supabase Edge Functions.
 - Switched the Pittsburgh NABA AA parser to scan the full pipe-delimited token stream for the `AA` standings header directly, which is more reliable than regex slicing against the flattened edge response.
 - Added a pipe-delimited AA standings parser for the Pittsburgh NABA server response so the Supabase refresh can handle the flattened `|` token stream the live standings page returns at the edge.
