@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.6";
+const APP_VERSION = "v.1.0.7";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -589,6 +589,11 @@ const activeCompletedGameSyncs = new Set();
 const weatherCache = {};
 const weatherRequests = {};
 let lastSupabaseRefreshAt = 0;
+let lastSharedBaselineAt = 0;
+let sharedWriteBaselineReady = false;
+let sharedAppStateDirtyInSession = false;
+const pendingSharedGameIds = new Set();
+const pendingDeletedSharedGameIds = new Set();
 let pendingServiceWorkerRefresh = false;
 const SUPABASE_REFRESH_THROTTLE_MS = 15000;
 
@@ -1920,6 +1925,85 @@ function sharedRosterMissing(snapshot) {
   return rosterMissing || lineupMissing;
 }
 
+function markSharedAppStateDirty() {
+  sharedAppStateDirtyInSession = true;
+}
+
+function markSharedGamesDirty(gameIds = []) {
+  const ids = Array.isArray(gameIds) ? gameIds : [gameIds];
+  ids.filter(Boolean).forEach((gameId) => {
+    pendingSharedGameIds.add(gameId);
+    pendingDeletedSharedGameIds.delete(gameId);
+  });
+}
+
+function markSharedGamesDeleted(gameIds = []) {
+  const ids = Array.isArray(gameIds) ? gameIds : [gameIds];
+  ids.filter(Boolean).forEach((gameId) => {
+    pendingDeletedSharedGameIds.add(gameId);
+    pendingSharedGameIds.delete(gameId);
+  });
+}
+
+function clearSharedSessionPending(options = {}) {
+  const {
+    clearAppState = false,
+    syncedGameIds = [],
+    deletedGameIds = []
+  } = options;
+  if (clearAppState) sharedAppStateDirtyInSession = false;
+  (Array.isArray(syncedGameIds) ? syncedGameIds : [syncedGameIds]).filter(Boolean).forEach((gameId) => {
+    pendingSharedGameIds.delete(gameId);
+  });
+  (Array.isArray(deletedGameIds) ? deletedGameIds : [deletedGameIds]).filter(Boolean).forEach((gameId) => {
+    pendingDeletedSharedGameIds.delete(gameId);
+  });
+}
+
+function overlaySessionSharedChanges(baseState, localState = state) {
+  const nextState = normalizeState(deepClone(baseState || localState || state));
+  const currentLocalState = normalizeState(deepClone(localState || state));
+
+  if (sharedAppStateDirtyInSession) {
+    nextState.roster = deepClone(currentLocalState.roster || []);
+    nextState.lineup = deepClone(currentLocalState.lineup || []);
+    nextState.rosterVersion = currentLocalState.rosterVersion ?? nextState.rosterVersion;
+  }
+
+  if (!pendingSharedGameIds.size && !pendingDeletedSharedGameIds.size) {
+    return nextState;
+  }
+
+  const localGamesById = new Map((currentLocalState.games || []).map((game) => [game?.id, game]).filter(([gameId]) => Boolean(gameId)));
+  const mergedGamesById = new Map((nextState.games || []).map((game) => [game?.id, game]).filter(([gameId]) => Boolean(gameId)));
+  const orderedIds = [];
+  const pushOrderedId = (gameId) => {
+    if (!gameId || orderedIds.includes(gameId)) return;
+    orderedIds.push(gameId);
+  };
+
+  (nextState.games || []).forEach((game) => pushOrderedId(game?.id));
+  (currentLocalState.games || []).forEach((game) => {
+    if (pendingSharedGameIds.has(game?.id)) pushOrderedId(game?.id);
+  });
+
+  pendingSharedGameIds.forEach((gameId) => {
+    const localGame = localGamesById.get(gameId);
+    if (!localGame || localGame.status === "active") return;
+    mergedGamesById.set(gameId, deepClone(localGame));
+    pushOrderedId(gameId);
+  });
+
+  pendingDeletedSharedGameIds.forEach((gameId) => {
+    mergedGamesById.delete(gameId);
+    nextState.deletedGameTombstones[gameId] = currentLocalState.deletedGameTombstones?.[gameId] || new Date().toISOString();
+  });
+
+  nextState.games = orderedIds.map((gameId) => mergedGamesById.get(gameId)).filter(Boolean);
+  if (pendingDeletedSharedGameIds.has(nextState.activeGameId)) nextState.activeGameId = "";
+  return nextState;
+}
+
 async function bootstrapSupabaseState() {
   if (!supabaseStorage?.isReady?.()) return null;
   if (supabaseBootstrapPromise) return supabaseBootstrapPromise;
@@ -1949,11 +2033,16 @@ async function refreshSupabaseState(reason = "refresh", options = {}) {
         console.warn("Unable to load Supabase scorebook snapshot.", error);
         return null;
       }
+      sharedWriteBaselineReady = true;
+      lastSharedBaselineAt = Date.now();
       if (!hasMeaningfulSupabaseSnapshot(data)) {
         console.info("Supabase is connected, but there is no shared scorebook data yet.");
         return null;
       }
-      const merged = supabaseStorage.mergeRemoteSnapshot(state, data.appState, data.games);
+      const merged = overlaySessionSharedChanges(
+        supabaseStorage.mergeRemoteSnapshot(state, data.appState, data.games),
+        state
+      );
       state = normalizeState(merged);
       saveState();
       render();
@@ -1970,8 +2059,21 @@ async function refreshSupabaseState(reason = "refresh", options = {}) {
   return supabaseRefreshPromise;
 }
 
+function invalidateSharedWriteBaseline() {
+  sharedWriteBaselineReady = false;
+  lastSharedBaselineAt = 0;
+}
+
+async function ensureFreshSharedBaseline(reason = "shared-write") {
+  if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return true;
+  if (sharedWriteBaselineReady && lastSharedBaselineAt) return true;
+  await refreshSupabaseState(`baseline-${reason}`, { force: true, skipWhenHidden: false });
+  return Boolean(sharedWriteBaselineReady && lastSharedBaselineAt);
+}
+
 function requestSupabaseRefresh(reason, options = {}) {
   if (!supabaseStorage?.isReady?.()) return;
+  if (options.invalidateBaseline !== false) invalidateSharedWriteBaseline();
   setTimeout(() => {
     refreshSupabaseState(reason, options).catch((error) => {
       console.warn(`Supabase refresh request failed (${reason}).`, error);
@@ -2028,6 +2130,14 @@ function applyDeletedGameIdsToState(sourceState, deleteGameIds = []) {
 
 async function syncSharedSnapshot(reason = "manual", options = {}) {
   if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return null;
+  if (!options.skipFreshBaselineCheck) {
+    const ready = await ensureFreshSharedBaseline(`sync-${reason}`);
+    if (!ready) {
+      const error = new Error("A fresh shared baseline could not be loaded before sync.");
+      console.warn(`Unable to sync shared scorebook snapshot (${reason}).`, error);
+      return { data: null, error };
+    }
+  }
   if (sharedSyncPromise) {
     await sharedSyncPromise;
     return syncSharedSnapshot(reason, options);
@@ -2043,8 +2153,11 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
       }
       if (hasMeaningfulSupabaseSnapshot(remoteBootstrap?.data)) {
         const mergedState = applyDeletedGameIdsToState(
-          normalizeState(
-            supabaseStorage.mergeRemoteSnapshot(sourceState, remoteBootstrap.data.appState, remoteBootstrap.data.games)
+          overlaySessionSharedChanges(
+            normalizeState(
+              supabaseStorage.mergeRemoteSnapshot(sourceState, remoteBootstrap.data.appState, remoteBootstrap.data.games)
+            ),
+            sourceState
           ),
           deleteGameIds
         );
@@ -2077,9 +2190,14 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
         if (syncedIds.length) {
           const syncedAt = new Date().toISOString();
           markSharedSnapshotGamesSynced(syncedIds, syncedAt);
-          saveState();
-          render();
         }
+        clearSharedSessionPending({
+          clearAppState: true,
+          syncedGameIds: syncedIds,
+          deletedGameIds: deleteGameIds
+        });
+        saveState();
+        render();
       }
       console.info(`Synced shared scorebook snapshot to Supabase (${reason}).`);
       return {
@@ -2099,7 +2217,17 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
 function requestSharedSnapshotSync(reason, options = {}) {
   if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return;
   setTimeout(() => {
-    syncSharedSnapshot(reason, options).catch((error) => {
+    (async () => {
+      if (!sharedWriteBaselineReady) {
+        console.info(`Delaying shared snapshot sync until a fresh remote baseline is loaded (${reason}).`);
+        const refreshed = await ensureFreshSharedBaseline(`delayed-${reason}`);
+        if (!refreshed) {
+          console.warn(`Shared snapshot sync still blocked after refresh (${reason}).`);
+          return null;
+        }
+      }
+      return syncSharedSnapshot(reason, options);
+    })().catch((error) => {
       console.warn(`Shared scorebook sync failed (${reason}).`, error);
     });
   }, 0);
@@ -2607,7 +2735,7 @@ async function initializeSupabaseAuth() {
         return;
       }
       if (session?.user) {
-        applySupabaseAdminState(session.user, { allowSeed: event === "SIGNED_IN" || event === "INITIAL_SESSION", allowOfflineCache: true })
+        applySupabaseAdminState(session.user, { allowSeed: false, allowOfflineCache: true })
           .catch((error) => console.warn("Unable to refresh Supabase admin state.", error));
       }
     }, 0);
@@ -4967,8 +5095,12 @@ function startNewGame() {
   render();
 }
 
-function scheduleGame() {
+async function scheduleGame() {
   if (!requireAdminAccess("Admin sign-in required to create games.")) return;
+  if (!(await ensureFreshSharedBaseline("schedule-game"))) {
+    window.alert("We couldn't refresh the latest shared schedule yet. Try again in a moment.");
+    return;
+  }
   const opponent = els.opponentInput.value.trim() || "Opponent";
   const date = selectedGameDate(els.gameDateInput);
   if (isPastGameDate(date)) {
@@ -4987,6 +5119,7 @@ function scheduleGame() {
   game.status = "scheduled";
   syncGameTeams(game, game.lionsSide);
   state.games.push(game);
+  markSharedGamesDirty(game.id);
   saveGameToLibrary(game, false);
   clearPendingPlayState(game, true);
   saveState();
@@ -5210,8 +5343,12 @@ function finishGame() {
   openGameSummary(current.id);
 }
 
-function addPlayer() {
+async function addPlayer() {
   if (!requireAdminAccess("Admin sign-in required to edit the roster.")) return;
+  if (!(await ensureFreshSharedBaseline("edit-roster"))) {
+    window.alert("We couldn't refresh the latest shared roster yet. Try again in a moment.");
+    return;
+  }
   const name = els.playerName.value.trim();
   if (!name) return;
   const existingPlayer = editingRosterPlayerId
@@ -5233,11 +5370,12 @@ function addPlayer() {
       els.playerPositions.value.trim() || "UTIL",
       els.playerBats.value,
       defaultPlayerGrades()
-    );
-    state.roster.push(player);
-    state.lineup.push(player.id);
-  }
-  resetPlayerForm();
+      );
+      state.roster.push(player);
+      state.lineup.push(player.id);
+    }
+    markSharedAppStateDirty();
+    resetPlayerForm();
   saveState();
   render();
   requestSharedSnapshotSync(existingPlayer ? "edit-player" : "add-player");
@@ -7423,11 +7561,12 @@ function renderRoster() {
       const grade = input.dataset.grade;
       input.value = player.grades[grade];
       setGradeFill(input);
-      input.addEventListener("input", () => {
-        player.grades[grade] = Number(input.value);
-        setGradeFill(input);
-        saveState();
-        optimizedIds = buildOptimizedLineup();
+        input.addEventListener("input", () => {
+          player.grades[grade] = Number(input.value);
+          setGradeFill(input);
+          markSharedAppStateDirty();
+          saveState();
+          optimizedIds = buildOptimizedLineup();
         renderOptimizedLineup();
         renderValueBoard();
         requestSharedSnapshotSync(`update-player-grade-${grade}`);
@@ -7445,12 +7584,17 @@ function setGradeFill(input) {
   input.style.setProperty("--grade-fill", `${pct}%`);
 }
 
-function togglePlayerActive(playerId, isActive) {
+async function togglePlayerActive(playerId, isActive) {
+  if (!(await ensureFreshSharedBaseline("toggle-player-active"))) {
+    window.alert("We couldn't refresh the latest shared roster yet. Try again in a moment.");
+    return;
+  }
   if (isActive && !state.lineup.includes(playerId)) state.lineup.push(playerId);
   if (!isActive) state.lineup = state.lineup.filter((id) => id !== playerId);
   state.roster = state.roster.map((player) => (player.id === playerId ? { ...player, active: isActive } : player));
   const game = activeScoreGame();
   if (game) game.batterIndex = Math.min(game.batterIndex, Math.max(state.lineup.length - 1, 0));
+  markSharedAppStateDirty();
   saveState();
   optimizedIds = buildOptimizedLineup();
   render();
@@ -7774,8 +7918,12 @@ function renderGameEditorPreview() {
   els.editTeamIndicator.innerHTML = `<span>Away: ${escapeHtml(away)}</span><strong>Home: ${escapeHtml(home)}</strong>`;
 }
 
-function saveGameEdits() {
+async function saveGameEdits() {
   if (!requireAdminAccess("Admin sign-in required to edit games.")) return;
+  if (!(await ensureFreshSharedBaseline("save-game-edits"))) {
+    window.alert("We couldn't refresh the latest shared schedule yet. Try again in a moment.");
+    return;
+  }
   const game = state.games.find((item) => item.id === gameEditId);
   if (!game) return;
   if (gameIsFinal(game)) return;
@@ -7791,21 +7939,27 @@ function saveGameEdits() {
   syncGameTeams(game, els.editLionsSideInput.value || lionsSide(game));
   game.date = date;
   game.time = els.editTimeInput.value || "";
-  game.location = location.name;
-  game.locationAddress = location.address;
-  game.notes = els.editNotesInput.value.trim();
-  saveState();
+    game.location = location.name;
+    game.locationAddress = location.address;
+    game.notes = els.editNotesInput.value.trim();
+    markSharedGamesDirty(game.id);
+    saveState();
   render();
   requestSharedSnapshotSync("save-game-edits");
 }
 
-function removeScheduledGame(gameId) {
+async function removeScheduledGame(gameId) {
   if (!requireAdminAccess("Admin sign-in required to remove games.")) return;
+  if (!(await ensureFreshSharedBaseline("remove-scheduled-game"))) {
+    window.alert("We couldn't refresh the latest shared schedule yet. Try again in a moment.");
+    return;
+  }
   const game = state.games.find((item) => item.id === gameId);
   if (!game) return;
   const ok = window.confirm(`Remove ${game.opponent} on ${game.date || "this date"}?`);
   if (!ok) return;
   deleteGame(gameId);
+  markSharedGamesDeleted(gameId);
   rememberDeletedGame(gameId);
   dequeueCompletedGameSync(gameId);
   if (!state.activeGameId) state.activeGameId = inProgressGames()[0]?.id || "";

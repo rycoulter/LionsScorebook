@@ -50,22 +50,13 @@
     };
   }
 
-  function hasCloudSyncedGameRecord(game) {
-    const sync = game?.sync || {};
-    return Boolean(sync.lastSyncedAt) || sync.status === "synced";
-  }
-
   function mergeRemoteSnapshot(baseState, appStateRow, gamesRows) {
     const nextState = deepClone(baseState || {});
     const remoteMetadata = appStateRow?.metadata && typeof appStateRow.metadata === "object" ? appStateRow.metadata : {};
     const remoteDeletedGameTombstones = remoteMetadata.deleted_game_tombstones && typeof remoteMetadata.deleted_game_tombstones === "object"
       ? deepClone(remoteMetadata.deleted_game_tombstones)
       : {};
-    const currentGames = Array.isArray(nextState.games) ? nextState.games : [];
-    nextState.deletedGameTombstones = deepClone({
-      ...(nextState.deletedGameTombstones || {}),
-      ...remoteDeletedGameTombstones
-    });
+    nextState.deletedGameTombstones = deepClone(remoteDeletedGameTombstones);
     if (appStateRow) {
       if (Array.isArray(appStateRow.roster) && appStateRow.roster.length) {
         nextState.roster = deepClone(appStateRow.roster);
@@ -112,9 +103,6 @@
           seenIds.add(gameId);
           remoteGamesById.delete(gameId);
           return;
-        }
-        if (!hasCloudSyncedGameRecord(game)) {
-          mergedGames.push(game);
         }
         seenIds.add(gameId);
       });
