@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-21
 
 ### Changed
+- Fixed an offline scoring regression after the new shared-baseline work: when a coach finished a game offline, that locally completed final is now marked as a current-session shared game change, so reconnecting and refreshing no longer lets the older remote scheduled version overwrite the final before the completed-game sync queue can publish it.
 - Reworked shared mobile/admin sync safety again so refreshing an already-open device now pulls the latest remote baseline before any shared write can publish, disables automatic admin-session seed behavior, treats the remote schedule snapshot as authoritative on refresh, and preserves only the roster/game edits made in the current foreground session instead of letting stale local games survive and later re-post themselves to Supabase.
 - Fixed the immediate shared-game removal regression where delete tombstones were being normalized against the pre-delete game list, causing the removed game to disappear briefly and then snap back. The tombstone helper now excludes the target game while normalizing, and the remove flow records the tombstone after local deletion.
 - Fixed the remaining stale-device delete bug where a remote deleted-game tombstone could get cleared too early during bootstrap merge just because an older local phone still had that game saved; remote tombstones now remain authoritative until the stale local copy is filtered out, so removed shared games should stop reappearing on refresh.

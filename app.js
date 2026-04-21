@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.7";
+const APP_VERSION = "v.1.0.8";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -5322,6 +5322,7 @@ function completeScheduledGame(gameId) {
   if (!game) return;
   if (game.status !== "active") return;
   game.status = "completed";
+  markSharedGamesDirty(game.id);
   markGameSyncPending(game);
   clearPendingPlayState(game, true);
   moveActiveGameOffFinal(game.id);
@@ -5334,6 +5335,7 @@ function finishGame() {
   const current = activeGame();
   if (gameIsScoreLocked(current)) return;
   current.status = "completed";
+  markSharedGamesDirty(current.id);
   markGameSyncPending(current);
   clearPendingPlayState(current, true);
   moveActiveGameOffFinal(current.id);
