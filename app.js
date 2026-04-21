@@ -506,7 +506,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-119";
+const APP_VERSION = "2026.04.20-build-120";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -1909,7 +1909,7 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
   if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return null;
   if (sharedSyncPromise) return sharedSyncPromise;
   sharedSyncPromise = (async () => {
-    const snapshot = buildSharedSnapshot(state);
+    const snapshot = buildSharedSnapshot(options?.sourceState || state);
     const deleteGameIds = Array.isArray(options?.deleteGameIds) ? options.deleteGameIds.filter(Boolean) : [];
     try {
       const [appStateResponse, gamesResponse] = await Promise.all([
@@ -1997,6 +1997,27 @@ function markGameSyncFailed(game, error) {
   game.sync.lastError = error?.message || String(error || "Unable to sync game.");
 }
 
+function buildCompletedGamePublishedState(sourceState, gameIds = []) {
+  const ids = new Set((Array.isArray(gameIds) ? gameIds : [gameIds]).filter(Boolean));
+  if (!ids.size) return deepClone(sourceState || {});
+  const snapshotState = deepClone(sourceState || {});
+  const timestamp = new Date().toISOString();
+  snapshotState.games = (snapshotState.games || []).map((game) => {
+    if (!ids.has(game?.id) || !gameIsFinal(game)) return game;
+    return {
+      ...game,
+      sync: {
+        ...normalizeGameSyncState(game.sync),
+        status: "synced",
+        lastSyncedAt: timestamp,
+        lastAttemptAt: timestamp,
+        lastError: ""
+      }
+    };
+  });
+  return snapshotState;
+}
+
 async function processCompletedGameSyncQueue(reason = "auto") {
   if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return null;
   if (typeof navigator !== "undefined" && !navigator.onLine) return null;
@@ -2017,7 +2038,9 @@ async function processCompletedGameSyncQueue(reason = "auto") {
       saveStateWithOptions({ markLiveGamesDirty: false });
       render();
 
-      const syncResponse = await syncSharedSnapshot(`completed-game-queue-${reason}`);
+      const syncResponse = await syncSharedSnapshot(`completed-game-queue-${reason}`, {
+        sourceState: buildCompletedGamePublishedState(state, queuedIds)
+      });
       const error = syncResponse?.error || null;
       if (error) {
         updateCompletedGameSyncQueueAttempt(queuedIds, error);
@@ -2027,14 +2050,10 @@ async function processCompletedGameSyncQueue(reason = "auto") {
         return { data: null, error };
       }
 
-      const syncedFinalIds = state.games.filter((game) => gameIsFinal(game)).map((game) => game.id);
-      state.games.filter((game) => gameIsFinal(game)).forEach((game) => markGameSyncSucceeded(game));
-      dequeueCompletedGameSync(syncedFinalIds);
+      queuedGames.forEach((game) => markGameSyncSucceeded(game));
+      dequeueCompletedGameSync(queuedIds);
       saveStateWithOptions({ markLiveGamesDirty: false });
       render();
-      syncSharedSnapshot("sync-completed-game-status").catch((persistError) => {
-        console.warn("Unable to persist completed-game sync status after publish.", persistError);
-      });
       return syncResponse;
     } finally {
       completedGameSyncQueuePromise = null;
