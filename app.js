@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.5";
+const APP_VERSION = "v.1.0.6";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -1668,10 +1668,11 @@ function normalizeDeletedGameTombstones(tombstones = {}, games = []) {
 
 function rememberDeletedGame(gameId, deletedAt = new Date().toISOString()) {
   if (!gameId) return;
+  const remainingGames = (state.games || []).filter((game) => game?.id !== gameId);
   state.deletedGameTombstones = normalizeDeletedGameTombstones({
     ...(state.deletedGameTombstones || {}),
     [gameId]: deletedAt
-  }, state.games);
+  }, remainingGames);
 }
 
 function isGameDeletedTombstoned(gameId, sourceState = state) {
@@ -7804,8 +7805,8 @@ function removeScheduledGame(gameId) {
   if (!game) return;
   const ok = window.confirm(`Remove ${game.opponent} on ${game.date || "this date"}?`);
   if (!ok) return;
-  rememberDeletedGame(gameId);
   deleteGame(gameId);
+  rememberDeletedGame(gameId);
   dequeueCompletedGameSync(gameId);
   if (!state.activeGameId) state.activeGameId = inProgressGames()[0]?.id || "";
   if (gameEditId === gameId) gameEditId = null;
