@@ -3032,14 +3032,84 @@ button:focus-visible {
 }
 
 .stats-spray-chart {
-  max-width: 680px;
-  min-height: 330px;
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  min-height: 0;
+  aspect-ratio: 4 / 3;
   margin: 0 auto 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.12), transparent 26%),
+    linear-gradient(180deg, #92e388 0%, #77d171 44%, #60b75e 100%);
 }
 
-.stats-spray-chart .fielder-icon {
-  opacity: 0.72;
-  transform: scale(0.88);
+.stats-spray-chart::before,
+.stats-spray-chart::after {
+  content: none;
+}
+
+.stats-spray-chart > * {
+  position: absolute;
+}
+
+.stats-field-background {
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 10px;
+}
+
+.stats-field-background-art {
+  width: 100%;
+  height: 100%;
+}
+
+.stats-spray-chart-overlay {
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.stats-spray-markers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#statsView .stats-spray-chart .spray-dot {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 7px;
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 999px;
+  background: #111827;
+  color: #f8fafc;
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
+}
+
+#statsView .stats-spray-chart .spray-dot.hit {
+  border-color: #f0be62;
+  color: #f7d27d;
+}
+
+#statsView .stats-spray-chart .spray-dot.out {
+  border-color: #ff8f8f;
+  color: #ffd0d0;
+}
+
+#statsView .stats-spray-chart .spray-empty {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(7, 16, 29, 0.76);
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .stats-table th button {
@@ -3598,12 +3668,6 @@ button:focus-visible {
 .scout-plan li {
   color: var(--charcoal);
   line-height: 1.4;
-}
-
-.stats-spray-chart {
-  max-width: 680px;
-  min-height: 330px;
-  margin: 0 auto 14px;
 }
 
 .stats-table {

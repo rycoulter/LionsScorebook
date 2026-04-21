@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.8";
+const APP_VERSION = "v.1.0.9";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -7100,7 +7100,11 @@ function renderSprayDot({ event, game }, options = {}) {
   const player = state.roster.find((item) => item.id === event.playerId);
   const kind = rule.hit ? "hit" : "out";
   const title = `${player?.name || "Unknown"} ${rule.label} vs ${game.opponent} (${event.spray.zone})`;
-  const label = options.compact ? (rule.hit ? "H" : "O") : event.result || (rule.hit ? "H" : "O");
+  const label = options.resultLabel
+    ? (event.result || (rule.hit ? "H" : "O"))
+    : options.compact
+      ? (rule.hit ? "H" : "O")
+      : event.result || (rule.hit ? "H" : "O");
   return `<span class="spray-dot ${kind}" style="left:${event.spray.x}%;top:${event.spray.y}%;" title="${escapeHtml(title)}">${label}</span>`;
 }
 
@@ -9592,7 +9596,7 @@ function renderStatsSprayChart() {
     .flatMap((game) => game.events.map((event) => ({ event, game })))
     .filter(({ event, game }) => event.spray && event.playerId === playerId && (gameId === "all" || game.id === gameId));
   els.statsSprayMarkers.innerHTML = events.length
-    ? events.map((item) => renderSprayDot(item, { compact: true })).join("")
+    ? events.map((item) => renderSprayDot(item, { resultLabel: true })).join("")
     : `<span class="spray-empty">No tracked batted balls</span>`;
 }
 
