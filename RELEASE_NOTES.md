@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-21
 
 ### Changed
+- Added a Lions-only full-screen win animation at the end of Score Game, then routed completed games into the existing Game Summary flow once the celebration finishes.
 - Improved the Box Score mobile view so opening it now resets to the top of the page, trims the phone header/summary spacing, and keeps horizontal overflow contained to the swipeable score tables instead of making the whole page feel zoomed in.
 - Tightened the Box Score phone layout again by reducing the header/picker bulk, compacting the matchup summary, and making the line score section less top-heavy before the batting and pitching details.
 - Reworked the Box Score page on phones again so the batting and pitching sections now read as stacked mobile stat cards instead of compressed desktop tables, while the line score remains a tighter swipeable table.

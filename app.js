@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.21-build-142";
+const APP_VERSION = "2026.04.21-build-143";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -563,6 +563,9 @@ const BATTER_INTRO_DURATION_MS = 3000;
 let batterIntroTimer = null;
 let visibleBatterIntroKey = "";
 let gameSummaryId = "";
+let lionsWinAnimationTimer = null;
+let activeLionsWinAnimationGameId = "";
+const playedLionsWinAnimationGameIds = new Set();
 let bipOutcomeChosen = false;
 let awaitingSprayLocation = false;
 let awaitingRunnerDecision = false;
@@ -790,6 +793,10 @@ const els = {
   gameSummaryMeta: document.getElementById("gameSummaryMeta"),
   gameSummaryBody: document.getElementById("gameSummaryBody"),
   closeGameSummaryBtn: document.getElementById("closeGameSummaryBtn"),
+  lionsWinOverlay: document.getElementById("lionsWinOverlay"),
+  lionsWinText: document.getElementById("lionsWinText"),
+  lionsWinLeft: document.getElementById("lionsWinLeft"),
+  lionsWinRight: document.getElementById("lionsWinRight"),
   metricsGrid: document.getElementById("metricsGrid"),
   gameBreakdown: document.getElementById("gameBreakdown"),
   boxScoreTitle: document.getElementById("boxScoreTitle"),
@@ -5048,6 +5055,40 @@ function openGameStats(gameId) {
   switchView("stats");
 }
 
+function lionsWonGame(game) {
+  return Boolean(gameIsFinal(game) && Number(game?.score?.lions || 0) > Number(game?.score?.opponent || 0));
+}
+
+function resetLionsWinAnimation() {
+  if (lionsWinAnimationTimer) {
+    clearTimeout(lionsWinAnimationTimer);
+    lionsWinAnimationTimer = null;
+  }
+  activeLionsWinAnimationGameId = "";
+  if (!els.lionsWinOverlay) return;
+  els.lionsWinOverlay.classList.remove("is-active");
+  els.lionsWinOverlay.hidden = true;
+  els.lionsWinOverlay.setAttribute("aria-hidden", "true");
+}
+
+function playLionsWinAnimation(gameId, onComplete) {
+  if (!els.lionsWinOverlay || !gameId) return false;
+  if (activeLionsWinAnimationGameId === gameId || playedLionsWinAnimationGameIds.has(gameId)) return false;
+  playedLionsWinAnimationGameIds.add(gameId);
+  activeLionsWinAnimationGameId = gameId;
+  if (lionsWinAnimationTimer) clearTimeout(lionsWinAnimationTimer);
+  els.lionsWinOverlay.hidden = false;
+  els.lionsWinOverlay.setAttribute("aria-hidden", "false");
+  requestAnimationFrame(() => {
+    els.lionsWinOverlay?.classList.add("is-active");
+  });
+  lionsWinAnimationTimer = setTimeout(() => {
+    resetLionsWinAnimation();
+    onComplete?.();
+  }, 1960);
+  return true;
+}
+
 function completeScheduledGame(gameId) {
   if (!requireAdminAccess("Admin sign-in required to change game status.")) return;
   const game = state.games.find((item) => item.id === gameId);
@@ -5071,7 +5112,8 @@ function finishGame() {
   moveActiveGameOffFinal(current.id);
   saveStateWithOptions({ markLiveGamesDirty: false });
   render();
-  switchView("games");
+  if (lionsWonGame(current) && playLionsWinAnimation(current.id, () => openGameSummary(current.id))) return;
+  openGameSummary(current.id);
 }
 
 function addPlayer() {
