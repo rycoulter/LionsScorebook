@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Updated pitcher decision logic for 7-inning games so a starter now qualifies for the win at 4 innings (12 outs), and `ND` is only assigned to the starting pitcher instead of every reliever who appeared.
 - Fixed a shared-sync race where removing or editing games could be skipped if another Supabase snapshot sync was already in flight, which let deleted schedule items reappear from the cloud on refresh or another device.
 - Fixed batting `GP` on the Stats page so scheduled/unplayed games no longer count toward every hitter's games played just because they inherit a default lineup shell.
 - Added a stronger Lions `Now Hitting` walk-up card before each new at-bat that spotlights the current batter with On Deck and In The Hole behind them, briefly pauses pitch entry, and then auto-dismisses or lets the scorer tap `Start At-Bat` to continue immediately.

@@ -506,7 +506,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-125";
+const APP_VERSION = "2026.04.20-build-126";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -6277,7 +6277,7 @@ function winningPitcherIdForLions(game) {
   if (!pitcherOfRecordId) return "";
   const starter = appearances[0];
   const pitcherOfRecordAppearance = appearances.find((appearance) => appearance.pitcherId === pitcherOfRecordId) || null;
-  const starterEligible = starter?.pitcherId === pitcherOfRecordId && starter.outs >= 15;
+  const starterEligible = starter?.pitcherId === pitcherOfRecordId && starter.outs >= 12;
   if (starterEligible) return pitcherOfRecordId;
   if (pitcherOfRecordAppearance && pitcherOfRecordAppearance.pitcherId !== starter?.pitcherId) {
     if (!isBriefIneffectiveReliefAppearance(pitcherOfRecordAppearance)) return pitcherOfRecordId;
@@ -6299,11 +6299,12 @@ function losingPitcherIdForLions(game) {
 function lionsPitchingDecision(game) {
   const appearances = buildLionsPitcherAppearances(game);
   const pitcherIds = [...new Set(appearances.map((appearance) => appearance.pitcherId).filter(Boolean))];
+  const starterId = appearances[0]?.pitcherId || "";
   if (!gameIsFinal(game) || !pitcherIds.length) {
     return { winPitcherId: "", lossPitcherId: "", noDecisionPitcherIds: [] };
   }
   if (gameIsTied(game)) {
-    return { winPitcherId: "", lossPitcherId: "", noDecisionPitcherIds: pitcherIds };
+    return { winPitcherId: "", lossPitcherId: "", noDecisionPitcherIds: starterId ? [starterId] : [] };
   }
   const winPitcherId = winningPitcherIdForLions(game);
   const lossPitcherId = losingPitcherIdForLions(game);
@@ -6311,13 +6312,13 @@ function lionsPitchingDecision(game) {
     return {
       winPitcherId,
       lossPitcherId: "",
-      noDecisionPitcherIds: pitcherIds.filter((id) => id !== winPitcherId)
+      noDecisionPitcherIds: starterId && starterId !== winPitcherId ? [starterId] : []
     };
   }
   return {
     winPitcherId: "",
     lossPitcherId,
-    noDecisionPitcherIds: pitcherIds.filter((id) => id !== lossPitcherId)
+    noDecisionPitcherIds: starterId && starterId !== lossPitcherId ? [starterId] : []
   };
 }
 
