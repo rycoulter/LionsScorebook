@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.1";
+const APP_VERSION = "v.1.0.2";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -2010,17 +2010,15 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
     let sourceState = options?.sourceState || state;
     const deleteGameIds = Array.isArray(options?.deleteGameIds) ? options.deleteGameIds.filter(Boolean) : [];
     try {
-      const remoteAppStateResponse = await supabaseStorage.fetchAppState();
-      const remoteDeletedGameTombstones = remoteAppStateResponse?.data?.metadata?.deleted_game_tombstones;
-      if (remoteDeletedGameTombstones && typeof remoteDeletedGameTombstones === "object") {
-        const mergedState = normalizeState({
-          ...deepClone(sourceState),
-          deletedGameTombstones: {
-            ...(sourceState?.deletedGameTombstones || {}),
-            ...remoteDeletedGameTombstones
-          },
-          games: (sourceState?.games || []).filter((game) => !remoteDeletedGameTombstones[game?.id || ""])
-        });
+      const remoteBootstrap = await supabaseStorage.fetchBootstrap();
+      if (remoteBootstrap?.error) {
+        console.warn(`Unable to load remote scorebook snapshot before sync (${reason}).`, remoteBootstrap.error);
+        return { data: null, error: remoteBootstrap.error };
+      }
+      if (hasMeaningfulSupabaseSnapshot(remoteBootstrap?.data)) {
+        const mergedState = normalizeState(
+          supabaseStorage.mergeRemoteSnapshot(sourceState, remoteBootstrap.data.appState, remoteBootstrap.data.games)
+        );
         if (sourceState === state) {
           state = mergedState;
           saveState();
@@ -2538,7 +2536,7 @@ async function submitAdminCredentials() {
     els.adminPasswordInput?.select();
     return;
   }
-  const granted = await applySupabaseAdminState(data.user, { allowSeed: true, preserveModal: true, allowOfflineCache: true });
+  const granted = await applySupabaseAdminState(data.user, { allowSeed: false, preserveModal: true, allowOfflineCache: true });
   if (granted && els.adminAuthMessage) els.adminAuthMessage.textContent = `Signed in as ${data.user.email}.`;
   setAdminAuthBusy(false);
 }
@@ -2582,7 +2580,7 @@ async function initializeSupabaseAuth() {
     }
     const sessionUser = data?.session?.user || null;
     if (sessionUser) {
-      await applySupabaseAdminState(sessionUser, { allowSeed: true, allowOfflineCache: true });
+      await applySupabaseAdminState(sessionUser, { allowSeed: false, allowOfflineCache: true });
     } else if (restoreOfflineTrustedAdminMode()) {
       console.info("Restored trusted admin mode for offline PWA use.");
     } else if (accessMode !== "public") {

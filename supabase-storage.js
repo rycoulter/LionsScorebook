@@ -50,11 +50,6 @@
     };
   }
 
-  function hasCloudSyncedGameRecord(game) {
-    const sync = game?.sync || {};
-    return Boolean(sync.lastSyncedAt) || sync.status === "synced";
-  }
-
   function mergeRemoteSnapshot(baseState, appStateRow, gamesRows) {
     const nextState = deepClone(baseState || {});
     const remoteMetadata = appStateRow?.metadata && typeof appStateRow.metadata === "object" ? appStateRow.metadata : {};
@@ -104,19 +99,19 @@
           seenIds.add(gameId);
           return;
         }
-        if (remoteGame && game.status !== "active") {
+        if (game.status === "active") {
+          mergedGames.push(game);
+          seenIds.add(gameId);
+          remoteGamesById.delete(gameId);
+          return;
+        }
+        if (remoteGame) {
           mergedGames.push(remoteGame);
           seenIds.add(gameId);
           remoteGamesById.delete(gameId);
           return;
         }
-        if (!remoteGame && game.status !== "active" && hasCloudSyncedGameRecord(game)) {
-          seenIds.add(gameId);
-          return;
-        }
-        mergedGames.push(game);
         seenIds.add(gameId);
-        remoteGamesById.delete(gameId);
       });
       remoteGamesById.forEach((game, gameId) => {
         if (!gameId || seenIds.has(gameId)) return;
