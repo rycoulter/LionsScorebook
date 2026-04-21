@@ -224,16 +224,16 @@ textarea:disabled {
 .lions-win-logo-wrap {
   position: absolute;
   inset-inline: 0;
-  bottom: 16%;
+  bottom: 10%;
   display: flex;
   justify-content: center;
 }
 
 .lions-win-logo-stage {
   position: relative;
-  width: 78%;
-  max-width: 560px;
-  aspect-ratio: 1 / 1;
+  width: min(72vw, 500px);
+  max-width: 78%;
+  aspect-ratio: 2587 / 3247;
 }
 
 .lions-win-half {
@@ -247,12 +247,12 @@ textarea:disabled {
 }
 
 .lions-win-half-left {
-  object-position: left center;
+  object-position: left top;
   transform: translateX(-320px);
 }
 
 .lions-win-half-right {
-  object-position: right center;
+  object-position: right top;
   transform: translateX(320px);
 }
 
