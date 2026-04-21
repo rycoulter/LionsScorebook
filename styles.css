@@ -234,26 +234,30 @@ textarea:disabled {
   width: min(72vw, 500px);
   max-width: 78%;
   aspect-ratio: 2587 / 3247;
+  --lions-win-left-width: 48.706997%;
+  --lions-win-right-width: 51.293003%;
 }
 
 .lions-win-half {
   position: absolute;
-  inset: 0;
-  width: 100%;
+  top: 0;
   height: 100%;
-  object-fit: contain;
+  object-fit: fill;
   pointer-events: none;
   opacity: 1;
+  will-change: transform;
 }
 
 .lions-win-half-left {
-  object-position: left top;
-  transform: translateX(-320px);
+  left: 0;
+  width: var(--lions-win-left-width);
+  transform: translateX(-112%);
 }
 
 .lions-win-half-right {
-  object-position: right top;
-  transform: translateX(320px);
+  right: 0;
+  width: var(--lions-win-right-width);
+  transform: translateX(112%);
 }
 
 .lions-win-overlay.is-active .lions-win-half-left {
@@ -273,12 +277,12 @@ textarea:disabled {
 }
 
 @keyframes lionsWinHalfLeft {
-  from { transform: translateX(-320px); }
+  from { transform: translateX(-112%); }
   to { transform: translateX(0); }
 }
 
 @keyframes lionsWinHalfRight {
-  from { transform: translateX(320px); }
+  from { transform: translateX(112%); }
   to { transform: translateX(0); }
 }
 

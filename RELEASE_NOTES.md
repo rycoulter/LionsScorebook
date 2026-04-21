@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-21
 
 ### Changed
+- Tightened the Lions win animation seam by sizing the left and right lion-half images according to their real asset widths instead of stretching both halves across the same frame, so the split logo should align much more cleanly when it slides together.
 - Updated the Stats-page spray chart to match the cleaner Score Game field direction more closely by swapping in the newer field look and using actual result markers like `1B`, `2B`, `HR`, `GO`, and `FO` instead of generic hit/out markers, while leaving the live Score Game spray chart untouched.
 - Fixed an offline scoring regression after the new shared-baseline work: when a coach finished a game offline, that locally completed final is now marked as a current-session shared game change, so reconnecting and refreshing no longer lets the older remote scheduled version overwrite the final before the completed-game sync queue can publish it.
 - Reworked shared mobile/admin sync safety again so refreshing an already-open device now pulls the latest remote baseline before any shared write can publish, disables automatic admin-session seed behavior, treats the remote schedule snapshot as authoritative on refresh, and preserves only the roster/game edits made in the current foreground session instead of letting stale local games survive and later re-post themselves to Supabase.
