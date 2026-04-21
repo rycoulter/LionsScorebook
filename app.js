@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.3";
+const APP_VERSION = "v.1.0.4";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -2013,6 +2013,18 @@ function markSharedSnapshotGamesSynced(gameIds = [], timestamp = new Date().toIS
   });
 }
 
+function applyDeletedGameIdsToState(sourceState, deleteGameIds = []) {
+  const ids = new Set((Array.isArray(deleteGameIds) ? deleteGameIds : [deleteGameIds]).filter(Boolean));
+  if (!ids.size) return sourceState;
+  const nextState = normalizeState(deepClone(sourceState || state));
+  nextState.games = (nextState.games || []).filter((game) => !ids.has(game?.id));
+  ids.forEach((gameId) => {
+    nextState.deletedGameTombstones[gameId] = new Date().toISOString();
+  });
+  if (ids.has(nextState.activeGameId)) nextState.activeGameId = "";
+  return nextState;
+}
+
 async function syncSharedSnapshot(reason = "manual", options = {}) {
   if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return null;
   if (sharedSyncPromise) {
@@ -2029,8 +2041,11 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
         return { data: null, error: remoteBootstrap.error };
       }
       if (hasMeaningfulSupabaseSnapshot(remoteBootstrap?.data)) {
-        const mergedState = normalizeState(
-          supabaseStorage.mergeRemoteSnapshot(sourceState, remoteBootstrap.data.appState, remoteBootstrap.data.games)
+        const mergedState = applyDeletedGameIdsToState(
+          normalizeState(
+            supabaseStorage.mergeRemoteSnapshot(sourceState, remoteBootstrap.data.appState, remoteBootstrap.data.games)
+          ),
+          deleteGameIds
         );
         if (sourceState === state) {
           state = mergedState;
@@ -2040,6 +2055,8 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
         } else {
           sourceState = mergedState;
         }
+      } else if (deleteGameIds.length) {
+        sourceState = applyDeletedGameIdsToState(sourceState, deleteGameIds);
       }
       const snapshot = buildSharedSnapshot(sourceState);
       const [appStateResponse, gamesResponse] = await Promise.all([
