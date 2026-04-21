@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-20
 
 ### Changed
+- Hardened shared game deletion across devices by adding durable deleted-game tombstones to shared app state and filtering shared sync snapshots against those tombstones before any upsert, which prevents stale cached devices from republishing games that were intentionally removed.
 - Expanded the Home page Team Leaders snapshot again to a six-card batting row and six-card pitching row, adding Runs and OBP for hitters plus Strike % and K/9 for pitchers so the widened dashboard space is fully used.
 - Expanded the Home page Team Leaders panel to span the freed-up standings space on desktop and tablet, so the added Hits and ERA leader cards no longer wrap awkwardly into an empty column.
 - Expanded the Home page Team Leaders snapshot to show batting hits and pitching ERA, and added ERA to the season pitching stats views on both desktop and mobile.

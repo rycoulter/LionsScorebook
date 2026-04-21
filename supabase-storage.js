@@ -18,6 +18,10 @@
   }
 
   function buildAppStateRow(state) {
+    const deletedGameTombstones = deepClone(state?.deletedGameTombstones || {});
+    const currentGameIds = Array.isArray(state?.games)
+      ? state.games.map((game) => game?.id).filter(Boolean).filter((gameId) => !deletedGameTombstones[gameId])
+      : [];
     return {
       id: "primary",
       roster: deepClone(state?.roster || []),
@@ -26,7 +30,9 @@
       active_game_id: state?.activeGameId || "",
       metadata: {
         updated_from: "scorebook-app",
-        games_count: Array.isArray(state?.games) ? state.games.length : 0
+        games_count: currentGameIds.length,
+        current_game_ids: currentGameIds,
+        deleted_game_tombstones: deletedGameTombstones
       }
     };
   }
@@ -51,6 +57,18 @@
 
   function mergeRemoteSnapshot(baseState, appStateRow, gamesRows) {
     const nextState = deepClone(baseState || {});
+    const remoteMetadata = appStateRow?.metadata && typeof appStateRow.metadata === "object" ? appStateRow.metadata : {};
+    const remoteDeletedGameTombstones = remoteMetadata.deleted_game_tombstones && typeof remoteMetadata.deleted_game_tombstones === "object"
+      ? deepClone(remoteMetadata.deleted_game_tombstones)
+      : {};
+    const currentGames = Array.isArray(nextState.games) ? nextState.games : [];
+    nextState.deletedGameTombstones = deepClone({
+      ...(nextState.deletedGameTombstones || {}),
+      ...remoteDeletedGameTombstones
+    });
+    currentGames.forEach((game) => {
+      if (game?.id && nextState.deletedGameTombstones[game.id]) delete nextState.deletedGameTombstones[game.id];
+    });
     if (appStateRow) {
       if (Array.isArray(appStateRow.roster) && appStateRow.roster.length) {
         nextState.roster = deepClone(appStateRow.roster);
@@ -82,6 +100,10 @@
         const gameId = game?.id || "";
         if (!gameId || seenIds.has(gameId)) return;
         const remoteGame = remoteGamesById.get(gameId);
+        if (!remoteGame && nextState.deletedGameTombstones?.[gameId]) {
+          seenIds.add(gameId);
+          return;
+        }
         if (remoteGame && game.status !== "active") {
           mergedGames.push(remoteGame);
           seenIds.add(gameId);
@@ -102,6 +124,9 @@
         seenIds.add(gameId);
       });
       nextState.games = mergedGames;
+      mergedGames.forEach((game) => {
+        if (game?.id && nextState.deletedGameTombstones?.[game.id]) delete nextState.deletedGameTombstones[game.id];
+      });
     }
     return nextState;
   }

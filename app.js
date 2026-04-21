@@ -506,7 +506,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "2026.04.20-build-130";
+const APP_VERSION = "2026.04.20-build-131";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -1305,6 +1305,7 @@ function seedState() {
     rosterVersion: ROSTER_VERSION,
     lineup: defaultRoster.filter((player) => player.active).map((player) => player.id),
     completedGameSyncQueue: [],
+    deletedGameTombstones: {},
     games: [],
     activeGameId: ""
   };
@@ -1404,6 +1405,7 @@ function normalizeState(nextState) {
   nextState.games = nextState.games
     .map((game) => normalizeGame(game, nextState))
     .filter((game) => !isLegacySeedGame(game));
+  nextState.deletedGameTombstones = normalizeDeletedGameTombstones(nextState.deletedGameTombstones, nextState.games);
   nextState.completedGameSyncQueue = normalizeCompletedGameSyncQueue(nextState.completedGameSyncQueue, nextState.games);
   if (rosterWasReplaced) {
     nextState.games.forEach((game) => resetGameAwayLineupToRoster(game, nextState));
@@ -1628,6 +1630,28 @@ function normalizeGameSyncState(sync = {}) {
     lastSyncedAt: sync?.lastSyncedAt || "",
     lastError: sync?.lastError || ""
   };
+}
+
+function normalizeDeletedGameTombstones(tombstones = {}, games = []) {
+  const activeIds = new Set((Array.isArray(games) ? games : []).map((game) => game?.id).filter(Boolean));
+  const normalized = Object.entries(tombstones && typeof tombstones === "object" ? tombstones : {})
+    .filter(([gameId, deletedAt]) => gameId && deletedAt && !activeIds.has(gameId))
+    .sort((left, right) => String(right[1]).localeCompare(String(left[1])))
+    .slice(0, 250);
+  return Object.fromEntries(normalized);
+}
+
+function rememberDeletedGame(gameId, deletedAt = new Date().toISOString()) {
+  if (!gameId) return;
+  state.deletedGameTombstones = normalizeDeletedGameTombstones({
+    ...(state.deletedGameTombstones || {}),
+    [gameId]: deletedAt
+  }, state.games);
+}
+
+function isGameDeletedTombstoned(gameId, sourceState = state) {
+  if (!gameId) return false;
+  return Boolean(sourceState?.deletedGameTombstones?.[gameId]);
 }
 
 function normalizeCompletedGameSyncJob(job = {}) {
@@ -1904,7 +1928,7 @@ function isCloudSyncedGame(game) {
 
 function buildSharedSnapshot(sourceState = state) {
   const sharedGames = (sourceState?.games || [])
-    .filter(isCloudSyncedGame)
+    .filter((game) => isCloudSyncedGame(game) && !isGameDeletedTombstoned(game?.id, sourceState))
     .map((game) => {
       const sharedGame = deepClone(game);
       sharedGame.sync = stableGameSyncState(game);
@@ -1914,6 +1938,7 @@ function buildSharedSnapshot(sourceState = state) {
     roster: deepClone(sourceState?.roster || []),
     lineup: deepClone(sourceState?.lineup || []),
     rosterVersion: sourceState?.rosterVersion ?? ROSTER_VERSION,
+    deletedGameTombstones: normalizeDeletedGameTombstones(sourceState?.deletedGameTombstones, sourceState?.games || []),
     activeGameId: "",
     games: sharedGames
   };
@@ -1926,9 +1951,30 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
     return syncSharedSnapshot(reason, options);
   }
   sharedSyncPromise = (async () => {
-    const snapshot = buildSharedSnapshot(options?.sourceState || state);
+    let sourceState = options?.sourceState || state;
     const deleteGameIds = Array.isArray(options?.deleteGameIds) ? options.deleteGameIds.filter(Boolean) : [];
     try {
+      const remoteAppStateResponse = await supabaseStorage.fetchAppState();
+      const remoteDeletedGameTombstones = remoteAppStateResponse?.data?.metadata?.deleted_game_tombstones;
+      if (remoteDeletedGameTombstones && typeof remoteDeletedGameTombstones === "object") {
+        const mergedState = normalizeState({
+          ...deepClone(sourceState),
+          deletedGameTombstones: {
+            ...(sourceState?.deletedGameTombstones || {}),
+            ...remoteDeletedGameTombstones
+          },
+          games: (sourceState?.games || []).filter((game) => !remoteDeletedGameTombstones[game?.id || ""])
+        });
+        if (sourceState === state) {
+          state = mergedState;
+          saveState();
+          render();
+          sourceState = state;
+        } else {
+          sourceState = mergedState;
+        }
+      }
+      const snapshot = buildSharedSnapshot(sourceState);
       const [appStateResponse, gamesResponse] = await Promise.all([
         supabaseStorage.upsertAppState(snapshot),
         supabaseStorage.upsertGames(snapshot.games)
@@ -7329,6 +7375,7 @@ function removeScheduledGame(gameId) {
   if (!game) return;
   const ok = window.confirm(`Remove ${game.opponent} on ${game.date || "this date"}?`);
   if (!ok) return;
+  rememberDeletedGame(gameId);
   deleteGame(gameId);
   dequeueCompletedGameSync(gameId);
   if (!state.activeGameId) state.activeGameId = inProgressGames()[0]?.id || "";
