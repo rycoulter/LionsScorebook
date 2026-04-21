@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-21
 
 ### Changed
+- Tightened the Box Score phone layout again by reducing the header/picker bulk, compacting the matchup summary, and making the line score section less top-heavy before the batting and pitching details.
 - Reworked the Box Score page on phones again so the batting and pitching sections now read as stacked mobile stat cards instead of compressed desktop tables, while the line score remains a tighter swipeable table.
 - Tightened the desktop Home hero card so it no longer stretches to the full height of the expanded Team Leaders panel, and compressed the record/next-game/button stack to keep the Season Overview proportions cleaner after the added leader metrics.
 - Reworked the Home page on phones into a true one-column layout with a cleaner two-column tab grid, full-width hero and leaders panels, and tighter leader-card typography so the mobile dashboard no longer crams the Season Overview into awkward side-by-side columns.

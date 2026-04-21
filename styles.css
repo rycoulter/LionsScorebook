@@ -8792,8 +8792,40 @@ label {
     min-width: 0;
   }
 
+  #boxScoreView .section-head {
+    gap: 10px;
+  }
+
+  #boxScoreView .section-head h2 {
+    font-size: clamp(1.4rem, 7vw, 2.1rem);
+  }
+
   #boxScoreView .section-head .button-row {
+    display: grid;
+    gap: 8px;
     width: 100%;
+  }
+
+  #boxScoreView .scorebook-game-picker {
+    gap: 4px;
+  }
+
+  #boxScoreView .scorebook-game-picker,
+  #boxScoreView .scorebook-game-picker select,
+  #boxScoreView #boxScoreBackBtn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #boxScoreView .scorebook-game-picker select,
+  #boxScoreView #boxScoreBackBtn {
+    min-height: 44px;
+  }
+
+  #boxScoreView .scorebook-meta {
+    margin-top: -2px;
+    font-size: 0.88rem;
+    line-height: 1.35;
   }
 
   #boxScoreView .box-score-card {
@@ -8801,42 +8833,45 @@ label {
   }
 
   .box-score-summary {
-    padding: 14px;
+    padding: 12px;
   }
 
   .box-score-summary-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
   }
 
   .box-score-final {
     order: 0;
+    grid-column: 1 / -1;
     min-width: 0;
-    padding: 8px 10px;
+    gap: 4px;
+    padding: 10px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 10px;
     background: rgba(255, 255, 255, 0.05);
   }
 
   .box-score-final strong {
-    font-size: 1.55rem;
+    font-size: 1.85rem;
   }
 
   .box-score-team-summary {
-    grid-template-columns: 52px minmax(0, 1fr);
-    gap: 8px 10px;
-    align-items: center;
-    justify-items: start;
-    text-align: left;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    align-items: start;
+    justify-items: center;
+    text-align: center;
+    padding: 2px 0;
   }
 
   .box-score-team-summary strong {
-    font-size: 0.98rem;
+    font-size: 0.92rem;
   }
 
   .box-score-team-logo {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
   }
 
   .box-score-tabs {
@@ -8897,6 +8932,10 @@ label {
 
   .box-score-mobile-hint {
     display: block;
+    margin: 0 0 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
   }
 
   .batting-box-table,
