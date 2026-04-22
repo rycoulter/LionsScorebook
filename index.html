@@ -111,9 +111,9 @@
           <div class="section-head">
             <div>
               <p class="eyebrow">Score Game</p>
-              <h2>Pitch-by-pitch scorekeeping</h2>
+              <h2 id="scoreViewTitle">Pitch-by-pitch scorekeeping</h2>
             </div>
-            <button class="secondary-action" id="newGameBtn">Games</button>
+            <button class="secondary-action" id="openGameActionsBtn">Game Actions</button>
           </div>
           <section class="score-empty-state" id="scoreEmptyState" hidden>
             <p class="eyebrow">Score Game</p>
@@ -127,7 +127,7 @@
           <section class="score-status-card" aria-label="Current game status">
             <div class="score-banner-shell">
               <h3 id="gameTitle" hidden>Lions @ Opponent</h3>
-              <div class="score-banner-board" aria-label="Current score">
+                <div class="score-banner-board" aria-label="Current score">
                 <div class="score-banner-row score-banner-row-away">
                   <div class="score-banner-team">
                     <img id="scoreAwayLogo" class="score-banner-logo" src="assets/team-logos/lions.png" alt="" />
@@ -168,7 +168,7 @@
               <div class="current-batter-primary">
                 <span>Current batter</span>
                 <strong id="headerBatterDisplay">Current batter</strong>
-                <span class="current-batter-outcomes" id="headerBatterOutcomesDisplay">No previous plate appearances yet</span>
+                <span class="current-batter-outcomes" id="headerBatterOutcomesDisplay" hidden>No previous plate appearances yet</span>
                 <div class="current-batter-status-row" id="headerBatterStatus" hidden>
                   <span class="current-batter-status">
                     <span>Count</span>
@@ -180,9 +180,9 @@
                   </span>
                 </div>
               </div>
-              <div class="current-batter-avg">
-                <span id="currentBatterStatLabel">Game</span>
-                <strong id="currentBatterAvgDisplay">.000</strong>
+              <div class="current-batter-actions">
+                <button type="button" class="secondary-action current-batter-action" id="panelUndoPitchBtn">Undo Pitch</button>
+                <button type="button" class="secondary-action current-batter-action" id="dockUndoLastPlayBtn">Undo Play</button>
               </div>
             </div>
             <div class="pitcher-row game-pitcher-card">
@@ -386,20 +386,73 @@
 
               <section class="scoring-step-panel" id="scoringStepPanel" aria-label="Step-based scoring controls">
                 <div class="scoring-step-head">
-                  <div>
+                  <div class="scoring-step-copy">
                     <p class="eyebrow" id="scoringStepEyebrow">Pitch Mode</p>
                     <h3 id="scoringStepTitle">Record Pitch</h3>
                     <span id="scoringStepHint">Choose the pitch result.</span>
                   </div>
-                  <div class="scoring-step-actions">
-                    <button type="button" class="secondary-action compact-action" data-score-step-back>Back</button>
-                    <button type="button" class="secondary-action compact-action" id="panelUndoPitchBtn">Undo Pitch</button>
-                  </div>
                 </div>
                 <div class="scoring-step-body" id="scoringStepBody"></div>
+                <div class="scoring-dock-footer" id="scoringDockFooter">
+                  <div class="scoring-dock-summary">
+                    <article class="scoring-dock-summary-card scoring-dock-count-card">
+                      <span class="scoring-dock-kicker">Count</span>
+                      <strong class="scoring-dock-big" id="dockCountValue">0-0</strong>
+                      <span class="scoring-dock-meta" id="dockCountMeta">0 Balls • 0 Strikes</span>
+                    </article>
+                    <article class="scoring-dock-summary-card scoring-dock-outs-card">
+                      <span class="scoring-dock-kicker">Bases</span>
+                      <div class="scoring-dock-bases" aria-label="Base state">
+                        <span class="scoring-dock-base is-second" data-dock-base="second"></span>
+                        <span class="scoring-dock-base is-third" data-dock-base="third"></span>
+                        <span class="scoring-dock-base is-first" data-dock-base="first"></span>
+                      </div>
+                      <div class="scoring-dock-outs-group">
+                        <span class="scoring-dock-kicker">Outs</span>
+                        <div class="scoring-dock-outs-row">
+                          <span class="score-banner-out-dot scoring-dock-out-dot" data-dock-out="0"></span>
+                          <span class="score-banner-out-dot scoring-dock-out-dot" data-dock-out="1"></span>
+                        </div>
+                      </div>
+                    </article>
+                    <article class="scoring-dock-summary-card scoring-dock-result-card" id="dockLastResultCard" aria-live="polite">
+                      <span class="scoring-dock-result-icon" aria-hidden="true">&#10003;</span>
+                      <div class="scoring-dock-result-copy">
+                        <span class="scoring-dock-kicker">Last Play</span>
+                        <strong id="dockLastResultTitle">No result yet</strong>
+                        <span class="scoring-dock-meta" id="dockLastResultMeta">First pitch is waiting.</span>
+                      </div>
+                    </article>
+                    <article class="scoring-dock-summary-card scoring-dock-batter-card" id="dockBatterCard">
+                      <div class="scoring-dock-batter-copy">
+                        <span class="scoring-dock-kicker">Batter</span>
+                        <strong id="dockBatterName">No batter</strong>
+                        <span class="scoring-dock-meta scoring-dock-batter-game-line" id="dockBatterGameLine">0 for 0</span>
+                        <span class="scoring-dock-meta" id="dockBatterSeasonLine">Season: --</span>
+                      </div>
+                      <span class="scoring-dock-batter-number" id="dockBatterNumber">--</span>
+                    </article>
+                  </div>
+                  <div class="scoring-dock-action-row">
+                    <button type="button" class="scoring-dock-card scoring-dock-action" id="dockViewLineupBtn">
+                      <span class="scoring-dock-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 11.25C9.79493 11.25 11.25 9.79493 11.25 8C11.25 6.20507 9.79493 4.75 8 4.75C6.20507 4.75 4.75 6.20507 4.75 8C4.75 9.79493 6.20507 11.25 8 11.25Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.75 18.75C2.75 15.9886 4.98858 13.75 7.75 13.75H8.25C11.0114 13.75 13.25 15.9886 13.25 18.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16.5 10.5C17.8807 10.5 19 9.38071 19 8C19 6.61929 17.8807 5.5 16.5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.5 18.75H21.25C21.25 16.2647 19.2353 14.25 16.75 14.25" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                      <span class="scoring-dock-copy">
+                        <strong>View Lineup</strong>
+                        <span>Lineup, stats, subs</span>
+                      </span>
+                    </button>
+                    <button type="button" class="scoring-dock-card scoring-dock-action" id="dockViewScorebookBtn">
+                      <span class="scoring-dock-icon" aria-hidden="true">&#9783;</span>
+                      <span class="scoring-dock-copy">
+                        <strong>View Scorebook</strong>
+                        <span>Stats, plays, and more</span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
               </section>
 
-              <form class="score-form" id="scoreForm">
+              <form class="score-form" id="scoreForm" hidden>
                 <label>
                   Batter
                   <select id="batterSelect" name="batter"></select>
@@ -1273,6 +1326,38 @@
       </div>
     </div>
 
+    <div class="modal-backdrop" id="lineupFocusModal" hidden>
+      <div class="modal-card lineup-focus-modal" role="dialog" aria-modal="true" aria-labelledby="lineupFocusTitle">
+        <div class="mini-head">
+          <div>
+            <p class="eyebrow">View Lineup</p>
+            <h3 id="lineupFocusTitle">Lineup Overlay</h3>
+          </div>
+          <button type="button" class="secondary-action compact-action" id="closeLineupFocusBtn">Close</button>
+        </div>
+        <p class="player-meta" id="lineupFocusHint">This placeholder will become the full in-game lineup overlay.</p>
+        <div class="lineup-focus-body" id="lineupFocusBody"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="gameActionsModal" hidden>
+      <div class="modal-card game-actions-modal" role="dialog" aria-modal="true" aria-labelledby="gameActionsTitle">
+        <div class="mini-head">
+          <div>
+            <p class="eyebrow">Game Actions</p>
+            <h3 id="gameActionsTitle">Manage This Game</h3>
+          </div>
+          <button type="button" class="secondary-action compact-action" id="closeGameActionsBtn">Close</button>
+        </div>
+        <div class="game-actions-grid">
+          <button type="button" class="secondary-action" id="gameActionsSyncBtn">Sync Completed Game</button>
+          <button type="button" class="secondary-action" id="gameActionsEndHalfBtn">End Half</button>
+          <button type="button" class="secondary-action" id="gameActionsCompleteBtn">Complete Game</button>
+        </div>
+        <p class="player-meta" id="gameActionsStatusText">Local scoring is ready on this iPad.</p>
+      </div>
+    </div>
+
     <script src="storage.js?v=2026.04.21-build-146"></script>
     <script src="matchup-images.js?v=2026.04.21-build-146"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1281,3 +1366,15 @@
     <script src="app.js?v=2026.04.21-build-146"></script>
   </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+

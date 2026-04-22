@@ -7,6 +7,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 ## 2026-04-22
 
 ### Changed
+- Reworked the Score Game screen for portrait iPad scoring with a new matchup-first header, a cleaner unified scoring dock, simplified Ball/Strike/In Play pitch actions, a stronger portrait summary panel, relocated game actions/undo controls, a real `View Lineup` popup for both Lions and opponents, softer current-batter lineup highlighting, updated Eagles/Turtles team logos, and a cleaner lineup icon in the scoring dock.
 - Refined the new Score Game top banner by pulling count into the same live meta strip as inning and outs, giving both away and home rows the same inset scoreboard treatment, and removing the duplicate count/outs card when the Lions are batting so the current hitter row stays cleaner.
 - Started a Score Game top-banner refresh by replacing the old card-grid scoreboard with a cleaner away-on-top / home-on-bottom live banner that uses team logos, larger row scores, a bottom inning strip, yellow-filled outs circles, and a dedicated count block while leaving the rest of the scoring flow intact.
 

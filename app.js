@@ -221,6 +221,7 @@ const contactLabels = {
 
 const pitchLabels = {
   ball: "Ball",
+  strike: "Strike",
   called_strike: "Called strike",
   swinging_strike: "Swinging strike",
   foul: "Foul",
@@ -508,7 +509,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.13";
+const APP_VERSION = "v.1.0.14";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -594,6 +595,10 @@ let lastSupabaseRefreshAt = 0;
 let lastSharedBaselineAt = 0;
 let sharedWriteBaselineReady = false;
 let sharedAppStateDirtyInSession = false;
+let scoringStepHoldTimer = null;
+let scoringStepHoldButton = null;
+let scoringStepHoldConsumedButton = null;
+let scoringStepHoldConsumedAt = 0;
 const pendingSharedGameIds = new Set();
 const pendingDeletedSharedGameIds = new Set();
 let pendingServiceWorkerRefresh = false;
@@ -627,6 +632,7 @@ const els = {
   homeLeagueStandings: document.getElementById("homeLeagueStandings"),
   homeUpcomingGames: document.getElementById("homeUpcomingGames"),
   homePastGames: document.getElementById("homePastGames"),
+  scoreViewTitle: document.getElementById("scoreViewTitle"),
   gameTitle: document.getElementById("gameTitle"),
   currentBatterCard: document.querySelector("#scoreView .current-batter-card"),
   scoreAwayLogo: document.getElementById("scoreAwayLogo"),
@@ -715,6 +721,22 @@ const els = {
   scoringStepHint: document.getElementById("scoringStepHint"),
   scoringStepBody: document.getElementById("scoringStepBody"),
   panelUndoPitchBtn: document.getElementById("panelUndoPitchBtn"),
+  openGameActionsBtn: document.getElementById("openGameActionsBtn"),
+  scoringDockFooter: document.getElementById("scoringDockFooter"),
+  dockCountValue: document.getElementById("dockCountValue"),
+  dockCountMeta: document.getElementById("dockCountMeta"),
+  dockBaseIndicators: [...document.querySelectorAll("[data-dock-base]")],
+  dockOutDots: [...document.querySelectorAll("[data-dock-out]")],
+  dockUndoLastPlayBtn: document.getElementById("dockUndoLastPlayBtn"),
+  dockLastResultCard: document.getElementById("dockLastResultCard"),
+  dockLastResultTitle: document.getElementById("dockLastResultTitle"),
+  dockLastResultMeta: document.getElementById("dockLastResultMeta"),
+  dockBatterName: document.getElementById("dockBatterName"),
+  dockBatterGameLine: document.getElementById("dockBatterGameLine"),
+  dockBatterSeasonLine: document.getElementById("dockBatterSeasonLine"),
+  dockBatterNumber: document.getElementById("dockBatterNumber"),
+  dockViewLineupBtn: document.getElementById("dockViewLineupBtn"),
+  dockViewScorebookBtn: document.getElementById("dockViewScorebookBtn"),
   scoreForm: document.getElementById("scoreForm"),
   choiceButtons: [...document.querySelectorAll("[data-choice-group]")],
   gameForm: document.getElementById("gameForm"),
@@ -774,6 +796,17 @@ const els = {
   syncStatusText: document.getElementById("syncStatusText"),
   endHalfBtn: document.getElementById("endHalfBtn"),
   finishGameBtn: document.getElementById("finishGameBtn"),
+  lineupFocusModal: document.getElementById("lineupFocusModal"),
+  lineupFocusTitle: document.getElementById("lineupFocusTitle"),
+  lineupFocusBody: document.getElementById("lineupFocusBody"),
+  lineupFocusHint: document.getElementById("lineupFocusHint"),
+  closeLineupFocusBtn: document.getElementById("closeLineupFocusBtn"),
+  gameActionsModal: document.getElementById("gameActionsModal"),
+  gameActionsSyncBtn: document.getElementById("gameActionsSyncBtn"),
+  gameActionsEndHalfBtn: document.getElementById("gameActionsEndHalfBtn"),
+  gameActionsCompleteBtn: document.getElementById("gameActionsCompleteBtn"),
+  gameActionsStatusText: document.getElementById("gameActionsStatusText"),
+  closeGameActionsBtn: document.getElementById("closeGameActionsBtn"),
   liveLineup: document.getElementById("liveLineup"),
   lineupCount: document.getElementById("lineupCount"),
   playFeed: document.getElementById("playFeed"),
@@ -1799,7 +1832,7 @@ function nextPitchCount(ballsBefore, strikesBefore, outcome) {
   let balls = ballsBefore;
   let strikes = strikesBefore;
   if (outcome === "ball") balls = Math.min(4, balls + 1);
-  if (outcome === "called_strike" || outcome === "swinging_strike") strikes = Math.min(3, strikes + 1);
+  if (outcome === "strike" || outcome === "called_strike" || outcome === "swinging_strike") strikes = Math.min(3, strikes + 1);
   if (outcome === "foul" && strikes < 2) strikes += 1;
   return { balls, strikes };
 }
@@ -2847,7 +2880,49 @@ function bindEvents() {
   });
 
   els.scoringStepPanel.addEventListener("click", handleScoringPanelClick);
+  els.scoringStepPanel.addEventListener("pointerdown", handleScoringStepPointerDown);
+  els.scoringStepPanel.addEventListener("pointerup", handleScoringStepPointerUp);
+  els.scoringStepPanel.addEventListener("pointercancel", clearScoringStepHold);
+  els.scoringStepPanel.addEventListener("pointerleave", clearScoringStepHold);
   els.panelUndoPitchBtn.addEventListener("click", undoPitch);
+  els.openGameActionsBtn?.addEventListener("click", openGameActionsModal);
+  els.dockUndoLastPlayBtn?.addEventListener("click", undoLastPlay);
+  els.dockViewScorebookBtn?.addEventListener("click", () => {
+    const game = activeGame();
+    if (!game?.id) return;
+    openGameScorebook(game.id);
+  });
+  els.dockViewLineupBtn?.addEventListener("click", openLineupFocusModal);
+  els.closeLineupFocusBtn?.addEventListener("click", closeLineupFocusModal);
+  els.closeGameActionsBtn?.addEventListener("click", closeGameActionsModal);
+  els.lineupFocusModal?.addEventListener("click", (event) => {
+    if (event.target === els.lineupFocusModal) closeLineupFocusModal();
+  });
+  els.gameActionsModal?.addEventListener("click", (event) => {
+    if (event.target === els.gameActionsModal) closeGameActionsModal();
+  });
+  els.gameActionsSyncBtn?.addEventListener("click", () => {
+    const game = activeGame();
+    if (!game?.id || !gameIsFinal(game)) return;
+    syncCompletedGame(game.id).catch((error) => {
+      markGameSyncFailed(game, error);
+      saveStateWithOptions({ markLiveGamesDirty: false });
+      render();
+    });
+    closeGameActionsModal();
+  });
+  els.gameActionsEndHalfBtn?.addEventListener("click", () => {
+    const game = activeGame();
+    if (!game || gameIsScoreLocked(game)) return;
+    advanceHalfInning(game);
+    saveState();
+    render();
+    closeGameActionsModal();
+  });
+  els.gameActionsCompleteBtn?.addEventListener("click", () => {
+    closeGameActionsModal();
+    finishGame();
+  });
   els.dismissLineupPreviewBtn?.addEventListener("click", () => dismissLineupPreview(activeGame()));
   els.dismissBatterIntroBtn?.addEventListener("click", () => dismissBatterIntro(activeGame(), { rerender: true }));
 
@@ -3113,7 +3188,7 @@ function bindEvents() {
     renderBatterSelect();
   });
   els.resultSelect.addEventListener("change", suggestRunValues);
-  els.newGameBtn.addEventListener("click", () => switchView("games"));
+  els.newGameBtn?.addEventListener("click", () => switchView("games"));
   els.scoreEmptyHomeBtn?.addEventListener("click", () => switchView("home"));
   els.scoreEmptyGamesBtn?.addEventListener("click", () => switchView("games"));
   els.undoBtn.addEventListener("click", undoLastPlay);
@@ -5565,9 +5640,13 @@ function render() {
     renderPlayFeed();
     renderSubControls();
     renderLiveSyncStatus(scoreGame);
+    if (!els.lineupFocusModal?.hidden) renderLineupFocusModal(scoreGame);
+    if (!els.gameActionsModal?.hidden) renderGameActionsModal(scoreGame);
   } else {
     setScoreGameLocked(true, null);
     renderLiveSyncStatus(null);
+    closeLineupFocusModal();
+    closeGameActionsModal();
   }
   renderRoster();
   renderArchive();
@@ -5594,6 +5673,7 @@ function renderScoreEmptyState(scoreGame = activeScoreGame()) {
   document.getElementById("scoreView")?.classList.toggle("has-no-game", !hasActiveGame);
   if (els.scoreEmptyState) els.scoreEmptyState.hidden = hasActiveGame;
   if (els.syncStatusRow) els.syncStatusRow.hidden = !hasActiveGame;
+  if (!hasActiveGame && els.scoreViewTitle) els.scoreViewTitle.textContent = "Pitch-by-pitch scorekeeping";
 }
 
 function renderHome() {
@@ -6065,6 +6145,7 @@ function renderScoreboard() {
   const homeScore = scoreForSide(game, "home");
   els.scoreOpponentLineupInput.value = opponentLineup(game).join("\n");
   els.gameTitle.textContent = gameMatchupLabel(game);
+  if (els.scoreViewTitle) els.scoreViewTitle.textContent = gameMatchupLabel(game);
   const inningLabel = gameIsFinal(game) ? "FINAL" : halfInningLabel(game);
   const headerBatter = lionsBatting ? currentBatterLabel(game) : currentOpponentBatter(game);
   els.headerBatterDisplay.textContent = lionsBatting ? headerBatter : `${headerBatter} (${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent})`;
@@ -6338,11 +6419,27 @@ function renderAutoScorePreview() {
 function handleScoringPanelClick(event) {
   const button = event.target.closest("button");
   if (!button) return;
+  if (button === scoringStepHoldConsumedButton && Date.now() - scoringStepHoldConsumedAt < 700) {
+    scoringStepHoldConsumedButton = null;
+    return;
+  }
   if (button.dataset.scoreStepBack !== undefined) {
     backScoringStep();
     return;
   }
+  if (button.dataset.stepOpen) {
+    setScoringStep(button.dataset.stepOpen);
+    return;
+  }
   if (button.dataset.stepPitch) {
+    if (button.dataset.stepPitch === "strike") {
+      const game = activeGame();
+      const currentStrikes = game?.current?.strikes ?? game?.atBat?.strikes ?? 0;
+      if (currentStrikes >= 2) {
+        setScoringStep("strike_menu");
+        return;
+      }
+    }
     applyEvent(activeGame(), { type: "pitch", outcome: button.dataset.stepPitch });
     return;
   }
@@ -6396,6 +6493,37 @@ function handleScoringPanelClick(event) {
   }
 }
 
+function clearScoringStepHold() {
+  if (scoringStepHoldTimer) {
+    clearTimeout(scoringStepHoldTimer);
+    scoringStepHoldTimer = null;
+  }
+  scoringStepHoldButton = null;
+}
+
+function handleScoringStepPointerDown(event) {
+  const button = event.target.closest("button[data-hold-open]");
+  if (!button) return;
+  clearScoringStepHold();
+  scoringStepHoldButton = button;
+  scoringStepHoldTimer = setTimeout(() => {
+    if (scoringStepHoldButton !== button) return;
+    scoringStepHoldConsumedButton = button;
+    scoringStepHoldConsumedAt = Date.now();
+    clearScoringStepHold();
+    setScoringStep(button.dataset.holdOpen);
+  }, 450);
+}
+
+function handleScoringStepPointerUp(event) {
+  const button = event.target.closest("button[data-hold-open]");
+  if (!button || button !== scoringStepHoldButton) {
+    clearScoringStepHold();
+    return;
+  }
+  clearScoringStepHold();
+}
+
 function backScoringStep() {
   const game = activeGame();
   if (scoringStep === "runners") {
@@ -6417,6 +6545,8 @@ function backScoringStep() {
     pendingOutType = "";
     if (game.atBat) game.atBat.pendingInPlay = true;
     scoringStep = "outcome";
+  } else if (["ball_menu", "strike_menu"].includes(scoringStep)) {
+    scoringStep = "pitch";
   } else if (scoringStep === "outcome" || scoringStep === "more") {
     clearPendingPlayState(game, true);
     scoringStep = "pitch";
@@ -6426,6 +6556,299 @@ function backScoringStep() {
   renderRunnerTracker();
   renderSprayChart();
   renderScoringStepPanel();
+}
+
+function latestScoringDockResult(game = activeGame()) {
+  const lastEvent = game?.events?.[game.events.length - 1] || null;
+  if (lastEvent) {
+    const eventLabel = eventRules[lastEvent.result]?.label || lastEvent.result || "Play recorded";
+    const outsAfter = Number.isFinite(lastEvent.outsAfter) ? lastEvent.outsAfter : Number.isFinite(lastEvent.outsBefore) ? lastEvent.outsBefore : game?.current?.outs || 0;
+    return {
+      title: eventLabel,
+      meta: `${lastEvent.count || gameCountLabel(game)} \u2022 ${outsAfter} ${outsAfter === 1 ? "out" : "outs"}`
+    };
+  }
+  const lastPitch = game?.atBat?.pitches?.[game.atBat.pitches.length - 1] || null;
+  if (lastPitch) {
+    const pitchLabel = lastPitch.label || pitchLabels[lastPitch.type] || "Pitch recorded";
+    const countAfter = `${lastPitch.ballsAfter ?? game?.current?.balls ?? 0}-${lastPitch.strikesAfter ?? game?.current?.strikes ?? 0}`;
+    const outs = game?.current?.outs || 0;
+    return {
+      title: pitchLabel,
+      meta: `${countAfter} \u2022 ${outs} ${outs === 1 ? "out" : "outs"}`
+    };
+  }
+  return {
+    title: "No result yet",
+    meta: "First pitch is waiting."
+  };
+}
+
+function scoringDockBatterSummary(game = activeGame()) {
+  if (!game) {
+    return {
+      name: "No batter",
+      gameLine: "0 for 0",
+      seasonLine: "Season: --",
+      number: "--"
+    };
+  }
+  if (isOpponentAtBat(game)) {
+    const name = currentOpponentBatter(game) || "Opponent batter";
+    const lineupIndex = game.opponentBatterIndex || 0;
+    const entry = opponentLineupEntriesForGame(game)[lineupIndex] || {};
+    const summary = currentOpponentHeaderSummary(game, name);
+    return {
+      name,
+      gameLine: summary.line,
+      seasonLine: `Spot ${lineupIndex + 1} in lineup`,
+      number: entry.number || "--"
+    };
+  }
+  const batterId = currentBatterId(game);
+  const player = state.roster.find((item) => item.id === batterId);
+  const summary = currentGameBatterHeaderSummary(game, batterId);
+  const stats = player ? statsForPlayer(player.id) : emptyStats();
+  return {
+    name: player ? `#${player.number} ${player.name}` : "Current batter",
+    gameLine: summary.line,
+    seasonLine: `Season: ${formatRate(stats.avg)} AVG, ${stats.hr || 0} HR, ${stats.rbi || 0} RBI`,
+    number: player?.number || "--"
+  };
+}
+
+function renderScoringDockUtilities(game = activeGame()) {
+  if (!els.scoringDockFooter) return;
+  const canScore = Boolean(game && game.status === "active" && !gameIsFinal(game));
+  els.scoringDockFooter.hidden = !game;
+  if (!game) return;
+  const lastResult = latestScoringDockResult(game);
+  if (els.dockLastResultTitle) els.dockLastResultTitle.textContent = lastResult.title;
+  if (els.dockLastResultMeta) els.dockLastResultMeta.textContent = lastResult.meta;
+  const balls = game?.atBat?.balls ?? game?.current?.balls ?? 0;
+  const strikes = game?.atBat?.strikes ?? game?.current?.strikes ?? 0;
+  if (els.dockCountValue) els.dockCountValue.textContent = `${balls}-${strikes}`;
+  if (els.dockCountMeta) {
+    els.dockCountMeta.textContent = `${balls} Ball${balls === 1 ? "" : "s"} \u2022 ${strikes} Strike${strikes === 1 ? "" : "s"}`;
+  }
+  if (els.dockBaseIndicators?.length) {
+    els.dockBaseIndicators.forEach((node) => {
+      const base = node.dataset.dockBase;
+      node.classList.toggle("is-filled", Boolean(game?.bases?.[base]));
+    });
+  }
+  if (els.dockOutDots?.length) {
+    els.dockOutDots.forEach((dot, index) => {
+      dot.classList.toggle("is-filled", index < (game?.outs || 0));
+    });
+  }
+  const batterSummary = scoringDockBatterSummary(game);
+  if (els.dockBatterName) els.dockBatterName.textContent = batterSummary.name;
+  if (els.dockBatterGameLine) els.dockBatterGameLine.textContent = batterSummary.gameLine;
+  if (els.dockBatterSeasonLine) els.dockBatterSeasonLine.textContent = batterSummary.seasonLine;
+  if (els.dockBatterNumber) els.dockBatterNumber.textContent = batterSummary.number;
+  if (els.dockUndoLastPlayBtn) els.dockUndoLastPlayBtn.disabled = !canScore || !game.events?.length;
+  if (els.dockViewLineupBtn) els.dockViewLineupBtn.disabled = !game;
+  if (els.dockViewScorebookBtn) els.dockViewScorebookBtn.disabled = !game?.id;
+  if (els.openGameActionsBtn) els.openGameActionsBtn.hidden = !game;
+}
+
+function placePanelUndoPitchButton() {
+  if (!els.panelUndoPitchBtn || !els.scoringStepBody) return;
+  const secondaryRow = els.scoringStepBody.querySelector(".panel-secondary-row");
+  if (!secondaryRow) return;
+  secondaryRow.appendChild(els.panelUndoPitchBtn);
+}
+
+function currentLineupFocusRows(game = activeGame()) {
+  if (!game) return [];
+  if (isOpponentAtBat(game)) {
+    const hitters = opponentLineupEntriesForGame(game);
+    return hitters.map((entry, index) => ({
+      label: opponentBatterLabel(entry, index),
+      meta: `Spot ${index + 1}${index === (game.opponentBatterIndex || 0) ? " | Current hitter" : ""}`,
+      isCurrent: index === (game.opponentBatterIndex || 0),
+      isNext: index === ((game.opponentBatterIndex || 0) + 1) % Math.max(hitters.length, 1),
+      isHole: index === ((game.opponentBatterIndex || 0) + 2) % Math.max(hitters.length, 1)
+    }));
+  }
+  const entries = gameLineupEntries(game);
+  return entries.map((entry, index) => {
+    const player = state.roster.find((item) => item.id === entry.playerId);
+    const stats = player ? statsForPlayer(player.id) : emptyStats();
+    return {
+      label: `#${player?.number || "--"} ${player?.name || "Open spot"}`,
+      meta: `${entry.role || "Bench"} | AVG ${formatRate(stats.avg)} | OPS ${formatRate(stats.ops)}`,
+      isCurrent: index === (game.batterIndex || 0),
+      isNext: index === ((game.batterIndex || 0) + 1) % Math.max(entries.length, 1),
+      isHole: index === ((game.batterIndex || 0) + 2) % Math.max(entries.length, 1)
+    };
+  });
+}
+
+function restoreLineupFocusContent() {
+  const host = els.playFeed?.parentElement;
+  if (!host) return;
+  if (els.liveLineup) host.insertBefore(els.liveLineup, els.playFeed);
+  if (els.subPanel) host.insertBefore(els.subPanel, els.playFeed);
+  if (els.opponentSubPanel) host.insertBefore(els.opponentSubPanel, els.playFeed);
+}
+
+function lineupFocusTitle(game = activeGame()) {
+  if (!game) return "Lineup";
+  return isOpponentAtBat(game) ? `${game.opponent || "Opponent"} Lineup` : "Lions Lineup";
+}
+
+function lineupFocusHint(game = activeGame()) {
+  if (!game) return "No active game is loaded.";
+  if (isOpponentAtBat(game)) {
+    return `Review the current ${game.opponent || "opponent"} order, lineup context, and substitutions here.`;
+  }
+  return "Review the current Lions order, lineup context, and substitutions here.";
+}
+
+function renderLineupFocusModal(game = activeGame()) {
+  if (!els.lineupFocusBody || !els.lineupFocusHint || !els.lineupFocusTitle) return;
+  if (!game) {
+    els.lineupFocusTitle.textContent = "Lineup";
+    els.lineupFocusHint.textContent = "No active game is loaded.";
+    els.lineupFocusBody.innerHTML = `<p class="player-meta">Start or resume a game to view the live lineup.</p>`;
+    return;
+  }
+  renderLiveLineup();
+  renderSubControls();
+  const lineupLabel = lineupFocusTitle(game);
+  els.lineupFocusTitle.textContent = lineupLabel;
+  els.lineupFocusHint.textContent = lineupFocusHint(game);
+  const countLabel = els.lineupCount?.textContent || "";
+  els.lineupFocusBody.innerHTML = `<div class="lineup-focus-layout">
+      <div class="lineup-focus-topline">
+        <span class="lineup-focus-section-label">Current Order</span>
+        <span class="lineup-focus-count">${escapeHtml(countLabel)}</span>
+      </div>
+      <section class="lineup-focus-section">
+        <div class="lineup-focus-section-head">
+          <h4>${escapeHtml(lineupLabel)}</h4>
+          <span class="player-meta">${escapeHtml(lineupFocusHint(game))}</span>
+        </div>
+        <div class="lineup-focus-list-host" id="lineupFocusListHost"></div>
+      </section>
+      <section class="lineup-focus-section">
+        <div class="lineup-focus-section-head">
+          <h4>${isOpponentAtBat(game) ? "Opponent Moves" : "Substitutions"}</h4>
+          <span class="player-meta">${isOpponentAtBat(game) ? "Update the opposing order without leaving Score Game." : "Make lineup changes and keep the score screen focused."}</span>
+        </div>
+        <div class="lineup-focus-controls-host" id="lineupFocusControlsHost"></div>
+      </section>
+    </div>`;
+  const listHost = document.getElementById("lineupFocusListHost");
+  const controlsHost = document.getElementById("lineupFocusControlsHost");
+  if (listHost && els.liveLineup) listHost.appendChild(els.liveLineup);
+  if (controlsHost) {
+    if (isOpponentAtBat(game)) {
+      if (els.opponentSubPanel) controlsHost.appendChild(els.opponentSubPanel);
+    } else if (els.subPanel) {
+      controlsHost.appendChild(els.subPanel);
+    }
+  }
+}
+
+function openLineupFocusModal() {
+  const game = activeGame();
+  if (!game || !els.lineupFocusModal) return;
+  renderLineupFocusModal(game);
+  els.lineupFocusModal.hidden = false;
+}
+
+function closeLineupFocusModal() {
+  restoreLineupFocusContent();
+  if (els.lineupFocusBody) els.lineupFocusBody.innerHTML = "";
+  if (els.lineupFocusModal) els.lineupFocusModal.hidden = true;
+}
+
+function renderGameActionsModal(game = activeGame()) {
+  if (!els.gameActionsStatusText) return;
+  const isFinal = gameIsFinal(game);
+  const hasSyncReady = Boolean(game?.id && isFinal);
+  if (els.gameActionsSyncBtn) els.gameActionsSyncBtn.disabled = !hasSyncReady;
+  if (els.gameActionsEndHalfBtn) els.gameActionsEndHalfBtn.disabled = !game || gameIsScoreLocked(game);
+  if (els.gameActionsCompleteBtn) els.gameActionsCompleteBtn.disabled = !game || gameIsScoreLocked(game);
+  if (!game) {
+    els.gameActionsStatusText.textContent = "No active game is loaded.";
+    return;
+  }
+  if (isFinal) {
+    els.gameActionsStatusText.textContent = `Final score saved locally. Use Sync Completed Game to publish ${gameMatchupLabel(game)}.`;
+  } else {
+    els.gameActionsStatusText.textContent = `Manage ${gameMatchupLabel(game)} without leaving the scoring screen.`;
+  }
+}
+
+function openGameActionsModal() {
+  const game = activeGame();
+  if (!game || !els.gameActionsModal) return;
+  renderGameActionsModal(game);
+  els.gameActionsModal.hidden = false;
+}
+
+function closeGameActionsModal() {
+  if (els.gameActionsModal) els.gameActionsModal.hidden = true;
+}
+
+function latestScoringDockResult(game = activeGame()) {
+  const lastEvent = game?.events?.[game.events.length - 1] || null;
+  if (lastEvent) {
+    const eventLabel = eventRules[lastEvent.result]?.label || lastEvent.result || "Play recorded";
+    const outsAfter = Number.isFinite(lastEvent.outsAfter)
+      ? lastEvent.outsAfter
+      : Number.isFinite(lastEvent.outsBefore)
+        ? lastEvent.outsBefore
+        : game?.current?.outs || 0;
+    return {
+      title: eventLabel,
+      meta: `${lastEvent.count || gameCountLabel(game)} \u2022 ${outsAfter} ${outsAfter === 1 ? "out" : "outs"}`
+    };
+  }
+  const lastPitch = game?.atBat?.pitches?.[game.atBat.pitches.length - 1] || null;
+  if (lastPitch) {
+    const pitchLabel = lastPitch.label || pitchLabels[lastPitch.type] || "Pitch recorded";
+    const countAfter = `${lastPitch.ballsAfter ?? game?.current?.balls ?? 0}-${lastPitch.strikesAfter ?? game?.current?.strikes ?? 0}`;
+    const outs = game?.current?.outs || 0;
+    return {
+      title: pitchLabel,
+      meta: `${countAfter} \u2022 ${outs} ${outs === 1 ? "out" : "outs"}`
+    };
+  }
+  return {
+    title: "No result yet",
+    meta: "First pitch is waiting."
+  };
+}
+
+function currentLineupFocusRows(game = activeGame()) {
+  if (!game) return [];
+  if (isOpponentAtBat(game)) {
+    const hitters = opponentLineupEntriesForGame(game);
+    return hitters.map((entry, index) => ({
+      label: opponentBatterLabel(entry, index),
+      meta: `Spot ${index + 1}${index === (game.opponentBatterIndex || 0) ? " | Current hitter" : ""}`,
+      isCurrent: index === (game.opponentBatterIndex || 0),
+      isNext: index === ((game.opponentBatterIndex || 0) + 1) % Math.max(hitters.length, 1),
+      isHole: index === ((game.opponentBatterIndex || 0) + 2) % Math.max(hitters.length, 1)
+    }));
+  }
+  const entries = gameLineupEntries(game);
+  return entries.map((entry, index) => {
+    const player = state.roster.find((item) => item.id === entry.playerId);
+    const stats = player ? statsForPlayer(player.id) : emptyStats();
+    return {
+      label: `#${player?.number || "--"} ${player?.name || "Open spot"}`,
+      meta: `${entry.role || "Bench"} | AVG ${formatRate(stats.avg)} | OPS ${formatRate(stats.ops)}`,
+      isCurrent: index === (game.batterIndex || 0),
+      isNext: index === ((game.batterIndex || 0) + 1) % Math.max(entries.length, 1),
+      isHole: index === ((game.batterIndex || 0) + 2) % Math.max(entries.length, 1)
+    };
+  });
 }
 
 function renderScoringStepPanel() {
@@ -6439,6 +6862,7 @@ function renderScoringStepPanel() {
     els.scoringStepHint.textContent = "This game is locked. Completed games remain available in Game Archive and reports.";
     els.panelUndoPitchBtn.hidden = true;
     els.scoringStepBody.innerHTML = `<div class="auto-score">Final score: ${escapeHtml(gameScoreLabel(game))}</div>`;
+    renderScoringDockUtilities(game);
     return;
   }
   const selectedRunnerConfig = selectedRunnerActionConfig(game);
@@ -6451,6 +6875,7 @@ function renderScoringStepPanel() {
     const backButton = els.scoringStepPanel.querySelector("[data-score-step-back]");
     if (backButton) backButton.hidden = true;
     els.scoringStepBody.innerHTML = selectedRunnerConfig.body;
+    renderScoringDockUtilities(game);
     return;
   }
   if (game.status !== "active") {
@@ -6460,10 +6885,12 @@ function renderScoringStepPanel() {
     els.scoringStepHint.textContent = "Start this game from the Home or Games tab before scoring.";
     els.panelUndoPitchBtn.hidden = true;
     els.scoringStepBody.innerHTML = `<div class="auto-score">${escapeHtml(gameMatchupLabel(game))}</div>`;
+    renderScoringDockUtilities(game);
     return;
   }
   if (isOpponentAtBat(game)) {
     renderOpponentScoringStepPanel(game);
+    renderScoringDockUtilities(game);
     return;
   }
   if (awaitingRunnerDecision) scoringStep = "runners";
@@ -6474,11 +6901,13 @@ function renderScoringStepPanel() {
   els.scoringStepEyebrow.textContent = config.eyebrow;
   els.scoringStepTitle.textContent = config.title;
   els.scoringStepHint.textContent = config.hint;
-  els.panelUndoPitchBtn.hidden = !["pitch", "more"].includes(scoringStep);
+  els.panelUndoPitchBtn.hidden = !["pitch", "more", "ball_menu", "strike_menu"].includes(scoringStep);
   const backButton = els.scoringStepPanel.querySelector("[data-score-step-back]");
-  if (backButton) backButton.hidden = scoringStep === "pitch";
-  els.scoringStepBody.innerHTML = config.body;
-}
+    if (backButton) backButton.hidden = scoringStep === "pitch";
+    els.scoringStepBody.innerHTML = config.body;
+    placePanelUndoPitchButton();
+    renderScoringDockUtilities(game);
+  }
 
 function selectedRunnerActionConfig(game) {
   if (!selectedFieldRunnerBase) return null;
@@ -6508,6 +6937,33 @@ function selectedRunnerActionConfig(game) {
 }
 
 function scoringStepConfig(game) {
+  if (scoringStep === "ball_menu") {
+    return {
+      eyebrow: "Ball",
+      title: "Ball Options",
+      hint: "Choose a special ball result.",
+      body: `<div class="step-grid step-grid-three">
+        ${stepButton("Record Ball", "step-pitch", "ball", "ball")}
+        ${stepButton("Intentional Walk", "step-auto-result", "BB", "neutral")}
+        ${stepButton("HBP", "step-auto-result", "HBP", "hbp")}
+      </div>`
+    };
+  }
+  if (scoringStep === "strike_menu") {
+    const strikeThree = (game?.current?.strikes || 0) >= 2;
+    return {
+      eyebrow: strikeThree ? "Strike Three" : "Strike",
+      title: strikeThree ? "How Did Strike Three Happen?" : "Strike Options",
+      hint: strikeThree ? "Choose swinging or looking to finish the at-bat." : "Track whether the strike was called or swinging.",
+      body: `<div class="step-grid step-grid-two">
+        ${stepButton("Swinging K", "step-pitch", "swinging_strike", "strike")}
+        ${stepButton("Looking K", "step-pitch", "called_strike", "strike")}
+      </div>
+      <div class="confirm-play-row">
+        <button type="button" class="secondary-action" data-score-step-back>Back</button>
+      </div>`
+    };
+  }
   if (scoringStep === "more") {
     return {
       eyebrow: "More",
@@ -6536,6 +6992,9 @@ function scoringStepConfig(game) {
         ${stepButton("Fielder's Choice", "step-outcome", "FC", "out")}
         ${stepButton("Double Play", "step-outcome", "DP", "out")}
         ${stepButton("Sacrifice", "step-outcome", "SAC", "out")}
+      </div>
+      <div class="confirm-play-row">
+        <button type="button" class="secondary-action" data-score-step-back>Back</button>
       </div>`
     };
   }
@@ -6590,27 +7049,115 @@ function scoringStepConfig(game) {
   return {
     eyebrow: "Pitch Mode",
     title: "Record Pitch",
-    hint: "Choose the pitch result.",
-    body: `<div class="step-grid step-grid-pitches">
-        ${stepButton("Ball", "step-pitch", "ball", "ball")}
-        ${stepButton("Called Strike", "step-pitch", "called_strike", "strike")}
-        ${stepButton("Swinging Strike", "step-pitch", "swinging_strike", "strike")}
-        ${stepButton("Foul", "step-pitch", "foul", "foul")}
-        ${stepButton("In Play", "step-pitch", "in_play", "inplay")}
-      </div>
+    hint: "Tap a result. Hold Ball for intentional walk or HBP.",
+    body: `${pitchModePrimaryCards()}
       <div class="panel-secondary-row">
-        <button type="button" class="step-button step-button-more" data-step-more>More Results</button>
+        ${stepButton("Foul", "step-pitch", "foul", "foul")}
       </div>`
   };
+}
+
+function pitchModePrimaryCards() {
+  return `<div class="pitch-choice-stack">
+    ${pitchChoiceActionCard("Ball", "Record Ball", "step-open", "ball_menu", "ball", "⚾")}
+    ${pitchChoiceActionCard("Strike", "Record Strike", "step-open", "strike_menu", "strike", "◎")}
+    ${pitchChoiceActionCard("In Play", "Ball In Play", "step-pitch", "in_play", "inplay", "◇")}
+  </div>`;
+}
+
+function pitchChoiceActionCard(title, subtitle, dataName, value, tone, icon) {
+  return `<button type="button" class="pitch-choice-card pitch-choice-${tone}" data-${dataName}="${escapeHtml(value)}">
+    <span class="pitch-choice-icon" aria-hidden="true">${escapeHtml(icon)}</span>
+    <span class="pitch-choice-copy">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(subtitle)}</span>
+    </span>
+    <span class="pitch-choice-arrow" aria-hidden="true">›</span>
+  </button>`;
+}
+
+function pitchModePrimaryCards() {
+  return `<div class="pitch-choice-stack">
+    ${pitchChoiceActionCard("Ball", "Record Ball", "step-pitch", "ball", "ball", "", "Hold for IBB or HBP", "ball_menu")}
+    ${pitchChoiceActionCard("Strike", "Record Strike", "step-pitch", "strike", "strike", "")}
+    ${pitchChoiceActionCard("In Play", "Ball In Play", "step-pitch", "in_play", "inplay", "")}
+  </div>`;
+}
+
+function pitchChoiceIconMarkup(tone) {
+  if (tone === "ball") {
+    return `<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="2.2"></circle>
+      <path d="M17 10c3 4 4 8 4 14s-1 10-4 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path>
+      <path d="M31 10c-3 4-4 8-4 14s1 10 4 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path>
+      <path d="M15 17c2 1 4 2 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+      <path d="M15 31c2-1 4-2 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+      <path d="M33 17c-2 1-4 2-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+      <path d="M33 31c-2-1-4-2-5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+    </svg>`;
+  }
+  if (tone === "strike") {
+    return `<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <circle cx="24" cy="24" r="11" fill="none" stroke="currentColor" stroke-width="2.2"></circle>
+      <path d="M8 14v-6h6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path d="M40 14v-6h-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path d="M8 34v6h6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path d="M40 34v6h-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>`;
+  }
+  return `<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+    <path d="M24 6l18 18-18 18L6 24 24 6z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"></path>
+    <path d="M24 11l4 4-4 4-4-4 4-4z" fill="none" stroke="currentColor" stroke-width="2"></path>
+    <path d="M37 24l-4 4-4-4 4-4 4 4z" fill="none" stroke="currentColor" stroke-width="2"></path>
+    <path d="M24 37l-4-4 4-4 4 4-4 4z" fill="none" stroke="currentColor" stroke-width="2"></path>
+    <path d="M11 24l4-4 4 4-4 4-4-4z" fill="none" stroke="currentColor" stroke-width="2"></path>
+  </svg>`;
+}
+
+function pitchChoiceActionCard(title, subtitle, dataName, value, tone, icon, helper = "", holdOpen = "") {
+  return `<button type="button" class="pitch-choice-card pitch-choice-${tone}${holdOpen ? " has-hold" : ""}" data-${dataName}="${escapeHtml(value)}"${holdOpen ? ` data-hold-open="${escapeHtml(holdOpen)}"` : ""}>
+    <span class="pitch-choice-icon" aria-hidden="true">${pitchChoiceIconMarkup(tone)}</span>
+    <span class="pitch-choice-copy">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(subtitle)}</span>
+      ${helper ? `<small>${escapeHtml(helper)}</small>` : ""}
+    </span>
+    <span class="pitch-choice-arrow" aria-hidden="true">&rsaquo;</span>
+  </button>`;
 }
 
 function renderOpponentScoringStepPanel(game) {
   els.scoringStepPanel.dataset.step = "opponent";
   els.scoringStepEyebrow.textContent = "Opponent";
   els.scoringStepTitle.textContent = currentOpponentBatter(game);
-  els.panelUndoPitchBtn.hidden = !["pitch", "more"].includes(scoringStep);
+  els.panelUndoPitchBtn.hidden = !["pitch", "more", "ball_menu", "strike_menu"].includes(scoringStep);
   const backButton = els.scoringStepPanel.querySelector("[data-score-step-back]");
   if (backButton) backButton.hidden = scoringStep === "pitch";
+
+  if (scoringStep === "ball_menu") {
+    els.scoringStepHint.textContent = "Choose a special ball result.";
+    els.scoringStepBody.innerHTML = `<div class="step-grid step-grid-three">
+      ${stepButton("Record Ball", "step-pitch", "ball", "ball")}
+      ${stepButton("Intentional Walk", "step-auto-result", "BB", "neutral")}
+      ${stepButton("HBP", "step-auto-result", "HBP", "hbp")}
+    </div>`;
+    return;
+  }
+
+  if (scoringStep === "strike_menu") {
+    const strikeThree = (game?.current?.strikes || 0) >= 2;
+    els.scoringStepHint.textContent = strikeThree
+      ? "Choose swinging or looking to finish the at-bat."
+      : "Track whether the strike was called or swinging.";
+    els.scoringStepBody.innerHTML = `<div class="step-grid step-grid-two">
+      ${stepButton("Swinging K", "step-pitch", "swinging_strike", "strike")}
+      ${stepButton("Looking K", "step-pitch", "called_strike", "strike")}
+    </div>
+    <div class="confirm-play-row">
+      <button type="button" class="secondary-action" data-score-step-back>Back</button>
+    </div>`;
+    return;
+  }
 
   if (scoringStep === "out_type") {
     els.scoringStepHint.textContent = "Choose the type of out.";
@@ -6633,7 +7180,10 @@ function renderOpponentScoringStepPanel(game) {
   if (scoringStep === "outcome" || game.atBat.pendingInPlay) {
     scoringStep = "outcome";
     els.scoringStepHint.textContent = "Choose the ball-in-play result to complete this opponent AB.";
-    els.scoringStepBody.innerHTML = opponentOutcomeGrid();
+    els.scoringStepBody.innerHTML = `${opponentOutcomeGrid()}
+      <div class="confirm-play-row">
+        <button type="button" class="secondary-action" data-score-step-back>Back</button>
+      </div>`;
     return;
   }
 
@@ -6663,17 +7213,12 @@ function renderOpponentScoringStepPanel(game) {
   }
 
   scoringStep = "pitch";
-  els.scoringStepHint.textContent = "Track the count. In Play opens outcomes, and runner badges open SB, CS, or PO.";
-  els.scoringStepBody.innerHTML = `<div class="step-grid step-grid-pitches">
-      ${stepButton("Ball", "step-pitch", "ball", "ball")}
-      ${stepButton("Called Strike", "step-pitch", "called_strike", "strike")}
-      ${stepButton("Swinging Strike", "step-pitch", "swinging_strike", "strike")}
-      ${stepButton("Foul", "step-pitch", "foul", "foul")}
-      ${stepButton("In Play", "step-pitch", "in_play", "inplay")}
-    </div>
-    <div class="panel-secondary-row">
-      <button type="button" class="step-button step-button-more" data-step-more>More Results</button>
-    </div>`;
+  els.scoringStepHint.textContent = "Tap a result. Hold Ball for intentional walk or HBP. Runner badges open SB, CS, or PO.";
+  els.scoringStepBody.innerHTML = `${pitchModePrimaryCards()}
+      <div class="panel-secondary-row">
+        ${stepButton("Foul", "step-pitch", "foul", "foul")}
+      </div>`;
+  placePanelUndoPitchButton();
 }
 
 function stepButton(label, dataName, value, tone) {
@@ -6933,7 +7478,7 @@ function pitcherStats(playerId, gameId = null) {
       (event.pitches || []).forEach((pitch) => {
         stats.pitches += 1;
         if (pitch.type === "ball") stats.balls += 1;
-        if (["called_strike", "swinging_strike", "foul", "in_play"].includes(pitch.type)) stats.strikes += 1;
+    if (["strike", "called_strike", "swinging_strike", "foul", "in_play"].includes(pitch.type)) stats.strikes += 1;
       });
     });
   stats.decisions = stats.wins + stats.losses;
@@ -7137,7 +7682,7 @@ function lionsPitchingDecision(game) {
 function addPitchToPitcherStats(stats, pitch) {
   stats.pitches += 1;
   if (pitch.type === "ball") stats.balls += 1;
-  if (["called_strike", "swinging_strike", "foul", "in_play"].includes(pitch.type)) stats.strikes += 1;
+    if (["strike", "called_strike", "swinging_strike", "foul", "in_play"].includes(pitch.type)) stats.strikes += 1;
 }
 
 function pitcherStatsWithCurrentAtBat(game = activeGame()) {
@@ -7242,6 +7787,7 @@ function sprayEvents() {
     .map((event) => ({ event, game }))
     .filter(({ event, game: item }) => {
       if (!event.spray) return false;
+      if (event.scope && event.scope !== "offense") return false;
       const rule = eventRules[event.result] || {};
       if (filter === "hitter" && event.playerId !== currentHitterId) return false;
       if (filter === "hits" && !rule.hit) return false;
@@ -10197,7 +10743,7 @@ function applyEventToStats(stats, event) {
     if (pitch.type === "in_play") stats.inPlayPitches += 1;
     if (index === 0) {
       stats.firstPitchTrackedPa += 1;
-      if (["called_strike", "swinging_strike", "foul", "in_play"].includes(pitch.type)) stats.firstPitchStrikes += 1;
+  if (["strike", "called_strike", "swinging_strike", "foul", "in_play"].includes(pitch.type)) stats.firstPitchStrikes += 1;
     }
   });
 }
@@ -10354,3 +10900,5 @@ if ("serviceWorker" in navigator) {
       });
   });
 }
+
+
