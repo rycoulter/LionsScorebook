@@ -125,30 +125,43 @@
             </div>
           </section>
           <section class="score-status-card" aria-label="Current game status">
-            <div>
-              <p class="eyebrow">Game State</p>
-              <h3 id="gameTitle">Lions @ Opponent</h3>
-            </div>
-            <div class="game-state-focus">
-              <span>Inning</span>
-              <strong id="inningStateDisplay">Top 1</strong>
-            </div>
-            <div class="game-state-focus" id="headerCountFocus">
-              <span>Count</span>
-              <strong id="headerCountDisplay">0-0</strong>
-            </div>
-            <div class="game-state-focus" id="headerOutsFocus">
-              <span>Outs</span>
-              <strong id="outsStateDisplay">0</strong>
-            </div>
-            <div class="scoreline clean-scoreline" aria-label="Current score">
-              <div>
-                <span id="lionsScoreLabel">Away Oakmont</span>
-                <strong id="lionsScore">0</strong>
-              </div>
-              <div>
-                <span id="opponentScoreLabel">Home Opponent</span>
-                <strong id="opponentScore">0</strong>
+            <div class="score-banner-shell">
+              <h3 id="gameTitle" hidden>Lions @ Opponent</h3>
+              <div class="score-banner-board" aria-label="Current score">
+                <div class="score-banner-row score-banner-row-away">
+                  <div class="score-banner-team">
+                    <img id="scoreAwayLogo" class="score-banner-logo" src="assets/team-logos/lions.png" alt="" />
+                    <strong class="score-banner-team-name" id="scoreAwayName">Away</strong>
+                  </div>
+                  <strong class="score-banner-score" id="scoreAwayDisplay">0</strong>
+                </div>
+                <div class="score-banner-row score-banner-row-home">
+                  <div class="score-banner-team">
+                    <img id="scoreHomeLogo" class="score-banner-logo" src="assets/team-logos/lions.png" alt="" />
+                    <strong class="score-banner-team-name" id="scoreHomeName">Home</strong>
+                  </div>
+                  <strong class="score-banner-score" id="scoreHomeDisplay">0</strong>
+                </div>
+                <div class="score-banner-meta">
+                  <div class="score-banner-meta-block score-banner-inning-block">
+                    <span class="score-banner-arrow" aria-hidden="true"></span>
+                    <strong id="inningStateDisplay">TOP 1ST</strong>
+                  </div>
+                  <div class="score-banner-divider" aria-hidden="true"></div>
+                  <div class="score-banner-meta-block score-banner-outs-block" id="headerOutsFocus">
+                    <strong id="outsStateDisplay">0</strong>
+                    <span>OUTS</span>
+                    <div class="score-banner-outs-dots" aria-hidden="true">
+                      <span class="score-banner-out-dot"></span>
+                      <span class="score-banner-out-dot"></span>
+                    </div>
+                  </div>
+                  <div class="score-banner-divider" aria-hidden="true"></div>
+                  <div class="score-banner-meta-block score-banner-count" id="headerCountFocus">
+                    <strong id="headerCountDisplay">0-0</strong>
+                    <span>COUNT</span>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="current-batter-card" aria-label="Current batter">

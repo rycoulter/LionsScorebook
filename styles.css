@@ -6524,7 +6524,7 @@ label {
   position: sticky;
   top: 72px;
   z-index: 12;
-  grid-template-columns: minmax(280px, 1.18fr) repeat(3, minmax(110px, 0.38fr)) minmax(220px, 0.76fr);
+  grid-template-columns: minmax(300px, 0.84fr) minmax(420px, 1.16fr);
   gap: 10px 14px;
   align-items: stretch;
   border: 1px solid rgba(245, 189, 33, 0.24);
@@ -6560,17 +6560,181 @@ label {
   display: none;
 }
 
-#scoreView .score-status-card > div:first-child {
-  display: grid;
-  align-content: center;
-  gap: 4px;
+#scoreView .score-banner-shell {
+  grid-column: 1 / -1;
+  display: block;
+}
+
+#scoreView .score-banner-board {
   min-width: 0;
   border: 1px solid rgba(245, 189, 33, 0.22);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: 12px;
   background:
-    radial-gradient(circle at 100% 0%, rgba(245, 189, 33, 0.12), transparent 42%),
-    rgba(3, 10, 36, 0.68);
+    radial-gradient(circle at 100% 0%, rgba(245, 189, 33, 0.14), transparent 42%),
+    linear-gradient(180deg, rgba(13, 24, 57, 0.98), rgba(7, 15, 38, 0.98));
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 36px rgba(0, 0, 0, 0.24);
+}
+
+#scoreView .score-banner-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  margin: 10px 10px 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
+    rgba(8, 18, 45, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+#scoreView .score-banner-row-home {
+  margin-bottom: 0;
+}
+
+#scoreView .score-banner-team {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+#scoreView .score-banner-logo {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.28));
+}
+
+#scoreView .score-banner-team-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--white);
+  font-size: 1.02rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+#scoreView .score-banner-score {
+  flex: 0 0 auto;
+  color: var(--white);
+  font-size: 2.45rem;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+#scoreView .score-banner-meta {
+  display: grid;
+  grid-template-columns: auto 1px auto 1px minmax(0, auto);
+  gap: 18px;
+  align-items: center;
+  padding: 12px 18px 14px;
+}
+
+#scoreView .score-banner-meta-block {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+#scoreView .score-banner-inning-block {
+  color: var(--lion-gold);
+}
+
+#scoreView .score-banner-inning-block strong,
+#scoreView .score-banner-count strong {
+  font-size: 1.1rem;
+  font-weight: 1000;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+#scoreView .score-banner-arrow {
+  width: 0;
+  height: 0;
+  border-right: 7px solid transparent;
+  border-bottom: 10px solid var(--lion-gold);
+  border-left: 7px solid transparent;
+  transform: translateY(-1px);
+}
+
+#scoreView .score-banner-arrow.is-bottom {
+  transform: rotate(180deg) translateY(-1px);
+}
+
+#scoreView .score-banner-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+#scoreView .score-banner-outs-block strong {
+  color: var(--white);
+  font-size: 1.05rem;
+  font-weight: 1000;
+}
+
+#scoreView .score-banner-outs-block span {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#scoreView .score-banner-outs-dots {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: 3px;
+}
+
+#scoreView .score-banner-out-dot {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+#scoreView .score-banner-out-dot.is-filled {
+  border-color: var(--lion-gold);
+  background: var(--lion-gold);
+  box-shadow:
+    0 0 12px rgba(245, 189, 33, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+#scoreView .score-banner-count span {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#scoreView .score-banner-count {
+  justify-self: end;
+}
+
+#scoreView .score-banner-count strong {
+  color: var(--white);
+}
+
+#scoreView .score-banner-shell.is-final .score-banner-arrow {
+  opacity: 0;
 }
 
 #scoreView .score-status-card h3,
@@ -6606,37 +6770,6 @@ label {
   display: none;
 }
 
-#scoreView .score-status-card .game-state-focus,
-#scoreView .score-status-card .clean-scoreline {
-  align-self: stretch;
-}
-
-#scoreView .score-status-card .game-state-focus {
-  display: grid;
-  align-content: center;
-  border-color: rgba(255, 255, 255, 0.12);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025)),
-    rgba(13, 24, 57, 0.88);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-#scoreView .score-status-card .game-state-focus span {
-  color: rgba(255, 255, 255, 0.68);
-}
-
-#scoreView .score-status-card .game-state-focus strong {
-  color: var(--white);
-}
-
-#scoreView #headerCountDisplay {
-  color: #65e88e;
-}
-
-#scoreView #outsStateDisplay {
-  color: #ff8e96;
-}
-
 #scoreView .current-batter-card {
   grid-column: 1 / 2;
   align-self: stretch;
@@ -6654,6 +6787,10 @@ label {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 12px 26px rgba(0, 0, 0, 0.24);
+}
+
+#scoreView .current-batter-card.is-expanded {
+  grid-column: 1 / -1;
 }
 
 #scoreView .current-batter-primary {
@@ -6774,6 +6911,7 @@ label {
 #scoreView #headerBatterStatus[hidden],
 #scoreView #headerCountFocus[hidden],
 #scoreView #headerOutsFocus[hidden],
+#scoreView .game-pitcher-card[hidden],
 #scoreView #gamePitcherContent[hidden],
 #scoreView #gameBattingStatusRow[hidden] {
   display: none !important;
@@ -8536,13 +8674,17 @@ label {
 @media (max-width: 940px) {
   #scoreView .score-status-card {
     top: 0;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   #scoreView .game-pitcher-card,
   #scoreView .current-batter-card,
   #scoreView .game-state-context {
     grid-column: 1 / -1;
+  }
+
+  #scoreView .score-banner-shell {
+    display: block;
   }
 
   #scoreView .spray-panel,
@@ -8576,6 +8718,42 @@ label {
   #scoreView .game-pitcher-card {
     min-width: 0;
     grid-template-columns: 1fr;
+  }
+
+  #scoreView .score-banner-row,
+  #scoreView .score-banner-meta {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  #scoreView .score-banner-team {
+    gap: 10px;
+  }
+
+  #scoreView .score-banner-logo {
+    width: 34px;
+    height: 34px;
+  }
+
+  #scoreView .score-banner-score {
+    font-size: 2rem;
+  }
+
+  #scoreView .score-banner-meta {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  #scoreView .score-banner-divider {
+    display: none;
+  }
+
+  #scoreView .score-banner-count {
+    justify-self: start;
+  }
+
+  #scoreView .score-banner-outs-block {
+    justify-content: flex-start;
   }
 
   #scoreView .current-batter-card {

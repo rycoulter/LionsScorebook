@@ -4,6 +4,12 @@ Track user-facing changes to the Oakmont Lions baseball scorebook app here.
 
 Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA assets, or data handling changes. Keep the newest entry at the top.
 
+## 2026-04-22
+
+### Changed
+- Refined the new Score Game top banner by pulling count into the same live meta strip as inning and outs, giving both away and home rows the same inset scoreboard treatment, and removing the duplicate count/outs card when the Lions are batting so the current hitter row stays cleaner.
+- Started a Score Game top-banner refresh by replacing the old card-grid scoreboard with a cleaner away-on-top / home-on-bottom live banner that uses team logos, larger row scores, a bottom inning strip, yellow-filled outs circles, and a dedicated count block while leaving the rest of the scoring flow intact.
+
 ## 2026-04-21
 
 ### Changed

@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.12";
+const APP_VERSION = "v.1.0.13";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -628,6 +628,16 @@ const els = {
   homeUpcomingGames: document.getElementById("homeUpcomingGames"),
   homePastGames: document.getElementById("homePastGames"),
   gameTitle: document.getElementById("gameTitle"),
+  currentBatterCard: document.querySelector("#scoreView .current-batter-card"),
+  scoreAwayLogo: document.getElementById("scoreAwayLogo"),
+  scoreAwayName: document.getElementById("scoreAwayName"),
+  scoreAwayDisplay: document.getElementById("scoreAwayDisplay"),
+  scoreHomeLogo: document.getElementById("scoreHomeLogo"),
+  scoreHomeName: document.getElementById("scoreHomeName"),
+  scoreHomeDisplay: document.getElementById("scoreHomeDisplay"),
+  scoreBannerShell: document.querySelector("#scoreView .score-banner-shell"),
+  scoreBannerArrow: document.querySelector("#scoreView .score-banner-arrow"),
+  headerOutDots: [...document.querySelectorAll("#scoreView .score-banner-out-dot")],
   headerBatterDisplay: document.getElementById("headerBatterDisplay"),
   headerBatterOutcomesDisplay: document.getElementById("headerBatterOutcomesDisplay"),
   currentBatterStatLabel: document.getElementById("currentBatterStatLabel"),
@@ -646,10 +656,6 @@ const els = {
   inningStateDisplay: document.getElementById("inningStateDisplay"),
   outsStateDisplay: document.getElementById("outsStateDisplay"),
   headerOutsFocus: document.getElementById("headerOutsFocus"),
-  lionsScoreLabel: document.getElementById("lionsScoreLabel"),
-  opponentScoreLabel: document.getElementById("opponentScoreLabel"),
-  lionsScore: document.getElementById("lionsScore"),
-  opponentScore: document.getElementById("opponentScore"),
   bases: [...document.querySelectorAll(".base")],
   scorerStack: document.getElementById("scorerStack"),
   currentBatterName: document.getElementById("currentBatterName"),
@@ -6043,14 +6049,23 @@ function scoutNameTokens(value) {
     .filter((token) => token.length > 1);
 }
 
+function scoreboardTeamLogo(teamName, side, game = activeGame()) {
+  const teamKey = lionsSide(game) === side ? "lions" : "opponent";
+  return window.MatchupImages?.getTeamLogo?.(teamName, teamKey) || "assets/team-logos/lions.png";
+}
+
 function renderScoreboard() {
   const game = activeGame();
   if (!game.atBat) game.atBat = makeAtBat();
   syncGameCurrent(game);
   const lionsBatting = isLionsAtBat(game);
+  const awayName = awayTeamName(game);
+  const homeName = homeTeamName(game);
+  const awayScore = scoreForSide(game, "away");
+  const homeScore = scoreForSide(game, "home");
   els.scoreOpponentLineupInput.value = opponentLineup(game).join("\n");
   els.gameTitle.textContent = gameMatchupLabel(game);
-  const inningLabel = gameIsFinal(game) ? "Final" : `${game.half === "top" ? "Top" : "Bottom"} ${game.inning}`;
+  const inningLabel = gameIsFinal(game) ? "FINAL" : halfInningLabel(game);
   const headerBatter = lionsBatting ? currentBatterLabel(game) : currentOpponentBatter(game);
   els.headerBatterDisplay.textContent = lionsBatting ? headerBatter : `${headerBatter} (${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent})`;
   const batterHeaderSummary = lionsBatting
@@ -6061,23 +6076,41 @@ function renderScoreboard() {
     els.currentBatterAvgDisplay.textContent = batterHeaderSummary.line;
   }
   if (els.headerBatterOutcomesDisplay) els.headerBatterOutcomesDisplay.textContent = batterHeaderSummary.outcomesLabel;
+  if (els.scoreAwayName) els.scoreAwayName.textContent = awayName;
+  if (els.scoreHomeName) els.scoreHomeName.textContent = homeName;
+  if (els.scoreAwayDisplay) els.scoreAwayDisplay.textContent = awayScore;
+  if (els.scoreHomeDisplay) els.scoreHomeDisplay.textContent = homeScore;
+  if (els.scoreAwayLogo) {
+    els.scoreAwayLogo.src = scoreboardTeamLogo(awayName, "away", game);
+    els.scoreAwayLogo.alt = `${awayName} logo`;
+  }
+  if (els.scoreHomeLogo) {
+    els.scoreHomeLogo.src = scoreboardTeamLogo(homeName, "home", game);
+    els.scoreHomeLogo.alt = `${homeName} logo`;
+  }
   els.inningStateDisplay.textContent = inningLabel;
   els.headerCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   els.outsStateDisplay.textContent = String(game.outs);
+  if (els.scoreBannerArrow) {
+    els.scoreBannerArrow.classList.toggle("is-bottom", !gameIsFinal(game) && game.half === "bottom");
+  }
+  if (els.scoreBannerShell) {
+    els.scoreBannerShell.classList.toggle("is-final", gameIsFinal(game));
+  }
+  if (els.headerOutDots?.length) {
+    els.headerOutDots.forEach((dot, index) => {
+      dot.classList.toggle("is-filled", index < game.outs);
+    });
+  }
   if (els.headerBatterCountDisplay) els.headerBatterCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   if (els.headerBatterOutsDisplay) els.headerBatterOutsDisplay.textContent = `${game.outs}`;
   if (els.pitcherRowCountDisplay) els.pitcherRowCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   if (els.pitcherRowOutsDisplay) els.pitcherRowOutsDisplay.textContent = `${game.outs}`;
   if (els.headerBatterStatus) els.headerBatterStatus.hidden = true;
-  if (els.headerCountFocus) {
-    els.headerCountFocus.hidden = lionsBatting;
-    els.headerCountFocus.style.display = lionsBatting ? "none" : "";
-  }
-  if (els.headerOutsFocus) {
-    els.headerOutsFocus.hidden = lionsBatting;
-    els.headerOutsFocus.style.display = lionsBatting ? "none" : "";
-  }
-  if (els.gamePitcherCard) els.gamePitcherCard.hidden = false;
+  if (els.headerCountFocus) els.headerCountFocus.hidden = false;
+  if (els.headerOutsFocus) els.headerOutsFocus.hidden = false;
+  if (els.currentBatterCard) els.currentBatterCard.classList.toggle("is-expanded", lionsBatting);
+  if (els.gamePitcherCard) els.gamePitcherCard.hidden = lionsBatting;
   if (els.gamePitcherContent) {
     els.gamePitcherContent.hidden = lionsBatting;
     els.gamePitcherContent.style.display = lionsBatting ? "none" : "";
@@ -6090,10 +6123,6 @@ function renderScoreboard() {
   els.gameContext.textContent = gameIsFinal(game)
     ? `${gameTeamMeta(game)} | Final after ${completedInningCount(game)} innings`
     : `${gameTeamMeta(game)} | ${game.half === "top" ? "Top" : "Bottom"} ${game.inning}, ${game.outs} ${game.outs === 1 ? "out" : "outs"}`;
-  if (els.lionsScoreLabel) els.lionsScoreLabel.textContent = `${lionsSide(game) === "home" ? "Home" : "Away"} Lions`;
-  if (els.opponentScoreLabel) els.opponentScoreLabel.textContent = `${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent || "Opponent"}`;
-  els.lionsScore.textContent = game.score.lions;
-  els.opponentScore.textContent = game.score.opponent;
   setScoreGameLocked(gameIsScoreLocked(game), game);
   els.bases.forEach((base) => {
     const key = base.dataset.base === "1" ? "first" : base.dataset.base === "2" ? "second" : "third";
