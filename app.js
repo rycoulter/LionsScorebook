@@ -508,7 +508,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.11";
+const APP_VERSION = "v.1.0.12";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -567,6 +567,8 @@ let gameSummaryId = "";
 let lionsWinAnimationTimer = null;
 let activeLionsWinAnimationGameId = "";
 const playedLionsWinAnimationGameIds = new Set();
+let halfInningChangeTimer = null;
+let activeHalfInningChangeKey = "";
 let bipOutcomeChosen = false;
 let awaitingSprayLocation = false;
 let awaitingRunnerDecision = false;
@@ -653,6 +655,7 @@ const els = {
   currentBatterName: document.getElementById("currentBatterName"),
   currentBatterMeta: document.getElementById("currentBatterMeta"),
   lineupPreviewCard: document.getElementById("lineupPreviewCard"),
+  lineupPreviewEyebrow: document.getElementById("lineupPreviewEyebrow"),
   lineupPreviewTitle: document.getElementById("lineupPreviewTitle"),
   lineupPreviewList: document.getElementById("lineupPreviewList"),
   dismissLineupPreviewBtn: document.getElementById("dismissLineupPreviewBtn"),
@@ -812,6 +815,12 @@ const els = {
   lionsWinText: document.getElementById("lionsWinText"),
   lionsWinLeft: document.getElementById("lionsWinLeft"),
   lionsWinRight: document.getElementById("lionsWinRight"),
+  halfInningOverlay: document.getElementById("halfInningOverlay"),
+  halfInningFlash: document.getElementById("halfInningFlash"),
+  halfInningLineTop: document.getElementById("halfInningLineTop"),
+  halfInningLineBottom: document.getElementById("halfInningLineBottom"),
+  halfInningTitle: document.getElementById("halfInningTitle"),
+  halfInningSubtitle: document.getElementById("halfInningSubtitle"),
   metricsGrid: document.getElementById("metricsGrid"),
   gameBreakdown: document.getElementById("gameBreakdown"),
   boxScoreTitle: document.getElementById("boxScoreTitle"),
@@ -3885,6 +3894,7 @@ function advanceHalfInning(game = activeGame()) {
   commitCurrentToLegacy(game);
   if (gameIsFinal(game)) moveActiveGameOffFinal(game.id);
   clearPendingPlayState(game, true);
+  if (!gameIsFinal(game)) playHalfInningChange(game);
 }
 
 function addSubstitution(game = activeGame(), substitution = {}) {
@@ -4427,10 +4437,10 @@ function upcomingBatterIntroRows(game = activeGame()) {
 }
 
 function currentLineupPreviewKey(game = activeGame()) {
-  if (!game || game.status !== "active" || !isLionsAtBat(game)) return "";
+  if (!game || game.status !== "active") return "";
   const inning = game.current?.inning ?? game.inning ?? 1;
   const half = game.current?.half ?? game.half ?? "top";
-  return `${game.id}:${inning}:${half}`;
+  return `${game.id}:${inning}:${half}:${isLionsAtBat(game) ? "lions" : "opponent"}`;
 }
 
 function offensiveHalfHasStarted(game = activeGame()) {
@@ -4444,17 +4454,31 @@ function offensiveHalfHasStarted(game = activeGame()) {
 }
 
 function upcomingLineupPreviewRows(game = activeGame()) {
-  const entries = gameLineupEntries(game);
-  if (!entries.length) return [];
   const slots = ["Up Next", "On Deck", "In The Hole"];
+  if (isLionsAtBat(game)) {
+    const entries = gameLineupEntries(game);
+    if (!entries.length) return [];
+    return slots.map((slot, offset) => {
+      const entry = entries[(game.batterIndex + offset) % entries.length];
+      const player = state.roster.find((item) => item.id === entry?.playerId);
+      return {
+        slot,
+        name: player?.name || "Open spot",
+        number: player?.number || "",
+        role: entry?.role || ""
+      };
+    });
+  }
+  const entries = opponentLineupEntriesForGame(game);
+  if (!entries.length) return [];
   return slots.map((slot, offset) => {
-    const entry = entries[(game.batterIndex + offset) % entries.length];
-    const player = state.roster.find((item) => item.id === entry?.playerId);
+    const lineupIndex = ((game.opponentBatterIndex || 0) + offset) % entries.length;
+    const entry = normalizeOpponentLineupEntry(entries[lineupIndex], lineupIndex);
     return {
       slot,
-      name: player?.name || "Open spot",
-      number: player?.number || "",
-      role: entry?.role || ""
+      name: entry.name || `Opponent hitter ${lineupIndex + 1}`,
+      number: entry.number || "",
+      role: `Spot ${lineupIndex + 1}`
     };
   });
 }
@@ -4495,6 +4519,9 @@ function renderLineupPreview(game = activeGame()) {
     return;
   }
   const rows = upcomingLineupPreviewRows(game);
+  if (els.lineupPreviewEyebrow) {
+    els.lineupPreviewEyebrow.textContent = isLionsAtBat(game) ? "Lions Batting" : `${game.opponent || "Opponent"} Batting`;
+  }
   if (els.lineupPreviewTitle) els.lineupPreviewTitle.textContent = lineupPreviewHeading(game);
   els.lineupPreviewList.innerHTML = rows.map((row) => `<article class="lineup-preview-row">
     <span>${escapeHtml(row.slot)}</span>
@@ -5334,6 +5361,81 @@ function playLionsWinAnimation(gameId, onComplete) {
     resetLionsWinAnimation();
     onComplete?.();
   }, 1960);
+  return true;
+}
+
+function resetHalfInningChangeOverlay() {
+  if (halfInningChangeTimer) {
+    clearTimeout(halfInningChangeTimer);
+    halfInningChangeTimer = null;
+  }
+  activeHalfInningChangeKey = "";
+  if (!els.halfInningOverlay) return;
+  els.halfInningOverlay.classList.remove("is-active");
+  els.halfInningOverlay.hidden = true;
+  els.halfInningOverlay.setAttribute("aria-hidden", "true");
+}
+
+function halfInningChangeKey(game = activeGame()) {
+  if (!game?.id) return "";
+  const inning = Number(game.current?.inning ?? game.inning ?? 1);
+  const half = game.current?.half ?? game.half ?? "top";
+  return `${game.id}:${inning}:${half}`;
+}
+
+function halfInningLabel(game = activeGame()) {
+  const inning = Number(game.current?.inning ?? game.inning ?? 1);
+  const half = game.current?.half ?? game.half ?? "top";
+  return `${half === "top" ? "TOP" : "BOT"} ${inning}${ordinalSuffix(inning).toUpperCase()}`;
+}
+
+function halfInningBattingTeamText(game = activeGame()) {
+  const side = battingSide(game);
+  const teamName = side === "away" ? awayTeamName(game) : homeTeamName(game);
+  return `${teamName} batting`;
+}
+
+function halfInningAccentColor(game = activeGame()) {
+  return isLionsAtBat(game) ? "#f5bd21" : "#7ea0ff";
+}
+
+function hexToRgba(hex, alpha) {
+  const clean = String(hex || "").replace("#", "");
+  const full = clean.length === 3 ? clean.split("").map((char) => char + char).join("") : clean;
+  const num = Number.parseInt(full, 16);
+  if (Number.isNaN(num)) return `rgba(255, 255, 255, ${alpha})`;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function playHalfInningChange(game = activeGame()) {
+  if (!els.halfInningOverlay || !game?.id || gameIsFinal(game)) return false;
+  const key = halfInningChangeKey(game);
+  if (!key || activeHalfInningChangeKey === key) return false;
+  activeHalfInningChangeKey = key;
+  if (halfInningChangeTimer) clearTimeout(halfInningChangeTimer);
+  const accent = halfInningAccentColor(game);
+  if (els.halfInningTitle) els.halfInningTitle.textContent = halfInningLabel(game);
+  if (els.halfInningSubtitle) els.halfInningSubtitle.textContent = halfInningBattingTeamText(game);
+  els.halfInningOverlay.style.setProperty("--half-inning-accent", accent);
+  if (els.halfInningFlash) {
+    els.halfInningFlash.style.background = `radial-gradient(circle, ${hexToRgba(accent, 0.42)} 0%, ${hexToRgba(accent, 0.14)} 45%, rgba(255,255,255,0) 72%)`;
+  }
+  [els.halfInningLineTop, els.halfInningLineBottom].forEach((line) => {
+    if (!line) return;
+    line.style.background = `linear-gradient(90deg, transparent 0%, ${hexToRgba(accent, 0.95)} 30%, ${hexToRgba(accent, 0.95)} 70%, transparent 100%)`;
+    line.style.boxShadow = `0 0 12px ${hexToRgba(accent, 0.45)}`;
+  });
+  els.halfInningOverlay.hidden = false;
+  els.halfInningOverlay.setAttribute("aria-hidden", "false");
+  requestAnimationFrame(() => {
+    els.halfInningOverlay?.classList.add("is-active");
+  });
+  halfInningChangeTimer = setTimeout(() => {
+    resetHalfInningChangeOverlay();
+  }, 3375);
   return true;
 }
 

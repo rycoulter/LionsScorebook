@@ -243,6 +243,7 @@ Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA ass
 - Hid the spray chart guide card from the scoring field header area while preserving spray chart functionality.
 - Refreshed the PWA cache version to load the latest app assets.
 - Added an opponent-side `Undo Last Play` control in Score Game and matched the Lions batter-change intro card for opponent hitters.
+- Added a full-screen half-inning transition overlay in Score Game that triggers from the existing inning/half switch logic and uses the current batting team text.
 
 ### Fixed
 - Fixed Games tab readability for the selected game card and lineup builder rows under the dark theme.

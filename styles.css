@@ -174,6 +174,117 @@ textarea:disabled {
   display: none;
 }
 
+.half-inning-overlay {
+  --half-inning-accent: var(--lion-gold);
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.half-inning-overlay[hidden] {
+  display: none;
+}
+
+.half-inning-overlay.is-active {
+  animation: halfInningOverlayFade 3.375s linear both;
+}
+
+.half-inning-center {
+  position: relative;
+  width: min(88%, 620px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 20px;
+}
+
+.half-inning-flash {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 70%;
+  height: 180px;
+  filter: blur(16px);
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.12) 45%, rgba(255, 255, 255, 0) 72%);
+}
+
+.half-inning-line {
+  width: min(100%, 520px);
+  height: 3px;
+  border-radius: 999px;
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(90deg, transparent 0%, var(--half-inning-accent) 30%, var(--half-inning-accent) 70%, transparent 100%);
+  box-shadow: 0 0 12px var(--half-inning-accent);
+}
+
+.half-inning-line-bottom {
+  margin-top: 18px;
+}
+
+.half-inning-title {
+  margin-top: 18px;
+  font-family: Anton, "Bebas Neue", Impact, sans-serif;
+  font-size: clamp(56px, 11vw, 104px);
+  line-height: 0.95;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.18), 0 4px 14px rgba(0, 0, 0, 0.45);
+  user-select: none;
+  opacity: 0;
+  transform: translateY(24px) scale(0.98);
+}
+
+.half-inning-subtitle {
+  margin-top: 10px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: clamp(16px, 3.2vw, 26px);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  text-transform: uppercase;
+  user-select: none;
+  opacity: 0;
+  transform: translateY(16px);
+}
+
+.half-inning-overlay.is-active .half-inning-line:first-of-type {
+  animation: halfInningLine 3.375s linear both;
+}
+
+.half-inning-overlay.is-active .half-inning-line-bottom {
+  animation: halfInningLineBottom 3.375s linear both;
+}
+
+.half-inning-overlay.is-active .half-inning-title {
+  animation: halfInningTitle 3.375s linear both;
+}
+
+.half-inning-overlay.is-active .half-inning-subtitle {
+  animation: halfInningSubtitle 3.375s linear both;
+}
+
+.half-inning-overlay.is-active .half-inning-flash {
+  animation: halfInningFlash 3.375s linear both;
+}
+
 .lions-win-frame {
   position: relative;
   width: min(100%, 768px);
@@ -309,6 +420,56 @@ textarea:disabled {
     transform: translateY(0) scale(1);
     opacity: 1;
   }
+}
+
+@keyframes halfInningOverlayFade {
+  0% { opacity: 0; }
+  9% { opacity: 1; }
+  84% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes halfInningLine {
+  0% { opacity: 0.95; transform: scaleX(0); }
+  16% { opacity: 0.95; transform: scaleX(1); }
+  84% { opacity: 0.95; transform: scaleX(1); }
+  94% { opacity: 0; transform: scaleX(1); }
+  100% { opacity: 0; transform: scaleX(1); }
+}
+
+@keyframes halfInningLineBottom {
+  0% { opacity: 0; transform: scaleX(0); }
+  4% { opacity: 0; transform: scaleX(0); }
+  20% { opacity: 0.95; transform: scaleX(1); }
+  84% { opacity: 0.95; transform: scaleX(1); }
+  94% { opacity: 0; transform: scaleX(1); }
+  100% { opacity: 0; transform: scaleX(1); }
+}
+
+@keyframes halfInningTitle {
+  0% { opacity: 0; transform: translateY(24px) scale(0.98); }
+  7% { opacity: 0; transform: translateY(24px) scale(0.98); }
+  28% { opacity: 1; transform: translateY(0) scale(1); }
+  76% { opacity: 1; transform: translateY(0) scale(1); }
+  90% { opacity: 0; transform: translateY(-8px) scale(1); }
+  100% { opacity: 0; transform: translateY(-8px) scale(1); }
+}
+
+@keyframes halfInningSubtitle {
+  0% { opacity: 0; transform: translateY(16px); }
+  12% { opacity: 0; transform: translateY(16px); }
+  30% { opacity: 1; transform: translateY(0); }
+  76% { opacity: 1; transform: translateY(0); }
+  90% { opacity: 0; transform: translateY(-8px); }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+
+@keyframes halfInningFlash {
+  0% { opacity: 0; transform: scale(0.7); }
+  11% { opacity: 0; transform: scale(0.7); }
+  17% { opacity: 0.35; transform: scaleX(1.05) scaleY(1); }
+  23% { opacity: 0; transform: scale(0.7); }
+  100% { opacity: 0; transform: scale(0.7); }
 }
 
 .modal-card {

@@ -424,7 +424,7 @@
               <section class="lineup-preview-card" id="lineupPreviewCard" hidden aria-label="Upcoming Lions hitters">
                 <div class="lineup-preview-head">
                   <div>
-                    <p class="eyebrow">Lions Batting</p>
+                    <p class="eyebrow" id="lineupPreviewEyebrow">Lions Batting</p>
                     <h3 id="lineupPreviewTitle">Top Of The Inning</h3>
                   </div>
                   <button type="button" class="secondary-action compact-action" id="dismissLineupPreviewBtn">Close</button>
@@ -1247,6 +1247,16 @@
               decoding="async">
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="half-inning-overlay" id="halfInningOverlay" hidden aria-hidden="true">
+      <div class="half-inning-center">
+        <div class="half-inning-flash" id="halfInningFlash"></div>
+        <div class="half-inning-line" id="halfInningLineTop"></div>
+        <div class="half-inning-title" id="halfInningTitle">TOP 1ST</div>
+        <div class="half-inning-subtitle" id="halfInningSubtitle">Lions batting</div>
+        <div class="half-inning-line half-inning-line-bottom" id="halfInningLineBottom"></div>
       </div>
     </div>
 
