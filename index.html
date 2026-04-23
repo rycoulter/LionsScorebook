@@ -14,96 +14,161 @@
       <header class="topbar">
         <div class="brand-block">
           <img src="new-lion.png?v=2026.04.21-build-146" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
-          <div>
+          <div class="brand-copy">
             <h1>Oakmont Lions</h1>
+            <button type="button" class="mobile-season-chip" aria-label="Current season">
+              <span>2026 Season</span>
+              <span class="mobile-season-chip-caret" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+            </button>
           </div>
         </div>
         <nav class="tabs" aria-label="Scorebook sections">
-          <button class="tab is-active" data-view="home">Home</button>
-          <button class="tab" data-view="score">Score Game</button>
-          <button class="tab" data-view="games">Schedule & Scores</button>
-          <button class="tab" data-view="lineup">Lineup Lab</button>
-          <button class="tab" data-view="roster">Roster</button>
-          <button class="tab" data-view="stats">Stats</button>
-          <button class="tab" data-view="scouting">Scouting Report</button>
-          <button class="tab" data-view="archive">Game Archive</button>
-          <button class="tab" data-view="analysis">Analysis</button>
+          <button class="tab is-active" data-view="home"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.75 10.5L12 3.75L20.25 10.5V19.25C20.25 19.8023 19.8023 20.25 19.25 20.25H14.75V14.75H9.25V20.25H4.75C4.19772 20.25 3.75 19.8023 3.75 19.25V10.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span><span class="tab-label">Home</span></button>
+          <button class="tab" data-view="score" hidden>Score Game</button>
+          <button class="tab" data-view="games"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 3.75V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 3.75V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 9.5H20" stroke="currentColor" stroke-width="1.8"/></svg></span><span class="tab-label">Schedule &amp; Scores</span></button>
+          <button class="tab" data-view="lineup" hidden>Lineup Lab</button>
+          <button class="tab" data-view="roster" hidden>Roster</button>
+          <button class="tab" data-view="stats"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 19.25V10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 19.25V5.75" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18 19.25V13.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="tab-label">Stats</span></button>
+          <button class="tab" data-view="scouting" hidden>Scouting Report</button>
+          <button class="tab" data-view="archive"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M9 10H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 14H13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="tab-label">Game Archive</span></button>
+          <button class="tab" data-view="analysis" hidden>Analysis</button>
         </nav>
+        <div class="topbar-actions"><span class="access-badge topbar-access-badge" id="accessModeBadge" hidden>Public View</span><span class="app-version" id="appVersion">Build loading...</span><button type="button" class="topbar-account-btn" id="accountMenuBtn" aria-label="Admin sign in" title="Admin sign in"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M5 19C5 15.6863 7.68629 13 11 13H13C16.3137 13 19 15.6863 19 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button type="button" class="secondary-action compact-action topbar-hidden-action" id="adminUnlockBtn" hidden>Admin Sign In</button><button type="button" class="secondary-action compact-action topbar-hidden-action" id="adminLockBtn" hidden>Exit Admin</button></div>
       </header>
 
       <main>
         <section class="view is-visible" id="homeView" data-panel="home">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Oakmont Lions</p>
-              <h2>Season Overview</h2>
+          <section class="home-overview-panel">
+            <div class="home-overview-head">
+              <div class="home-overview-kicker">
+                <span class="home-overview-trophy" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 4.75H16V8.25C16 10.4591 14.2091 12.25 12 12.25C9.79086 12.25 8 10.4591 8 8.25V4.75Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M8 6.25H5.75C4.7835 6.25 4 7.0335 4 8C4 10.0711 5.67893 11.75 7.75 11.75H8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    <path d="M16 6.25H18.25C19.2165 6.25 20 7.0335 20 8C20 10.0711 18.3211 11.75 16.25 11.75H15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    <path d="M12 12.25V16.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    <path d="M9 19.25H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span>2026 Season Overview</span>
+              </div>
+              
             </div>
-            <button type="button" class="primary-action" id="homeScoreGameBtn">Score Active Game</button>
-          </div>
+            <div class="home-overview-stats">
+              <article class="home-overview-stat">
+                <strong id="homeRecord">0-0</strong>
+                <span>Overall Record</span>
+              </article>
+              <article class="home-overview-stat">
+                <strong id="homeWinPct">.000</strong>
+                <span>Win %</span>
+              </article>
+              <article class="home-overview-stat">
+                <strong id="homeRunsScored">0</strong>
+                <span>Runs Scored</span>
+              </article>
+              <article class="home-overview-stat">
+                <strong id="homeRunsAllowed">0</strong>
+                <span>Runs Allowed</span>
+              </article>
+            </div>
+          </section>
           <div class="home-grid">
-            <section class="home-panel home-hero-panel">
-              <img
-                src="new-lion.png?v=2026.04.21-build-146"
-                alt="Lions matchup graphic"
-                id="homeMatchupImage"
-                class="home-field-image">
-              <div class="mini-head">
-                <div>
-                  <h3 id="homeRecord">0-0</h3>
-                  <span class="player-meta">Overall record</span>
+            <div class="home-left-column">
+              <section class="home-panel home-hero-panel">
+                <div class="home-hero-head">
+                  <span class="scout-kicker">Next Game</span>
+                  <p class="player-meta home-next-game-status" id="homeNextGameStatus">
+                    <span class="home-next-game-status-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.75V12L15 14.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                    <span id="homeNextGameStatusText">Schedule and score updates show up here automatically.</span>
+                  </p>
                 </div>
-                <span class="player-meta" id="homeRunSummary">0 RF | 0 RA</span>
-              </div>
-              <div class="home-next-game">
-                <span class="scout-kicker">Next Game</span>
-                <h3 id="homeNextGame">No upcoming game scheduled</h3>
-                <p class="player-meta" id="homeNextGameMeta">Create a game from the Games tab.</p>
-                <div class="weather-chip" id="homeNextGameWeather">Add date and field location for weather.</div>
-                <div class="button-row">
-                  <button type="button" class="primary-action" id="homeStartGameBtn">Start Game</button>
-                  <button type="button" class="secondary-action" id="homeScoutingBtn">View Scouting Report</button>
-                  <button type="button" class="secondary-action" id="homeGamesBtn">Manage Games</button>
-                </div>
-              </div>
-            </section>
-            <section class="home-panel home-leaders-panel">
-              <div class="mini-head home-panel-head home-panel-head-centered">
-                <div>
-                  <h3>Team Leaders</h3>
-                  <span>Batting and pitching snapshot</span>
-                </div>
-              </div>
-              <div class="home-leaders-wrap">
-                <section class="home-leader-section">
-                  <div class="home-subhead">
-                    <h4>Batting</h4>
-                    <span>AVG | H | R | RBI | OBP | OPS</span>
+                <img
+                  src="new-lion.png?v=2026.04.21-build-146"
+                  alt="Lions matchup graphic"
+                  id="homeMatchupImage"
+                  class="home-field-image">
+                <div class="home-next-game">
+                  <div class="home-next-game-head">
+                    <h3 id="homeNextGame">No upcoming game scheduled</h3>
                   </div>
-                  <div class="leader-grid compact-leaders" id="homeBattingLeaders"></div>
-                </section>
-                <section class="home-leader-section">
-                  <div class="home-subhead">
-                    <h4>Pitching</h4>
-                    <span>ERA | W | STR% | K | K/9 | WHIP</span>
+                  <h3 class="home-next-game-mobile-title" id="homeNextGameMobileTitle" hidden>No upcoming game scheduled</h3>
+                  <div class="home-next-game-details">
+                    <div class="home-next-game-detail">
+                      <span class="home-next-game-detail-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 3.75V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 3.75V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 9.5H20" stroke="currentColor" stroke-width="1.8"/></svg>
+                      </span>
+                      <span id="homeNextGameWhen">Date and time TBD</span>
+                    </div>
+                    <div class="home-next-game-detail">
+                      <span class="home-next-game-detail-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 20C15.5 16.2 18 13.2 18 10.5C18 7.46243 15.5376 5 12.5 5H11.5C8.46243 5 6 7.46243 6 10.5C6 13.2 8.5 16.2 12 20Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="10.5" r="2.25" stroke="currentColor" stroke-width="1.8"/></svg>
+                      </span>
+                      <span id="homeNextGameLocation">Field location TBD</span>
+                    </div>
+                    <div class="weather-chip" id="homeNextGameWeather">Add date and field location for weather.</div>
                   </div>
-                  <div class="leader-grid compact-leaders" id="homePitchingLeaders"></div>
-                </section>
-              </div>
-            </section>
-            <section class="home-panel home-upcoming-panel">
-              <div class="mini-head">
-                <h3>Upcoming Games</h3>
-                <span>Next 2</span>
-              </div>
-              <div class="upcoming-game-grid" id="homeUpcomingGames"></div>
-            </section>
-            <section class="home-panel home-past-panel">
-              <div class="mini-head">
-                <h3>Recent Results</h3>
-                <span>Last 2</span>
-              </div>
-              <div class="upcoming-game-grid" id="homePastGames"></div>
-            </section>
+                  <div class="home-next-game-footer">
+                    <button class="home-dashboard-link home-next-game-link" id="homeNextGameScheduleLink" type="button">
+                      <span>See Full Schedule</span>
+                      <span aria-hidden="true">></span>
+                    </button>
+                  </div>
+                </div>
+              </section>
+              <section class="home-panel home-recent-result-panel">
+                <div class="mini-head home-dashboard-head">
+                  <div>
+                    <h3>Last Game Result</h3>
+                  </div>
+                </div>
+                <div class="home-recent-result-body" id="homeRecentResultBody"></div>
+              </section>
+            </div>
+            <div class="home-right-column">
+              <section class="home-panel home-leaders-panel home-batting-leaders-panel">
+                <div class="mini-head home-dashboard-head">
+                  <div>
+                    <h3>Batting Leaders</h3>
+                  </div>
+                  <button class="home-dashboard-link" id="homeBattingLeadersLink" type="button">
+                    <span>2026 Season</span>
+                    <span aria-hidden="true">></span>
+                  </button>
+                </div>
+                <div class="home-feature-leaders-grid" id="homeBattingLeaders"></div>
+              </section>
+              <section class="home-panel home-pitching-leaders-panel">
+                <div class="mini-head home-dashboard-head">
+                  <div>
+                    <h3>Pitching Leaders</h3>
+                  </div>
+                  <button class="home-dashboard-link" id="homePitchingLeadersLink" type="button">
+                    <span>2026 Season</span>
+                    <span aria-hidden="true">></span>
+                  </button>
+                </div>
+                <div class="home-feature-leaders-grid" id="homePitchingLeaders"></div>
+              </section>
+              <section class="home-panel home-recent-games-panel">
+                <div class="mini-head home-dashboard-head">
+                  <div>
+                    <h3>Recent Games</h3>
+                  </div>
+                  <button class="home-dashboard-link" id="homeRecentGamesLink" type="button">
+                    <span>View All Results</span>
+                    <span aria-hidden="true">></span>
+                  </button>
+                </div>
+                <div class="home-recent-games-body" id="homeRecentGamesBody"></div>
+              </section>
+            </div>
           </div>
         </section>
 
@@ -398,7 +463,7 @@
                     <article class="scoring-dock-summary-card scoring-dock-count-card">
                       <span class="scoring-dock-kicker">Count</span>
                       <strong class="scoring-dock-big" id="dockCountValue">0-0</strong>
-                      <span class="scoring-dock-meta" id="dockCountMeta">0 Balls • 0 Strikes</span>
+                      <span class="scoring-dock-meta" id="dockCountMeta">0 Balls ï¿½ 0 Strikes</span>
                     </article>
                     <article class="scoring-dock-summary-card scoring-dock-outs-card">
                       <span class="scoring-dock-kicker">Bases</span>
@@ -617,12 +682,15 @@
         </section>
 
         <section class="view" id="gamesView" data-panel="games">
-          <div class="section-head">
-            <div>
+          <div class="section-head schedule-page-head">
+            <div class="schedule-page-title">
               <p class="eyebrow">Schedule & Scores</p>
               <h2>Schedule & Scores</h2>
+              <p class="player-meta">View your upcoming games, results, and team schedule.</p>
             </div>
-            <button type="button" class="primary-action" id="scheduleGameBtn">Create Game</button>
+            <div class="schedule-page-actions">
+              <button type="button" class="primary-action" id="scheduleGameBtn">Create Game</button>
+            </div>
           </div>
           <form class="game-form" id="gameForm" hidden>
             <div class="team-side-card wide" id="gameSetupTeamIndicator">
@@ -667,12 +735,66 @@
               <button type="button" class="secondary-action" id="cancelGameCreateBtn">Cancel</button>
             </div>
           </form>
-          <div class="record-summary" id="recordSummary"></div>
-          <div class="game-filter-row" id="gameFilterRow" aria-label="Filter games">
-            <button type="button" class="secondary-action is-active" data-game-filter="all">All</button>
-            <button type="button" class="secondary-action" data-game-filter="future">Future</button>
-            <button type="button" class="secondary-action" data-game-filter="active">In Progress</button>
-            <button type="button" class="secondary-action" data-game-filter="completed">Completed</button>
+          <div class="record-summary" id="recordSummary" hidden></div>
+          <div class="schedule-toolbar">
+            <div class="game-filter-row" id="gameFilterRow" aria-label="Filter games">
+              <button type="button" class="secondary-action is-active" data-game-filter="all">All</button>
+              <button type="button" class="secondary-action" data-game-filter="future">Future</button>
+              <button type="button" class="secondary-action" data-game-filter="completed">Completed</button>
+            </div>
+            <div class="schedule-toolbar-side">
+              <div class="schedule-season-chip" aria-label="Current schedule filter">
+                <span class="schedule-season-chip-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="5" width="18" height="16" rx="3"></rect>
+                    <path d="M8 3v4M16 3v4M3 10h18"></path>
+                  </svg>
+                </span>
+                <span>All Seasons</span>
+                <span class="schedule-season-chip-caret" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 6l4 4 4-4"></path>
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="schedule-dashboard" id="scheduleDashboard" hidden>
+            <div class="schedule-dashboard-main">
+              <section class="schedule-shell-card schedule-feature-shell">
+                <div class="schedule-shell-head">
+                  <div>
+                    <p class="eyebrow">Upcoming Games</p>
+                    <h3>Next Game</h3>
+                  </div>
+                  <button type="button" class="schedule-shell-link" id="scheduleCalendarLink">View Full Schedule ></button>
+                </div>
+                <div class="schedule-shell-body" id="scheduleFeaturedBody"></div>
+              </section>
+              <section class="schedule-shell-card schedule-list-shell">
+                <div class="schedule-shell-head">
+                  <div>
+                    <p class="eyebrow">Upcoming Games</p>
+                    <h3>Next 2 Games</h3>
+                  </div>
+                </div>
+                <div class="schedule-shell-body" id="scheduleUpcomingBody"></div>
+              </section>
+            </div>
+            <div class="schedule-dashboard-side">
+              <section class="schedule-shell-card schedule-results-shell">
+                <div class="schedule-shell-head">
+                  <div>
+                    <p class="eyebrow">Completed Games</p>
+                    <h3>Recent Results</h3>
+                  </div>
+                  <div class="schedule-shell-head-actions">
+                    <button type="button" class="schedule-shell-link" id="scheduleResultsArchiveLink">View All Results ></button>
+                  </div>
+                </div>
+                <div class="schedule-shell-body" id="scheduleResultsBody"></div>
+              </section>
+            </div>
           </div>
           <div class="games-grid" id="gamesGrid"></div>
           <div class="games-archive-note" id="gamesArchiveNote"></div>
@@ -1226,15 +1348,32 @@
           </section>
         </section>
       </main>
-
-      <div class="site-utility-bar" aria-label="Site utilities">
-        <div class="access-controls" aria-label="Access controls">
-          <span class="access-badge" id="accessModeBadge">Public View</span>
-          <button type="button" class="secondary-action compact-action" id="adminUnlockBtn">Admin Sign In</button>
-          <button type="button" class="secondary-action compact-action" id="adminLockBtn" hidden>Exit Admin</button>
-          <span class="app-version" id="appVersion">Build loading...</span>
-        </div>
-      </div>
+      <nav class="mobile-bottom-nav" aria-label="Primary mobile navigation">
+        <button class="mobile-bottom-nav-tab is-active" data-view="home" type="button">
+          <span class="mobile-bottom-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.75 10.5L12 3.75L20.25 10.5V19.25C20.25 19.8023 19.8023 20.25 19.25 20.25H14.75V14.75H9.25V20.25H4.75C4.19772 20.25 3.75 19.8023 3.75 19.25V10.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          </span>
+          <span>Home</span>
+        </button>
+        <button class="mobile-bottom-nav-tab" data-view="games" type="button">
+          <span class="mobile-bottom-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 3.75V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 3.75V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 9.5H20" stroke="currentColor" stroke-width="1.8"/></svg>
+          </span>
+          <span>Schedule</span>
+        </button>
+        <button class="mobile-bottom-nav-tab" data-view="stats" type="button">
+          <span class="mobile-bottom-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 19.25V10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 19.25V5.75" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18 19.25V13.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </span>
+          <span>Stats</span>
+        </button>
+        <button class="mobile-bottom-nav-tab" data-view="archive" type="button">
+          <span class="mobile-bottom-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M9 10H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 14H13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </span>
+          <span>Archive</span>
+        </button>
+      </nav>
     </div>
 
     <div class="modal-backdrop" id="adminAuthModal" hidden>
@@ -1366,6 +1505,15 @@
     <script src="app.js?v=2026.04.21-build-146"></script>
   </body>
 </html>
+
+
+
+
+
+
+
+
+
 
 
 

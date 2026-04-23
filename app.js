@@ -509,7 +509,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.0.14";
+const APP_VERSION = "v.1.0.15";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -606,9 +606,11 @@ const SUPABASE_REFRESH_THROTTLE_MS = 15000;
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
+  mobileBottomNavTabs: [...document.querySelectorAll(".mobile-bottom-nav-tab")],
   views: [...document.querySelectorAll(".view")],
   homeScoreGameBtn: document.getElementById("homeScoreGameBtn"),
   homeStartGameBtn: document.getElementById("homeStartGameBtn"),
+  accountMenuBtn: document.getElementById("accountMenuBtn"),
   accessModeBadge: document.getElementById("accessModeBadge"),
   adminUnlockBtn: document.getElementById("adminUnlockBtn"),
   adminLockBtn: document.getElementById("adminLockBtn"),
@@ -620,15 +622,27 @@ const els = {
   adminAuthCancelBtn: document.getElementById("adminAuthCancelBtn"),
   adminAuthSubmitBtn: document.getElementById("adminAuthSubmitBtn"),
   homeRecord: document.getElementById("homeRecord"),
-  homeRunSummary: document.getElementById("homeRunSummary"),
+  homeWinPct: document.getElementById("homeWinPct"),
+  homeRunsScored: document.getElementById("homeRunsScored"),
+  homeRunsAllowed: document.getElementById("homeRunsAllowed"),
   homeMatchupImage: document.getElementById("homeMatchupImage"),
   homeNextGame: document.getElementById("homeNextGame"),
-  homeNextGameMeta: document.getElementById("homeNextGameMeta"),
+  homeNextGameMobileTitle: document.getElementById("homeNextGameMobileTitle"),
+  homeNextGameWhen: document.getElementById("homeNextGameWhen"),
+  homeNextGameLocation: document.getElementById("homeNextGameLocation"),
+  homeNextGameStatus: document.getElementById("homeNextGameStatus"),
+  homeNextGameStatusText: document.getElementById("homeNextGameStatusText"),
   homeNextGameWeather: document.getElementById("homeNextGameWeather"),
+  homeNextGameScheduleLink: document.getElementById("homeNextGameScheduleLink"),
   homeScoutingBtn: document.getElementById("homeScoutingBtn"),
   homeGamesBtn: document.getElementById("homeGamesBtn"),
   homeBattingLeaders: document.getElementById("homeBattingLeaders"),
+  homeBattingLeadersLink: document.getElementById("homeBattingLeadersLink"),
   homePitchingLeaders: document.getElementById("homePitchingLeaders"),
+  homePitchingLeadersLink: document.getElementById("homePitchingLeadersLink"),
+  homeRecentResultBody: document.getElementById("homeRecentResultBody"),
+  homeRecentGamesBody: document.getElementById("homeRecentGamesBody"),
+  homeRecentGamesLink: document.getElementById("homeRecentGamesLink"),
   homeLeagueStandings: document.getElementById("homeLeagueStandings"),
   homeUpcomingGames: document.getElementById("homeUpcomingGames"),
   homePastGames: document.getElementById("homePastGames"),
@@ -744,6 +758,12 @@ const els = {
   cancelGameCreateBtn: document.getElementById("cancelGameCreateBtn"),
   gameSetupTeamIndicator: document.getElementById("gameSetupTeamIndicator"),
   gameFilterRow: document.getElementById("gameFilterRow"),
+  scheduleDashboard: document.getElementById("scheduleDashboard"),
+  scheduleFeaturedBody: document.getElementById("scheduleFeaturedBody"),
+  scheduleUpcomingBody: document.getElementById("scheduleUpcomingBody"),
+  scheduleResultsBody: document.getElementById("scheduleResultsBody"),
+  scheduleCalendarLink: document.getElementById("scheduleCalendarLink"),
+  scheduleResultsArchiveLink: document.getElementById("scheduleResultsArchiveLink"),
   gamesGrid: document.getElementById("gamesGrid"),
   gamesArchiveNote: document.getElementById("gamesArchiveNote"),
   scorebookGameSelect: document.getElementById("scorebookGameSelect"),
@@ -985,7 +1005,12 @@ function parseRosterCsv(csvText) {
 }
 
 function todayValue() {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
 }
 
 function createId(prefix = "id") {
@@ -2813,6 +2838,11 @@ function renderAccessMode() {
   if (els.accessModeBadge) els.accessModeBadge.textContent = isAdminMode() ? "Admin Mode" : "Public View";
   if (els.adminUnlockBtn) els.adminUnlockBtn.hidden = isAdminMode();
   if (els.adminLockBtn) els.adminLockBtn.hidden = !isAdminMode();
+  if (els.accountMenuBtn) {
+    els.accountMenuBtn.dataset.admin = isAdminMode() ? "true" : "false";
+    els.accountMenuBtn.setAttribute("aria-label", isAdminMode() ? "Exit admin mode" : "Admin sign in");
+    els.accountMenuBtn.title = isAdminMode() ? "Exit admin mode" : "Admin sign in";
+  }
   if (els.boxScoreBackBtn) els.boxScoreBackBtn.textContent = isAdminMode() ? "Back to Analysis" : "Back to Games";
   if (els.tabs?.length) {
     const allowedTabs = visibleTabViews();
@@ -2821,11 +2851,28 @@ function renderAccessMode() {
       tab.hidden = !visible;
     });
   }
+  if (els.mobileBottomNavTabs?.length) {
+    els.mobileBottomNavTabs.forEach((tab) => {
+      tab.classList.toggle("is-active", tab.dataset.view === currentView);
+    });
+  }
 }
 
 function bindEvents() {
   els.tabs.forEach((tab) => {
     tab.addEventListener("click", () => switchView(tab.dataset.view));
+  });
+  els.mobileBottomNavTabs.forEach((tab) => {
+    tab.addEventListener("click", () => switchView(tab.dataset.view));
+  });
+  els.accountMenuBtn?.addEventListener("click", () => {
+    if (!isAdminMode()) {
+      openAdminAuthModal();
+      return;
+    }
+    if (window.confirm("Exit Admin Mode? You can sign back in any time from the account icon.")) {
+      signOutAdmin();
+    }
   });
   els.adminUnlockBtn?.addEventListener("click", () => openAdminAuthModal());
   els.adminLockBtn?.addEventListener("click", signOutAdmin);
@@ -2844,10 +2891,24 @@ function bindEvents() {
   els.adminAuthModal?.addEventListener("click", (event) => {
     if (event.target === els.adminAuthModal) closeAdminAuthModal();
   });
-  els.homeScoreGameBtn.addEventListener("click", openCurrentGameForScoring);
+  els.homeScoreGameBtn?.addEventListener("click", openCurrentGameForScoring);
   els.homeStartGameBtn?.addEventListener("click", startNextGameFromHome);
-  els.homeGamesBtn.addEventListener("click", () => switchView("games"));
-  els.homeScoutingBtn.addEventListener("click", openNextGameScouting);
+  els.homeGamesBtn?.addEventListener("click", () => switchView("games"));
+  els.homeNextGameScheduleLink?.addEventListener("click", () => switchView("games"));
+  els.homeScoutingBtn?.addEventListener("click", openNextGameScouting);
+  els.homeBattingLeadersLink?.addEventListener("click", () => switchView("stats"));
+  els.homePitchingLeadersLink?.addEventListener("click", () => switchView("stats"));
+  els.homeRecentGamesLink?.addEventListener("click", () => switchView("archive"));
+  els.homeRecentResultBody?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-home-box-score-game]");
+    if (!button) return;
+    openBoxScore(button.dataset.homeBoxScoreGame);
+  });
+  els.homeRecentGamesBody?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-home-box-score-game]");
+    if (!button) return;
+    openBoxScore(button.dataset.homeBoxScoreGame);
+  });
   els.homeUpcomingGames?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-home-scout-opponent]");
     if (!button) return;
@@ -2932,6 +2993,16 @@ function bindEvents() {
   });
   els.scheduleGameBtn.addEventListener("click", showGameCreateForm);
   els.cancelGameCreateBtn?.addEventListener("click", hideGameCreateForm);
+  const handleScheduleCalendarPlaceholder = () => {
+    window.alert("Calendar view is the next step here. For now, this is just the placeholder link.");
+  };
+  els.scheduleCalendarLink?.addEventListener("click", handleScheduleCalendarPlaceholder);
+  els.scheduleResultsArchiveLink?.addEventListener("click", () => switchView("archive"));
+  els.scheduleResultsBody?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-game-action]");
+    if (!button) return;
+    handleGameActionClick(event);
+  });
   els.gamesGrid.addEventListener("click", (event) => {
     const button = event.target.closest("[data-game-action]");
     if (!button) return;
@@ -3349,6 +3420,9 @@ function switchView(view) {
     const visible = allowedTabs.has(tab.dataset.view);
     tab.hidden = !visible;
     tab.classList.toggle("is-active", visible && tab.dataset.view === nextView);
+  });
+  els.mobileBottomNavTabs.forEach((tab) => {
+    tab.classList.toggle("is-active", tab.dataset.view === nextView);
   });
   els.views.forEach((panel) => panel.classList.toggle("is-visible", panel.dataset.panel === nextView));
   if (previousView !== nextView) {
@@ -5677,56 +5751,63 @@ function renderScoreEmptyState(scoreGame = activeScoreGame()) {
 }
 
 function renderHome() {
-  const admin = isAdminMode();
   const record = seasonRecord();
+  const totalGames = record.wins + record.losses + record.ties;
+  const winPct = totalGames ? formatWinPctDisplay((record.wins + (record.ties * 0.5)) / totalGames) : ".000";
   const upcoming = upcomingScheduledGames(3);
-  const next = upcoming[0] || null;
-  const inProgress = inProgressGames()[0] || null;
+  const liveGame = inProgressGames()[0] || null;
+  const next = liveGame || upcoming[0] || null;
   els.homeRecord.textContent = `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""}`;
-  els.homeRunSummary.textContent = `${record.runsFor} RF | ${record.runsAgainst} RA`;
-  if (els.homeScoreGameBtn) {
-    els.homeScoreGameBtn.hidden = !admin;
-    els.homeScoreGameBtn.disabled = !admin || !inProgress;
-    els.homeScoreGameBtn.textContent = inProgress
-      ? (inProgress.status === "active" ? "Score Active Game" : "Start Live Game")
-      : "No Game In Progress";
-  }
-  if (els.homeStartGameBtn) {
-    els.homeStartGameBtn.disabled = !admin || !next;
-    els.homeStartGameBtn.hidden = !admin || !next;
-  }
-  if (els.homeScoutingBtn) els.homeScoutingBtn.hidden = !admin;
-  if (els.homeGamesBtn) els.homeGamesBtn.textContent = admin ? "Manage Games" : "Schedule & Scores";
+  if (els.homeWinPct) els.homeWinPct.textContent = winPct;
+  if (els.homeRunsScored) els.homeRunsScored.textContent = String(record.runsFor);
+  if (els.homeRunsAllowed) els.homeRunsAllowed.textContent = String(record.runsAgainst);
+  if (els.homeStartGameBtn) els.homeStartGameBtn.hidden = true;
+  if (els.homeScoutingBtn) els.homeScoutingBtn.hidden = true;
+  if (els.homeGamesBtn) els.homeGamesBtn.hidden = true;
   if (next) {
-    els.homeNextGame.textContent = gameMatchupLabel(next);
-    els.homeNextGameMeta.textContent = gameScheduleMeta(next);
+    const nextGameStatus = homeNextGameStatusState(next);
+    if (els.homeNextGame) {
+      els.homeNextGame.textContent = gameMatchupLabel(next);
+      els.homeNextGame.hidden = true;
+    }
+    if (els.homeNextGameMobileTitle) {
+      els.homeNextGameMobileTitle.textContent = homeNextGameMobileLabel(next);
+      els.homeNextGameMobileTitle.hidden = false;
+    }
+    if (els.homeNextGameWhen) els.homeNextGameWhen.textContent = homeNextGameWhenLabel(next);
+    if (els.homeNextGameLocation) els.homeNextGameLocation.textContent = gameLocationLabel(next) || "Field location TBD";
+    if (els.homeNextGameStatusText) els.homeNextGameStatusText.textContent = nextGameStatus.text;
+    if (els.homeNextGameStatus) els.homeNextGameStatus.classList.toggle("is-live", nextGameStatus.isLive);
     if (els.homeNextGameWeather) {
       els.homeNextGameWeather.dataset.weatherGameId = next.id;
       els.homeNextGameWeather.innerHTML = renderWeatherChip(next);
     }
     setHomeMatchupImage(next);
-    if (els.homeScoutingBtn) els.homeScoutingBtn.disabled = !admin;
   } else {
-    els.homeNextGame.textContent = "No upcoming game scheduled";
-    els.homeNextGameMeta.textContent = admin ? "Create a game from the Games tab." : "Schedule and score updates show up here automatically.";
+    if (els.homeNextGame) {
+      els.homeNextGame.textContent = "No upcoming game scheduled";
+      els.homeNextGame.hidden = false;
+    }
+    if (els.homeNextGameMobileTitle) {
+      els.homeNextGameMobileTitle.textContent = "No upcoming game scheduled";
+      els.homeNextGameMobileTitle.hidden = false;
+    }
+    if (els.homeNextGameWhen) els.homeNextGameWhen.textContent = "Date and time TBD";
+    if (els.homeNextGameLocation) els.homeNextGameLocation.textContent = "Field location TBD";
+    if (els.homeNextGameStatusText) els.homeNextGameStatusText.textContent = "Schedule and score updates show up here automatically.";
+    if (els.homeNextGameStatus) els.homeNextGameStatus.classList.remove("is-live");
     if (els.homeNextGameWeather) {
       delete els.homeNextGameWeather.dataset.weatherGameId;
       els.homeNextGameWeather.textContent = "Add date and field location for weather.";
     }
     setHomeMatchupImage(null);
-    if (els.homeScoutingBtn) els.homeScoutingBtn.disabled = true;
   }
-  const nextTwo = upcoming.slice(1, 3);
-  if (els.homeUpcomingGames) {
-    els.homeUpcomingGames.innerHTML = nextTwo.length
-      ? nextTwo.map(renderUpcomingGameCard).join("")
-      : `<div class="upcoming-empty">No additional upcoming games scheduled.</div>`;
+  const recentFinals = completedGames(5);
+  if (els.homeRecentResultBody) {
+    els.homeRecentResultBody.innerHTML = renderHomeLastGameResultCard(recentFinals[0] || null);
   }
-  const recentFinals = completedGames(2);
-  if (els.homePastGames) {
-    els.homePastGames.innerHTML = recentFinals.length
-      ? recentFinals.map(renderPastGameCard).join("")
-      : `<div class="upcoming-empty">No completed games yet.</div>`;
+  if (els.homeRecentGamesBody) {
+    els.homeRecentGamesBody.innerHTML = renderHomeRecentGamesList(recentFinals.slice(1, 5));
   }
   hydrateHomeWeather(upcoming);
 
@@ -5735,20 +5816,14 @@ function renderHome() {
     .map((player) => ({ player, stats: pitcherStats(player.id) }))
     .filter((row) => hasPitchingStats(row.stats));
   els.homeBattingLeaders.innerHTML = [
-    leaderCard("AVG", hitterRows, (row) => row.stats.avg, (value) => formatRate(value)),
-    leaderCard("Hits", hitterRows, (row) => row.stats.h, String),
-    leaderCard("Runs", hitterRows, (row) => row.runs, String),
-    leaderCard("RBI", hitterRows, (row) => row.stats.rbi, String),
-    leaderCard("OBP", hitterRows, (row) => row.stats.obp, (value) => formatRate(value)),
-    leaderCard("OPS", hitterRows, (row) => row.stats.ops, (value) => formatRate(value))
+    renderHomeLeaderFeatureCard("AVG", hitterRows, (row) => row.stats.avg, formatRate),
+    renderHomeLeaderFeatureCard("H", hitterRows, (row) => row.stats.h, String),
+    renderHomeLeaderFeatureCard("RBI", hitterRows, (row) => row.stats.rbi, String)
   ].join("");
   els.homePitchingLeaders.innerHTML = [
-    leaderCard("ERA", pitcherRows, (row) => row.stats.era, formatEra, { lowWins: true, includeZero: true }),
-    leaderCard("Wins", pitcherRows, (row) => row.stats.wins, String),
-    leaderCard("Strike %", pitcherRows, (row) => row.stats.strikeRate, formatPercent, { includeZero: true }),
-    leaderCard("Strikeouts", pitcherRows, (row) => row.stats.k, String),
-    leaderCard("K/9", pitcherRows, (row) => row.stats.k9, (value) => value.toFixed(1), { includeZero: true }),
-    leaderCard("WHIP", pitcherRows, (row) => row.stats.whip, (value) => value.toFixed(2), true)
+    renderHomeLeaderFeatureCard("ERA", pitcherRows, (row) => row.stats.era, formatEra, { lowWins: true, includeZero: true }),
+    renderHomeLeaderFeatureCard("K", pitcherRows, (row) => row.stats.k, String),
+    renderHomeLeaderFeatureCard("Wins", pitcherRows, (row) => row.stats.wins, String)
   ].join("");
   if (els.homeLeagueStandings) {
     const totalGames = record.wins + record.losses + record.ties;
@@ -5832,8 +5907,30 @@ function parseScheduledGameStart(game) {
   const [year, month, day] = String(game.date).split("-").map(Number);
   const [hour, minute] = String(game.time).split(":").map(Number);
   if (!year || !month || !day || Number.isNaN(hour) || Number.isNaN(minute)) return null;
-  const start = new Date(year, month - 1, day, hour, minute, 0, 0);
+  const start = dateAtTimeZone(year, month, day, hour, minute, "America/New_York");
   return Number.isNaN(start.getTime()) ? null : start;
+}
+
+function timeZoneOffsetMinutes(timeZone, date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date);
+  const byType = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, Number(part.value)]));
+  const zonedUtc = Date.UTC(byType.year, (byType.month || 1) - 1, byType.day || 1, byType.hour || 0, byType.minute || 0, byType.second || 0);
+  return (zonedUtc - date.getTime()) / 60000;
+}
+
+function dateAtTimeZone(year, month, day, hour, minute, timeZone) {
+  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0, 0));
+  const offsetMinutes = timeZoneOffsetMinutes(timeZone, utcGuess);
+  return new Date(utcGuess.getTime() - (offsetMinutes * 60000));
 }
 
 function isGameInScheduledLiveWindow(game, now = new Date()) {
@@ -5927,6 +6024,10 @@ function completedGames(limit = Infinity) {
     .slice(0, limit);
 }
 
+function homeOpponentName(game) {
+  return lionsSide(game) === "home" ? awayTeamName(game) : homeTeamName(game);
+}
+
 function getMatchupImage(opponentName, lionsHomeAway = "home") {
   return window.MatchupImages?.getMatchupImage(opponentName, lionsHomeAway) || "new-lion.png";
 }
@@ -5941,6 +6042,61 @@ function setHomeMatchupImage(game = null) {
 function gameScheduleMeta(game) {
   const location = gameLocationLabel(game);
   return `${gameTeamMeta(game)} | ${game.date || "No date"}${game.time ? ` at ${game.time}` : ""}${location ? ` | ${location}` : ""}`;
+}
+
+function renderHomeLastGameResultCard(game) {
+  if (!game) return `<div class="upcoming-empty">No completed games yet.</div>`;
+  const opponentName = homeOpponentName(game);
+  const dateLabel = formatGameDateDisplay(game.date);
+  const locationLabel = gameLocationLabel(game) || "Field location TBD";
+  return `<article class="home-recent-result-card">
+    <div class="home-recent-result-scoreline">
+      <div class="home-recent-result-team">
+        <img class="home-recent-result-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.("Lions", "lions") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
+        <strong>Lions</strong>
+      </div>
+      <strong class="home-recent-result-score home-recent-result-score-lions">${escapeHtml(String(Number(game?.score?.lions || 0)))}</strong>
+      <span class="home-recent-result-dash">-</span>
+      <strong class="home-recent-result-score">${escapeHtml(String(Number(game?.score?.opponent || 0)))}</strong>
+      <div class="home-recent-result-team">
+        <img class="home-recent-result-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.(opponentName, "opponent") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
+        <strong>${escapeHtml(opponentName)}</strong>
+      </div>
+    </div>
+    <div class="home-recent-result-meta">
+      <span class="result-badge">Final</span>
+      <span class="player-meta">${escapeHtml(`${dateLabel} | ${locationLabel}`)}</span>
+    </div>
+    <div class="home-recent-result-footer">
+      <button class="home-dashboard-link home-box-score-link" data-home-box-score-game="${escapeHtml(game.id)}" type="button">
+        <span>View Box Score</span>
+        <span aria-hidden="true">></span>
+      </button>
+    </div>
+  </article>`;
+}
+
+function renderHomeRecentGamesList(games) {
+  if (!games.length) return `<div class="upcoming-empty">More recent finals will show up here as games are completed.</div>`;
+  return `<div class="home-recent-games-list">
+    ${games.map(renderHomeRecentGamesRow).join("")}
+  </div>`;
+}
+
+function renderHomeRecentGamesRow(game) {
+  const opponentName = homeOpponentName(game);
+  const isHome = lionsSide(game) === "home";
+  const matchupTag = isHome ? "vs" : "@";
+  const result = gameResultLabel(game).startsWith("W") ? "W" : gameResultLabel(game).startsWith("L") ? "L" : "T";
+  return `<button class="home-recent-games-row" type="button" data-home-box-score-game="${escapeHtml(game.id)}">
+    <span class="home-recent-games-date">${escapeHtml(formatShortMonthDay(game.date))}</span>
+    <span class="home-recent-games-matchup">${escapeHtml(matchupTag)}</span>
+    <img class="home-recent-games-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.(opponentName, "opponent") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
+    <span class="home-recent-games-opponent">${escapeHtml(opponentName)}</span>
+    <span class="home-recent-games-result home-recent-games-result-${result.toLowerCase()}">${escapeHtml(result)}</span>
+    <strong class="home-recent-games-score">${escapeHtml(`${Number(game?.score?.lions || 0)} - ${Number(game?.score?.opponent || 0)}`)}</strong>
+    <span class="home-recent-games-arrow" aria-hidden="true">></span>
+  </button>`;
 }
 
 function renderUpcomingGameCard(game) {
@@ -6006,7 +6162,12 @@ function hydrateHomeWeather(games) {
 
 function updateWeatherChips(game) {
   document.querySelectorAll("[data-weather-game-id]").forEach((node) => {
-    if (node.dataset.weatherGameId === game.id) node.innerHTML = renderWeatherChip(game);
+    if (node.dataset.weatherGameId !== game.id) return;
+    if (node.classList.contains("schedule-meta-item-weather-inline")) {
+      node.innerHTML = renderScheduleWeatherInlineContent(game);
+      return;
+    }
+    node.innerHTML = renderWeatherChip(game);
   });
 }
 
@@ -6581,6 +6742,79 @@ function latestScoringDockResult(game = activeGame()) {
   return {
     title: "No result yet",
     meta: "First pitch is waiting."
+  };
+}
+
+function formatWinPctDisplay(value) {
+  const numeric = typeof value === "number" ? value : Number.parseFloat(String(value || "0").replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(numeric)) return ".000";
+  const formatted = numeric.toFixed(3);
+  return formatted.replace(/^0/, "");
+}
+
+function formatGameDateDisplay(value) {
+  if (!value) return "Date TBD";
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return value;
+  const date = new Date(year, month - 1, day);
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" }).format(date);
+}
+
+function homeNextGameMobileLabel(game) {
+  if (!game) return "No upcoming game scheduled";
+  return `Lions vs ${homeOpponentName(game)}`;
+}
+
+function formatShortMonthDay(value) {
+  if (!value) return "Date TBD";
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return value;
+  const date = new Date(year, month - 1, day);
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
+}
+
+function formatGameTimeDisplay(value) {
+  if (!value) return "";
+  const [hours, minutes] = String(value).split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return value;
+  const date = new Date(2000, 0, 1, hours, minutes);
+  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
+}
+
+function homeNextGameWhenLabel(game) {
+  if (!game) return "Date and time TBD";
+  const dateLabel = formatGameDateDisplay(game.date);
+  const timeLabel = formatGameTimeDisplay(game.time);
+  return `${dateLabel}${timeLabel ? ` | ${timeLabel}` : ""}`;
+}
+
+function homeNextGameStatusLabel(game) {
+  if (!game?.date) return "Schedule and score updates show up here automatically.";
+  const today = new Date(`${todayValue()}T00:00:00`);
+  const gameDate = new Date(`${game.date}T00:00:00`);
+  if (Number.isNaN(gameDate.getTime())) return "Upcoming game";
+  const diffDays = Math.round((gameDate.getTime() - today.getTime()) / 86400000);
+  if (diffDays <= 0) return "Starts today";
+  if (diffDays === 1) return "Starts tomorrow";
+  return `Starts in ${diffDays} days`;
+}
+
+function homeNextGameStatusState(game) {
+  if (!game?.date) {
+    return {
+      text: "Schedule and score updates show up here automatically.",
+      isLive: false
+    };
+  }
+  if (gameLifecycle(game) === "active") {
+    return {
+      text: "Live",
+      isLive: true
+    };
+  }
+  return {
+    text: homeNextGameStatusLabel(game),
+    isLive: false
   };
 }
 
@@ -8419,6 +8653,8 @@ function renderGameSummaryPitcher(row) {
 function renderGames() {
   const admin = isAdminMode();
   const activeId = activeScoreGame()?.id || "";
+  const visibleFilters = new Set(["all", "future", "completed"]);
+  if (!visibleFilters.has(gameFilter)) gameFilter = "all";
   renderRecordSummary();
   if (!admin) {
     if (els.gameForm) els.gameForm.hidden = true;
@@ -8435,16 +8671,35 @@ function renderGames() {
   const completedGamesSorted = gamesForLifecycle("completed");
   const completedTotal = completedGamesSorted.length;
   if (gameFilter === "all") {
-    const liveGames = gamesForLifecycle("active");
     const upcomingGames = gamesForLifecycle("future");
-    const recentCompleted = completedGamesSorted.slice(0, 3);
-    els.gamesGrid.classList.add("is-grouped");
-    els.gamesGrid.innerHTML = [
-      renderGameOrderSection("Live", "Games currently in progress", liveGames, activeId, "live"),
-      renderGameOrderSection("Upcoming", "Scheduled games, soonest first", upcomingGames, activeId, "upcoming"),
-      renderGameOrderSection("Completed", "Most recent finals", recentCompleted, activeId, "completed")
-    ].join("");
+    const featuredUpcoming = upcomingGames[0] || null;
+    const additionalUpcoming = upcomingGames.slice(featuredUpcoming ? 1 : 0, featuredUpcoming ? 3 : 2);
+    const recentCompleted = completedGamesSorted.slice(0, 6);
+    if (els.scheduleDashboard) els.scheduleDashboard.hidden = false;
+    if (els.gamesGrid) {
+      els.gamesGrid.classList.remove("is-grouped");
+      els.gamesGrid.innerHTML = "";
+      els.gamesGrid.hidden = true;
+    }
+    if (els.scheduleFeaturedBody) {
+      els.scheduleFeaturedBody.innerHTML = featuredUpcoming
+        ? renderScheduleFeaturedGameCard(featuredUpcoming)
+        : `<p class="player-meta schedule-shell-empty">No upcoming games scheduled.</p>`;
+    }
+    if (els.scheduleUpcomingBody) {
+      els.scheduleUpcomingBody.innerHTML = additionalUpcoming.length
+        ? renderScheduleUpcomingGamesList(additionalUpcoming)
+        : `<p class="player-meta schedule-shell-empty">No additional upcoming games right now.</p>`;
+    }
+    if (els.scheduleResultsBody) {
+      els.scheduleResultsBody.innerHTML = recentCompleted.length
+        ? renderScheduleResultsList(recentCompleted)
+        : `<p class="player-meta schedule-shell-empty">No completed games yet.</p>`;
+    }
+    hydrateHomeWeather([featuredUpcoming, ...additionalUpcoming].filter(Boolean));
   } else {
+    if (els.scheduleDashboard) els.scheduleDashboard.hidden = true;
+    if (els.gamesGrid) els.gamesGrid.hidden = false;
     els.gamesGrid.classList.remove("is-grouped");
     const filtered = gamesForLifecycle(gameFilter).slice(0, gameFilter === "completed" ? 3 : Infinity);
     els.gamesGrid.innerHTML = filtered.length
@@ -8452,10 +8707,138 @@ function renderGames() {
       : `<p class="player-meta">No ${escapeHtml(gameFilter)} games found.</p>`;
   }
   if (els.gamesArchiveNote) {
-    els.gamesArchiveNote.innerHTML = completedTotal > 3
-      ? `<span>Showing the 3 most recent completed games.</span><button type="button" class="secondary-action" data-game-action="archive">View full history in Game Archive</button>`
-      : `<span>Full game history lives in Game Archive.</span><button type="button" class="secondary-action" data-game-action="archive">Open Game Archive</button>`;
+    if (gameFilter === "all") {
+      els.gamesArchiveNote.hidden = true;
+      els.gamesArchiveNote.innerHTML = "";
+    } else {
+      els.gamesArchiveNote.hidden = false;
+      els.gamesArchiveNote.innerHTML = completedTotal > 3
+        ? `<span>Showing the 3 most recent completed games.</span><button type="button" class="secondary-action" data-game-action="archive">View full history in Game Archive</button>`
+        : `<span>Full game history lives in Game Archive.</span><button type="button" class="secondary-action" data-game-action="archive">Open Game Archive</button>`;
+    }
   }
+}
+
+function renderScheduleFeaturedGameCard(game) {
+  const status = homeNextGameStatusState(game);
+  const location = gameLocationLabel(game);
+  const dateLabel = formatGameDateDisplay(game?.date);
+  const timeLabel = formatGameTimeDisplay(game?.time);
+  const heroMeta = [
+    renderScheduleMetaItem("calendar", `${dateLabel}${timeLabel ? ` | ${timeLabel}` : ""}`),
+    renderScheduleMetaItem("location", location || "Location TBD"),
+    renderScheduleWeatherItem(game)
+  ].filter(Boolean).join("");
+  return `<article class="schedule-feature-card">
+    <img class="schedule-feature-image" src="${escapeHtml(matchupImageForGame(game))}" alt="${escapeHtml(gameMatchupLabel(game))} matchup" loading="lazy" decoding="async">
+    <div class="schedule-feature-content">
+      <h4 class="schedule-feature-title">${escapeHtml(gameMatchupLabel(game))}</h4>
+      <div class="schedule-feature-meta">${heroMeta}</div>
+      <p class="home-next-game-status${status.isLive ? " is-live" : ""}">
+        <span class="home-next-game-status-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="8"></circle>
+            <path d="M12 8v4l2.5 2.5"></path>
+          </svg>
+        </span>
+        <span>${escapeHtml(status.text)}</span>
+      </p>
+    </div>
+  </article>`;
+}
+
+function renderScheduleUpcomingGamesList(games = []) {
+  return `<div class="schedule-upcoming-list">
+    ${games.map((game) => renderScheduleUpcomingRow(game)).join("")}
+  </div>`;
+}
+
+function renderScheduleResultsList(games = []) {
+  return `<div class="schedule-results-list">
+    ${games.map((game) => renderScheduleResultRow(game)).join("")}
+  </div>`;
+}
+
+function scheduleCompletedMatchupLabel(game) {
+  const opponentName = homeOpponentName(game);
+  return lionsSide(game) === "away"
+    ? `Lions @ ${opponentName}`
+    : `${opponentName} vs Lions`;
+}
+
+function renderScheduleUpcomingRow(game) {
+  const dateLabel = formatGameDateDisplay(game?.date);
+  const timeLabel = formatGameTimeDisplay(game?.time);
+  return `<article class="schedule-upcoming-row">
+    <img class="schedule-upcoming-row-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.(game?.opponent, "opponent") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
+    <div class="schedule-upcoming-row-copy">
+      <h4>${escapeHtml(gameMatchupLabel(game))}</h4>
+      <div class="schedule-upcoming-row-meta">
+        ${renderScheduleMetaItem("calendar", `${dateLabel}${timeLabel ? ` | ${timeLabel}` : ""}`)}
+        ${renderScheduleMetaItem("location", gameLocationLabel(game) || "Location TBD")}
+        ${renderScheduleWeatherInlineItem(game)}
+      </div>
+    </div>
+  </article>`;
+}
+
+function renderScheduleResultRow(game) {
+  const opponentName = homeOpponentName(game);
+  const lionsScore = Number(game?.score?.lions || 0);
+  const opponentScore = Number(game?.score?.opponent || 0);
+  const result = lionsScore > opponentScore ? "W" : lionsScore < opponentScore ? "L" : "T";
+  const syncState = stableGameSyncState(game, { keepActiveSync: true });
+  const syncButton = isAdminMode()
+    ? `<button type="button" class="secondary-action schedule-result-sync" data-game-action="sync" data-game-id="${escapeHtml(game.id)}" ${!canSyncGame(game) ? "disabled" : ""}>${escapeHtml(completedGameSyncButtonLabel(syncState))}</button>`
+    : "";
+  return `<article class="schedule-result-row schedule-result-row-${escapeHtml(result.toLowerCase())}">
+    <img class="schedule-result-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.(opponentName, "opponent") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
+    <div class="schedule-result-copy">
+      <div class="schedule-result-headline">
+        <span class="schedule-result-matchup-label">${escapeHtml(scheduleCompletedMatchupLabel(game))}</span>
+      </div>
+      <div class="schedule-result-meta">Final | ${escapeHtml(formatShortMonthDay(game.date))} | ${escapeHtml(gameLocationLabel(game) || "Location TBD")}</div>
+    </div>
+    <div class="schedule-result-score-wrap">
+      <span class="schedule-result-outcome schedule-result-outcome-${escapeHtml(result.toLowerCase())}">${escapeHtml(result)}</span>
+      <strong class="schedule-result-score">${escapeHtml(`${lionsScore} - ${opponentScore}`)}</strong>
+    </div>
+    <div class="schedule-result-actions">
+      <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
+      ${syncButton}
+    </div>
+  </article>`;
+}
+
+function renderScheduleMetaItem(type, text) {
+  if (!text) return "";
+  const icon = type === "calendar"
+    ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 10h18"></path></svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.7-6.5-11A6.5 6.5 0 0 1 12 3.5 6.5 6.5 0 0 1 18.5 10c0 5.3-6.5 11-6.5 11Z"></path><circle cx="12" cy="10" r="2.4"></circle></svg>`;
+  return `<span class="schedule-meta-item schedule-meta-item-${escapeHtml(type)}">
+    <span class="schedule-meta-item-icon" aria-hidden="true">${icon}</span>
+    <span>${escapeHtml(text)}</span>
+  </span>`;
+}
+
+function renderScheduleWeatherItem(game) {
+  return `<span class="schedule-meta-item schedule-meta-item-weather">
+    <span class="weather-chip" data-weather-game-id="${escapeHtml(game.id)}">${renderWeatherChip(game)}</span>
+  </span>`;
+}
+
+function renderScheduleWeatherInlineItem(game) {
+  return `<span class="schedule-meta-item schedule-meta-item-weather-inline" data-weather-game-id="${escapeHtml(game.id)}">
+    ${renderScheduleWeatherInlineContent(game)}
+  </span>`;
+}
+
+function renderScheduleWeatherInlineContent(game) {
+  if (!game?.date || !gameWeatherLocation(game)) return "Weather TBD";
+  const cached = weatherCache[weatherKey(game)];
+  if (!cached) return "Checking weather...";
+  if (cached.error) return escapeHtml(cached.error);
+  return `<span class="schedule-weather-inline-icon" aria-hidden="true">${cached.icon}</span><strong>${escapeHtml(cached.temp)}</strong><span>${escapeHtml(cached.label)}</span>`;
 }
 
 function gamesForLifecycle(lifecycle) {
@@ -10331,11 +10714,51 @@ function leaderCard(label, rows, scorer, formatter, options = {}) {
     .slice(0, 3);
   return `<article class="leader-card">
     <h3>${escapeHtml(label)}</h3>
-    ${leaders.map((row, index) => `<div class="leader-row">
-      <span>${index + 1}. ${escapeHtml(row.player.name)}</span>
-      <strong>${escapeHtml(formatter(scorer(row)))}</strong>
-    </div>`).join("") || `<p class="player-meta">No data yet.</p>`}
+      ${leaders.map((row, index) => `<div class="leader-row">
+        <span>${index + 1}. ${escapeHtml(row.player.name)}</span>
+        <strong>${escapeHtml(formatter(scorer(row)))}</strong>
+      </div>`).join("") || `<p class="player-meta">No data yet.</p>`}
+    </article>`;
+}
+
+function renderHomeLeaderFeatureCard(label, rows, scorer, formatter, options = {}) {
+  const normalizedOptions = typeof options === "boolean" ? { lowWins: options } : options;
+  const { lowWins = false, includeZero = false } = normalizedOptions;
+  const leader = rows
+    .filter((row) => {
+      const value = scorer(row);
+      if (!Number.isFinite(value)) return false;
+      return value > 0 || includeZero || (row.player.active && !lowWins);
+    })
+    .sort((a, b) => lowWins ? scorer(a) - scorer(b) : scorer(b) - scorer(a))[0] || null;
+  if (!leader) {
+    return `<article class="home-feature-leader-card is-empty"><div class="home-feature-leader-stat"><span>${escapeHtml(label)}</span><strong>--</strong></div><p class="player-meta">No data yet.</p></article>`;
+  }
+  const player = leader.player;
+  const statValue = formatter(scorer(leader));
+  return `<article class="home-feature-leader-card">
+    <div class="home-feature-leader-stat">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(statValue)}</strong>
+    </div>
+    <div class="home-feature-leader-body">
+      <span class="home-feature-leader-badge">#${escapeHtml(player.number || "--")}</span>
+      <h4>${escapeHtml(player.name)}</h4>
+    </div>
   </article>`;
+}
+
+function homeLeaderGameLine(label, row) {
+  if (!row?.player || !row?.stats) return "Season snapshot";
+  const statLabel = String(label || "").toUpperCase();
+  if (Object.prototype.hasOwnProperty.call(row, "runs")) {
+    if (statLabel === "AVG") return `${gamesPlayedForPlayer(row.player.id)} G | ${row.stats.h} H | ${row.runs} R`;
+    if (statLabel === "H") return `${gamesPlayedForPlayer(row.player.id)} G | ${formatRate(row.stats.avg)} AVG | ${row.stats.rbi} RBI`;
+    return `${gamesPlayedForPlayer(row.player.id)} G | ${formatRate(row.stats.avg)} AVG | ${row.stats.hr} HR`;
+  }
+  if (statLabel === "ERA") return `${formatInnings(row.stats.outs)} IP | ${row.stats.k} K | ${row.stats.wins} W`;
+  if (statLabel === "K") return `${formatInnings(row.stats.outs)} IP | ${formatEra(row.stats.era)} ERA | ${row.stats.wins} W`;
+  return `${formatInnings(row.stats.outs)} IP | ${row.stats.k} K | ${formatEra(row.stats.era)} ERA`;
 }
 
 function gamesPlayedForPlayer(playerId) {
@@ -10900,5 +11323,7 @@ if ("serviceWorker" in navigator) {
       });
   });
 }
+
+
 
 

@@ -4,6 +4,13 @@ Track user-facing changes to the Oakmont Lions baseball scorebook app here.
 
 Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA assets, or data handling changes. Keep the newest entry at the top.
 
+## 2026-04-23
+
+### Changed
+- Redesigned the public homepage into a cleaner desktop/mobile dashboard with a refreshed top bar, glass-card treatment over a new skyline stadium background, a season overview strip, a stronger Next Game hero, unified batting/pitching leader panels, a Last Game Result feature, a compact Recent Games list, and a shared mobile bottom navigation.
+- Rebuilt the Score Game experience for portrait iPad use with a matchup-first live banner, cleaner pitch/result controls, improved inning transitions, better opponent batter support, a lineup popup, and more polished scoring flow details.
+- Reworked Schedule & Scores into a dashboard-style page with a featured next game, a tighter upcoming-games list, a compact completed-games panel that keeps completed-game sync actions visible, and a cleaner mobile-ready schedule shell.
+
 ## 2026-04-22
 
 ### Changed
