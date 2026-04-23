@@ -1866,6 +1866,14 @@ main {
   justify-content: flex-end;
 }
 
+.schedule-toolbar-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .schedule-page-head {
   align-items: flex-start;
   gap: 18px;
@@ -1890,6 +1898,7 @@ main {
 }
 
 .schedule-season-chip {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -1901,6 +1910,7 @@ main {
   color: rgba(255, 255, 255, 0.88);
   font-size: 0.96rem;
   font-weight: 850;
+  cursor: pointer;
 }
 
 .schedule-season-chip-icon,
@@ -1919,6 +1929,25 @@ main {
 .schedule-season-chip-caret svg {
   width: 16px;
   height: 16px;
+}
+
+.schedule-season-select,
+.schedule-calendar-month-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+}
+
+.schedule-season-select option,
+.schedule-calendar-month-select option {
+  color: #101722;
 }
 
 .schedule-dashboard {
@@ -2246,6 +2275,269 @@ main {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.schedule-calendar-view {
+  display: block;
+}
+
+.schedule-calendar-view[hidden] {
+  display: none;
+}
+
+.schedule-calendar-shell {
+  display: grid;
+  gap: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(245, 189, 33, 0.08), transparent 34%),
+    linear-gradient(145deg, rgba(20, 25, 43, 0.92), rgba(9, 13, 28, 0.94));
+  box-shadow: var(--shadow);
+}
+
+.schedule-calendar-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.schedule-calendar-title {
+  display: grid;
+  gap: 4px;
+}
+
+.schedule-calendar-title h3 {
+  margin: 0;
+  color: var(--white);
+  font-size: 2rem;
+}
+
+.schedule-calendar-title .player-meta {
+  margin: 0;
+}
+
+.schedule-calendar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.schedule-calendar-nav {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.schedule-calendar-nav .secondary-action {
+  min-width: 48px;
+  padding-inline: 0;
+}
+
+.schedule-calendar-nav .secondary-action svg {
+  width: 18px;
+  height: 18px;
+}
+
+.schedule-calendar-month-chip {
+  min-width: 188px;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.schedule-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.88rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.schedule-calendar-weekdays span {
+  padding: 0 10px;
+  text-align: center;
+}
+
+.schedule-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.schedule-calendar-cell {
+  min-height: 152px;
+  padding: 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.schedule-calendar-cell:nth-child(7n) {
+  border-right: 0;
+}
+
+.schedule-calendar-cell:nth-last-child(-n + 7) {
+  border-bottom: 0;
+}
+
+.schedule-calendar-cell.is-outside-month {
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.schedule-calendar-cell.is-outside-month .schedule-calendar-date {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.schedule-calendar-cell.is-today {
+  box-shadow: inset 0 0 0 1px rgba(245, 189, 33, 0.38);
+}
+
+.schedule-calendar-date {
+  color: var(--white);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.schedule-calendar-date-label {
+  display: none;
+}
+
+.schedule-calendar-events {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.schedule-calendar-event {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 3px solid rgba(255, 255, 255, 0.58);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--white);
+  text-align: left;
+}
+
+.schedule-calendar-event.is-home {
+  border-left-color: var(--lion-gold);
+}
+
+.schedule-calendar-event.is-away {
+  border-left-color: rgba(255, 255, 255, 0.72);
+}
+
+.schedule-calendar-event.is-completed {
+  border-left-color: rgba(255, 255, 255, 0.34);
+}
+
+.schedule-calendar-event:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.schedule-calendar-event-top {
+  display: grid;
+  grid-template-columns: auto 28px auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-calendar-event-side {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.schedule-calendar-event-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.schedule-calendar-event-outcome {
+  justify-self: end;
+  font-size: 0.92rem;
+  font-weight: 1000;
+}
+
+.schedule-calendar-event-outcome-w {
+  color: #6fee8c;
+}
+
+.schedule-calendar-event-outcome-l {
+  color: #ff7f8a;
+}
+
+.schedule-calendar-event-outcome-t {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.schedule-calendar-event-opponent {
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.schedule-calendar-event-time {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.schedule-calendar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.schedule-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.schedule-calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-calendar-legend-mark {
+  display: inline-block;
+  width: 26px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.schedule-calendar-legend-mark.is-home {
+  background: var(--lion-gold);
+}
+
+.schedule-calendar-legend-mark.is-away {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.schedule-calendar-legend-mark.is-completed {
+  width: 8px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
 #gamesView #recordSummary[hidden],
 #gamesView .games-archive-note[hidden],
 #gamesView #gamesGrid[hidden] {
@@ -2254,12 +2546,26 @@ main {
 
 @media (max-width: 1080px) {
   .schedule-toolbar,
-  .schedule-dashboard {
+  .schedule-dashboard,
+  .archive-toolbar {
     grid-template-columns: 1fr;
   }
 
   .schedule-results-list {
     max-height: none;
+  }
+
+  .schedule-calendar-head {
+    flex-direction: column;
+  }
+
+  .schedule-calendar-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .schedule-calendar-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -2283,12 +2589,147 @@ main {
     max-width: none;
   }
 
+  .archive-page-head {
+    gap: 12px;
+  }
+
+  .archive-toolbar {
+    display: block;
+    gap: 12px;
+    margin-bottom: 14px;
+    width: 100%;
+  }
+
+  .archive-toolbar-spacer {
+    display: none;
+  }
+
+  .archive-toolbar-side {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    justify-content: stretch;
+  }
+
+  .archive-toolbar-actions {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    justify-content: stretch;
+  }
+
+  .archive-toolbar-actions .schedule-season-chip {
+    display: flex;
+    min-width: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .archive-toolbar-actions .schedule-season-select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .archive-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .archive-card {
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .archive-card-head {
+    gap: 12px;
+  }
+
+  .archive-card-date {
+    font-size: 1rem;
+  }
+
+  .archive-card-scoreline {
+    gap: 12px;
+  }
+
+  .archive-card-logo {
+    width: 64px;
+    height: 64px;
+  }
+
+  .archive-card-team {
+    gap: 10px;
+  }
+
+  .archive-card-team-name {
+    font-size: 0.94rem;
+  }
+
+  .archive-card-score-center {
+    gap: 12px;
+  }
+
+  .archive-card-score {
+    font-size: clamp(2.1rem, 10vw, 2.7rem);
+  }
+
+  .archive-card-score-separator {
+    font-size: clamp(1.5rem, 7vw, 2rem);
+  }
+
+  .archive-card-meta {
+    gap: 8px;
+    padding-top: 10px;
+    font-size: 0.88rem;
+  }
+
+  .archive-card-actions {
+    gap: 8px;
+  }
+
+  .archive-card-actions-public {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .archive-card-actions-admin {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .archive-card-action,
+  .archive-card-sync {
+    min-height: 68px;
+    padding: 10px 8px;
+    font-size: 0.88rem;
+    line-height: 1.2;
+    white-space: normal;
+  }
+
+  .archive-pagination {
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .archive-pagination .secondary-action {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  .archive-pagination-label {
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
   .schedule-toolbar {
     gap: 10px;
     margin-bottom: 12px;
   }
 
   .schedule-toolbar-side {
+    justify-content: stretch;
+  }
+
+  .schedule-toolbar-actions {
+    width: 100%;
     justify-content: stretch;
   }
 
@@ -2321,6 +2762,162 @@ main {
 
   .schedule-shell-body {
     padding: 14px;
+  }
+
+  .schedule-calendar-shell {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .schedule-calendar-head {
+    gap: 12px;
+  }
+
+  .schedule-calendar-title {
+    gap: 2px;
+  }
+
+  .schedule-calendar-title h3 {
+    font-size: 1.44rem;
+  }
+
+  .schedule-calendar-title .player-meta {
+    font-size: 0.92rem;
+  }
+
+  .schedule-calendar-controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .schedule-calendar-controls .schedule-shell-link {
+    grid-column: 1 / -1;
+    justify-self: start;
+    font-size: 0.84rem;
+  }
+
+  .schedule-calendar-controls #scheduleCalendarTodayBtn {
+    grid-column: span 1;
+    width: 100%;
+  }
+
+  .schedule-calendar-nav {
+    grid-column: span 2;
+    width: 100%;
+  }
+
+  .schedule-calendar-nav .secondary-action {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .schedule-calendar-month-chip {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .schedule-calendar-month-chip .schedule-season-chip-icon {
+    flex: 0 0 auto;
+  }
+
+  .schedule-calendar-month-select {
+    width: 100%;
+  }
+
+  .schedule-calendar-weekdays {
+    display: none;
+  }
+
+  .schedule-calendar-grid {
+    grid-template-columns: 1fr;
+    border: 0;
+    border-radius: 0;
+    gap: 10px;
+    overflow: visible;
+  }
+
+  .schedule-calendar-cell {
+    min-height: 0;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .schedule-calendar-date {
+    display: none;
+  }
+
+  .schedule-calendar-date-label {
+    display: block;
+    color: var(--white);
+    font-size: 0.98rem;
+    font-weight: 900;
+    line-height: 1.2;
+  }
+
+  .schedule-calendar-events {
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .schedule-calendar-cell.is-outside-month {
+    display: none;
+  }
+
+  .schedule-calendar-cell.is-empty {
+    display: none;
+  }
+
+  .schedule-calendar-cell.is-today {
+    box-shadow: inset 0 0 0 1px rgba(245, 189, 33, 0.42);
+  }
+
+  .schedule-calendar-cell.is-today .schedule-calendar-date-label {
+    color: var(--lion-gold);
+  }
+
+  .schedule-calendar-event {
+    gap: 10px;
+    padding: 12px 14px;
+    border-left-width: 4px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .schedule-calendar-event-top {
+    grid-template-columns: auto 34px auto;
+    gap: 10px;
+  }
+
+  .schedule-calendar-event-logo {
+    width: 34px;
+    height: 34px;
+  }
+
+  .schedule-calendar-event-side {
+    font-size: 0.84rem;
+  }
+
+  .schedule-calendar-event-outcome {
+    font-size: 1rem;
+  }
+
+  .schedule-calendar-event-opponent {
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .schedule-calendar-event-time {
+    font-size: 0.86rem;
+    white-space: normal;
+  }
+
+  .schedule-calendar-footer {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .schedule-feature-title {
@@ -4188,6 +4785,286 @@ button:focus-visible {
   font-weight: 900;
 }
 
+.archive-page-head {
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.archive-page-title {
+  display: grid;
+  gap: 4px;
+}
+
+.archive-page-title .player-meta {
+  margin: 0;
+  max-width: 34rem;
+}
+
+.archive-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.archive-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.16fr) minmax(320px, 0.84fr);
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+.archive-toolbar-spacer {
+  min-height: 1px;
+}
+
+.archive-toolbar-side {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.archive-toolbar-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.archive-toolbar-actions .schedule-season-chip {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .archive-toolbar {
+    display: block;
+    width: 100%;
+    margin-bottom: 14px;
+  }
+
+  .archive-toolbar-spacer {
+    display: none;
+  }
+
+  .archive-toolbar-side {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .archive-toolbar-actions {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    justify-content: stretch;
+  }
+
+  .archive-toolbar-actions .schedule-season-chip {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    justify-content: space-between;
+  }
+
+  .archive-toolbar-actions .schedule-season-select {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+.archive-grid {
+  grid-auto-rows: 1fr;
+  align-items: stretch;
+}
+
+.archive-grid > .player-meta {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.archive-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.archive-pagination[hidden] {
+  display: none;
+}
+
+.archive-pagination-label {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.96rem;
+  font-weight: 850;
+}
+
+.archive-card {
+  position: relative;
+  height: 100%;
+  gap: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(245, 189, 33, 0.06), transparent 34%),
+    linear-gradient(145deg, rgba(20, 25, 43, 0.92), rgba(9, 13, 28, 0.94));
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.archive-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.archive-card-is-win::before,
+.archive-card.archive-card-is-win::before {
+  background: #57d66b;
+}
+
+.archive-card-is-loss::before,
+.archive-card.archive-card-is-loss::before {
+  background: #ff5f63;
+}
+
+.archive-card-is-tie::before,
+.archive-card.archive-card-is-tie::before {
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.archive-card-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.archive-result-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 1000;
+}
+
+.archive-result-badge.is-win {
+  border: 1px solid rgba(87, 214, 107, 0.32);
+  background: rgba(87, 214, 107, 0.12);
+  color: #81ef96;
+}
+
+.archive-result-badge.is-loss {
+  border: 1px solid rgba(255, 95, 99, 0.32);
+  background: rgba(255, 95, 99, 0.12);
+  color: #ff8e92;
+}
+
+.archive-result-badge.is-tie {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.archive-card-date {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 1.1rem;
+  font-weight: 850;
+}
+
+.archive-card-scoreline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+}
+
+.archive-card-team {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.archive-card-logo {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+}
+
+.archive-card-team-name {
+  color: var(--white);
+  font-size: 1.02rem;
+  line-height: 1.1;
+}
+
+.archive-card-score-center {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  justify-self: center;
+}
+
+.archive-card-score {
+  color: var(--white);
+  font-size: clamp(2.6rem, 5vw, 3.3rem);
+  line-height: 1;
+  font-weight: 1000;
+}
+
+.archive-card-score-separator {
+  color: var(--lion-gold);
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  line-height: 1;
+  font-weight: 900;
+}
+
+.archive-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+.archive-card-actions {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.archive-card-actions-public {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.archive-card-actions-admin {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.archive-card-action {
+  width: 100%;
+  min-height: 42px;
+  justify-content: center;
+  text-align: center;
+}
+
+.archive-card-sync[disabled] {
+  opacity: 0.64;
+}
+
 .metrics-grid {
   margin-bottom: 18px;
 }
@@ -4547,6 +5424,24 @@ button:focus-visible {
   padding: 16px;
 }
 
+.box-score-summary-shell {
+  display: flex;
+  justify-content: center;
+}
+
+.box-score-summary-shell .box-score-summary {
+  width: 100%;
+  max-width: 420px;
+}
+
+.box-score-mobile-toolbar {
+  display: none;
+}
+
+.box-score-mobile-stats-btn {
+  display: none;
+}
+
 .box-score-summary-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -4698,6 +5593,61 @@ button:focus-visible {
 .box-score-empty {
   color: var(--muted);
   text-align: center !important;
+}
+
+.box-score-mobile-head {
+  display: none;
+}
+
+.box-score-mobile-head-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.box-score-mobile-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--white);
+}
+
+.box-score-mobile-back svg {
+  width: 28px;
+  height: 28px;
+}
+
+.box-score-mobile-return {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.box-score-mobile-title-block {
+  display: grid;
+  gap: 6px;
+}
+
+.box-score-mobile-title-block h2 {
+  margin: 0;
+  color: var(--white);
+}
+
+.box-score-mobile-meta-primary,
+.box-score-mobile-meta-secondary {
+  margin: 0;
+  color: var(--text-soft);
+  line-height: 1.35;
+}
+
+.box-score-mobile-meta-secondary {
+  color: var(--text-muted-dark);
 }
 
 .scorebook-layout {
@@ -11489,7 +12439,16 @@ label {
   }
 
   #boxScoreView {
+    width: min(420px, calc(100% - 20px));
+    margin-left: auto;
+    margin-right: auto;
+    min-width: 0;
     overflow-x: clip;
+  }
+
+  #boxScoreView > * {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .section-head,
@@ -11586,6 +12545,36 @@ label {
     gap: 10px;
   }
 
+  .box-score-mobile-head {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  .box-score-mobile-head .eyebrow {
+    margin: 0;
+    font-size: 0.85rem;
+  }
+
+  .box-score-mobile-head-top .eyebrow {
+    flex: 1 1 auto;
+    text-align: left;
+  }
+
+  .box-score-mobile-title-block h2 {
+    font-size: clamp(1.7rem, 8vw, 2.35rem);
+    line-height: 1.05;
+  }
+
+  .box-score-mobile-meta-primary {
+    font-size: 0.98rem;
+    font-weight: 700;
+  }
+
+  .box-score-mobile-meta-secondary {
+    font-size: 0.95rem;
+  }
+
   #boxScoreView .section-head h2 {
     font-size: clamp(1.24rem, 5.8vw, 1.8rem);
   }
@@ -11594,6 +12583,11 @@ label {
     display: grid;
     gap: 8px;
     width: 100%;
+  }
+
+  #boxScoreView > .section-head,
+  #boxScoreView > .scorebook-meta {
+    display: none;
   }
 
   #boxScoreView .scorebook-game-picker {
@@ -11622,69 +12616,173 @@ label {
     margin-bottom: 10px;
   }
 
+  .box-score-mobile-toolbar {
+    display: none;
+  }
+
+  .box-score-mobile-picker {
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .box-score-mobile-picker,
+  .box-score-mobile-picker select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .box-score-mobile-picker select,
+  .box-score-mobile-share {
+    min-height: 44px;
+  }
+
+  .box-score-mobile-share {
+    min-width: 96px;
+    justify-content: center;
+    padding-inline: 14px;
+  }
+
+  .box-score-tabs {
+    display: none;
+  }
+
+  .box-score-mobile-stats-btn {
+    display: inline-flex;
+    width: min(100%, 420px);
+    min-height: 46px;
+    margin: 0 auto 10px;
+    justify-content: center;
+    font-weight: 900;
+  }
+
   .box-score-summary {
-    padding: 10px;
+    padding: 12px 10px;
   }
 
   .box-score-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px 10px;
+    display: grid;
+    grid-template-columns: 72px 92px 72px;
+    grid-template-areas: "away final home";
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .box-score-summary-grid > :first-child {
+    grid-area: away;
+    justify-self: center;
   }
 
   .box-score-final {
-    order: 0;
-    grid-column: 1 / -1;
-    min-width: 0;
-    gap: 4px;
-    padding: 8px 10px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.05);
+    grid-area: final;
+    justify-self: center;
+    align-self: center;
+    width: 92px;
+    min-width: 92px;
+    gap: 5px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    justify-items: center;
+    align-content: center;
+  }
+
+  .box-score-final span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 0 9px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--white);
+    font-size: 0.76rem;
+    font-weight: 900;
   }
 
   .box-score-final strong {
-    font-size: 1.6rem;
+    font-size: clamp(1.7rem, 8.3vw, 2.15rem);
   }
 
   .box-score-team-summary {
     grid-template-columns: 1fr;
+    width: 72px;
+    min-width: 72px;
     gap: 4px;
-    align-items: start;
+    align-items: center;
     justify-items: center;
     text-align: center;
     padding: 2px 0;
+    min-width: 0;
+  }
+
+  .box-score-summary-grid > :last-child {
+    grid-area: home;
+    justify-self: center;
   }
 
   .box-score-team-summary strong {
-    font-size: 0.88rem;
+    font-size: 0.8rem;
+    line-height: 1.1;
   }
 
   .box-score-team-logo {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
   }
 
   .box-score-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-bottom: 8px;
+    margin: 0 auto 10px;
+    max-width: 420px;
+    border-radius: 10px;
   }
 
   .box-score-tabs button {
-    min-height: 40px;
+    min-height: 44px;
     border-right: 1px solid var(--line);
     border-bottom: 0;
-    padding: 8px 10px;
-    font-size: 0.8rem;
+    padding: 10px 12px;
+    font-size: 0.88rem;
+    font-weight: 900;
   }
 
   .box-score-tabs button:last-child {
     border-right: 0;
   }
 
+  .box-score-card .mini-head {
+    padding: 12px 12px 10px;
+    gap: 4px;
+  }
+
+  .box-score-card .mini-head h3 {
+    font-size: 1.02rem;
+  }
+
+  .box-score-card .mini-head span {
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+
+  .box-score-card .mini-head span[data-mobile-label] {
+    font-size: 0;
+  }
+
+  .box-score-card .mini-head span[data-mobile-label]::after {
+    content: attr(data-mobile-label);
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
   .box-score-table-wrap {
     margin-inline: -1px;
     max-width: 100%;
-    padding-bottom: 4px;
+    padding: 0 0 4px;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
@@ -11696,7 +12794,9 @@ label {
   }
 
   .line-score-table {
-    min-width: 540px;
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
   }
 
   .box-score-table th,
@@ -11724,88 +12824,129 @@ label {
     z-index: 2;
   }
 
-  .box-score-mobile-hint {
-    display: block;
-    margin: 0 0 6px;
+  .line-score-table th,
+  .line-score-table td {
+    padding: 6px 4px;
+    font-size: 0.72rem;
+  }
+
+  .line-score-table thead th,
+  .line-score-table tbody th {
     font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+  }
+
+  .line-score-table thead th:first-child,
+  .line-score-table tbody th,
+  .line-score-table td:first-child {
+    position: static;
+    width: 84px;
+    min-width: 84px;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .line-score-table thead th:not(:first-child),
+  .line-score-table tbody td:not(:first-child) {
+    width: 24px;
+    min-width: 24px;
+    padding-left: 2px;
+    padding-right: 2px;
+    text-align: center;
+  }
+
+  .line-score-table th:nth-last-child(3),
+  .line-score-table td:nth-last-child(3) {
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .box-score-mobile-hint {
+    display: none;
   }
 
   .batting-box-table,
   .pitching-box-table {
-    min-width: 0;
     width: 100%;
+    min-width: 620px;
   }
 
   .batting-box-table thead,
   .pitching-box-table thead {
-    display: none;
+    display: table-header-group;
   }
 
   .batting-box-table tbody,
   .pitching-box-table tbody {
-    display: grid;
-    gap: 10px;
+    display: table-row-group;
   }
 
   .batting-box-table tbody tr,
   .pitching-box-table tbody tr {
-    display: grid;
-    gap: 0;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.04);
+    display: table-row;
   }
 
   .batting-box-table tbody td,
   .pitching-box-table tbody td {
-    display: grid;
-    grid-template-columns: minmax(68px, auto) minmax(0, 1fr);
-    gap: 10px;
-    align-items: center;
-    min-width: 0;
-    padding: 8px 10px;
+    display: table-cell;
+    padding: 8px 9px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    text-align: left;
-    white-space: normal;
+    text-align: right;
+    white-space: nowrap;
   }
 
-  .batting-box-table tbody tr td:last-child,
-  .pitching-box-table tbody tr td:last-child {
-    border-bottom: 0;
+  .batting-box-table thead th,
+  .pitching-box-table thead th {
+    position: static;
+    padding: 8px 9px;
+    font-size: 0.72rem;
+    text-align: right;
+    white-space: nowrap;
   }
 
+  .batting-box-table thead th:first-child,
+  .pitching-box-table thead th:first-child,
   .batting-box-table tbody td:first-child,
   .pitching-box-table tbody td:first-child {
-    grid-template-columns: 1fr;
-    gap: 4px;
-    padding: 10px;
-    border-bottom-color: rgba(245, 189, 33, 0.18);
-    background: rgba(245, 189, 33, 0.08);
-    box-shadow: none;
-    position: static;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 190px;
+    padding-left: 12px;
+    text-align: left;
+    background: #151a2d;
+    box-shadow: 1px 0 0 rgba(255, 255, 255, 0.08);
   }
 
-  .batting-box-table tbody td::before,
-  .pitching-box-table tbody td::before {
-    content: attr(data-label);
-    color: rgba(255, 255, 255, 0.66);
-    font-size: 0.72rem;
-    font-weight: 900;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+  .batting-box-table thead th:first-child,
+  .pitching-box-table thead th:first-child {
+    z-index: 2;
   }
 
-  .batting-box-table tbody td:first-child::before,
-  .pitching-box-table tbody td:first-child::before {
-    color: var(--lion-gold);
+  .batting-box-table tbody td:first-child {
+    white-space: normal;
   }
 
   .batting-box-table tbody td:first-child span,
   .pitching-box-table tbody td:first-child span {
     color: rgba(255, 255, 255, 0.68);
+    margin-left: 4px;
+    font-size: 0.78rem;
+  }
+
+  .batting-box-table tbody td::before,
+  .pitching-box-table tbody td::before {
+    content: none;
+  }
+
+  .batting-box-table tbody tr:last-child td,
+  .pitching-box-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .batting-box-table tbody td:last-child,
+  .pitching-box-table tbody td:last-child,
+  .batting-box-table thead th:last-child,
+  .pitching-box-table thead th:last-child {
+    padding-right: 12px;
   }
 
   .stats-table-wrap {
@@ -11813,6 +12954,10 @@ label {
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .box-score-detail-card {
+    display: none;
   }
 
   .stats-subhead {

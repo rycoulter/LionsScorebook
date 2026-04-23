@@ -578,6 +578,11 @@ let pendingRunnerChoices = {};
 let pendingOutType = "";
 let pendingOutFielder = "";
 let gameFilter = "all";
+let scheduleGamesLayout = "dashboard";
+let scheduleSeasonFilter = String(currentLeagueSeason());
+let scheduleCalendarMonth = todayValue().slice(0, 7);
+let archiveSeasonFilter = String(currentLeagueSeason());
+let archivePage = 1;
 let lineupBuilderReturnView = "games";
 let lineupBuilderSelectedEntryId = "";
 let selectedFieldRunnerBase = "";
@@ -758,11 +763,19 @@ const els = {
   cancelGameCreateBtn: document.getElementById("cancelGameCreateBtn"),
   gameSetupTeamIndicator: document.getElementById("gameSetupTeamIndicator"),
   gameFilterRow: document.getElementById("gameFilterRow"),
+  scheduleSeasonSelect: document.getElementById("scheduleSeasonSelect"),
   scheduleDashboard: document.getElementById("scheduleDashboard"),
+  scheduleCalendarView: document.getElementById("scheduleCalendarView"),
   scheduleFeaturedBody: document.getElementById("scheduleFeaturedBody"),
   scheduleUpcomingBody: document.getElementById("scheduleUpcomingBody"),
   scheduleResultsBody: document.getElementById("scheduleResultsBody"),
   scheduleCalendarLink: document.getElementById("scheduleCalendarLink"),
+  scheduleCalendarBackLink: document.getElementById("scheduleCalendarBackLink"),
+  scheduleCalendarTodayBtn: document.getElementById("scheduleCalendarTodayBtn"),
+  scheduleCalendarPrevBtn: document.getElementById("scheduleCalendarPrevBtn"),
+  scheduleCalendarNextBtn: document.getElementById("scheduleCalendarNextBtn"),
+  scheduleCalendarMonthSelect: document.getElementById("scheduleCalendarMonthSelect"),
+  scheduleCalendarGrid: document.getElementById("scheduleCalendarGrid"),
   scheduleResultsArchiveLink: document.getElementById("scheduleResultsArchiveLink"),
   gamesGrid: document.getElementById("gamesGrid"),
   gamesArchiveNote: document.getElementById("gamesArchiveNote"),
@@ -864,7 +877,12 @@ const els = {
   rosterFilter: document.getElementById("rosterFilter"),
   rosterFilterSummary: document.getElementById("rosterFilterSummary"),
   rosterGrid: document.getElementById("rosterGrid"),
+  archiveSeasonSelect: document.getElementById("archiveSeasonSelect"),
   archiveGrid: document.getElementById("archiveGrid"),
+  archivePagination: document.getElementById("archivePagination"),
+  archivePrevPageBtn: document.getElementById("archivePrevPageBtn"),
+  archivePageLabel: document.getElementById("archivePageLabel"),
+  archiveNextPageBtn: document.getElementById("archiveNextPageBtn"),
   gameSummaryPanel: document.getElementById("gameSummaryPanel"),
   gameSummaryTitle: document.getElementById("gameSummaryTitle"),
   gameSummaryMeta: document.getElementById("gameSummaryMeta"),
@@ -883,8 +901,16 @@ const els = {
   metricsGrid: document.getElementById("metricsGrid"),
   gameBreakdown: document.getElementById("gameBreakdown"),
   boxScoreTitle: document.getElementById("boxScoreTitle"),
+  boxScoreMobileTitle: document.getElementById("boxScoreMobileTitle"),
+  boxScoreMobileMetaPrimary: document.getElementById("boxScoreMobileMetaPrimary"),
+  boxScoreMobileMetaSecondary: document.getElementById("boxScoreMobileMetaSecondary"),
   boxScoreGameSelect: document.getElementById("boxScoreGameSelect"),
+  boxScoreMobileGameSelect: document.getElementById("boxScoreMobileGameSelect"),
   boxScoreBackBtn: document.getElementById("boxScoreBackBtn"),
+  boxScoreMobileBackBtn: document.getElementById("boxScoreMobileBackBtn"),
+  boxScoreMobileReturnBtn: document.getElementById("boxScoreMobileReturnBtn"),
+  boxScoreMobileShareBtn: document.getElementById("boxScoreMobileShareBtn"),
+  boxScoreMobileStatsBtn: document.getElementById("boxScoreMobileStatsBtn"),
   boxScoreMeta: document.getElementById("boxScoreMeta"),
   boxScoreSummary: document.getElementById("boxScoreSummary"),
   boxScoreLineHead: document.getElementById("boxScoreLineHead"),
@@ -2546,6 +2572,15 @@ function saveAccessMode() {
   }
 }
 
+function boxScoreReturnLabel(view = boxScoreReturnView) {
+  if (view === "analysis") return "Analysis";
+  if (view === "archive") return "Archive";
+  if (view === "games") return "Schedule";
+  if (view === "home") return "Home";
+  if (view === "scorebook") return "Scorebook";
+  return isAdminMode() ? "Analysis" : "Schedule";
+}
+
 function loadStoredAdminEmail() {
   try {
     return String(window.localStorage?.getItem(ADMIN_EMAIL_STORAGE_KEY) || "").trim().toLowerCase();
@@ -2843,7 +2878,8 @@ function renderAccessMode() {
     els.accountMenuBtn.setAttribute("aria-label", isAdminMode() ? "Exit admin mode" : "Admin sign in");
     els.accountMenuBtn.title = isAdminMode() ? "Exit admin mode" : "Admin sign in";
   }
-  if (els.boxScoreBackBtn) els.boxScoreBackBtn.textContent = isAdminMode() ? "Back to Analysis" : "Back to Games";
+  if (els.boxScoreBackBtn) els.boxScoreBackBtn.textContent = `Back to ${boxScoreReturnLabel()}`;
+  if (els.boxScoreMobileReturnBtn) els.boxScoreMobileReturnBtn.textContent = boxScoreReturnLabel();
   if (els.tabs?.length) {
     const allowedTabs = visibleTabViews();
     els.tabs.forEach((tab) => {
@@ -2923,7 +2959,20 @@ function bindEvents() {
     boxScoreGameId = els.boxScoreGameSelect.value;
     renderBoxScore();
   });
+  els.boxScoreMobileGameSelect?.addEventListener("change", () => {
+    boxScoreGameId = els.boxScoreMobileGameSelect.value;
+    renderBoxScore();
+  });
   els.boxScoreBackBtn?.addEventListener("click", () => switchView(boxScoreReturnView || (isAdminMode() ? "analysis" : "games")));
+  els.boxScoreMobileBackBtn?.addEventListener("click", () => switchView(boxScoreReturnView || (isAdminMode() ? "analysis" : "games")));
+  els.boxScoreMobileReturnBtn?.addEventListener("click", () => switchView(boxScoreReturnView || (isAdminMode() ? "analysis" : "games")));
+  els.boxScoreMobileShareBtn?.addEventListener("click", () => {
+    shareBoxScoreGame().catch((error) => console.warn("Box score share failed.", error));
+  });
+  els.boxScoreMobileStatsBtn?.addEventListener("click", () => {
+    if (!boxScoreGameId) return;
+    openGameStats(boxScoreGameId);
+  });
   els.boxScoreTeamTabs?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-box-score-team]");
     if (!button) return;
@@ -2993,12 +3042,47 @@ function bindEvents() {
   });
   els.scheduleGameBtn.addEventListener("click", showGameCreateForm);
   els.cancelGameCreateBtn?.addEventListener("click", hideGameCreateForm);
-  const handleScheduleCalendarPlaceholder = () => {
-    window.alert("Calendar view is the next step here. For now, this is just the placeholder link.");
-  };
-  els.scheduleCalendarLink?.addEventListener("click", handleScheduleCalendarPlaceholder);
+  els.scheduleCalendarLink?.addEventListener("click", openScheduleCalendar);
+  els.scheduleCalendarBackLink?.addEventListener("click", closeScheduleCalendar);
+  els.scheduleCalendarTodayBtn?.addEventListener("click", () => {
+    const months = scheduleCalendarMonthOptions(scheduleSeasonFilter);
+    const todayMonth = todayValue().slice(0, 7);
+    scheduleCalendarMonth = months.includes(todayMonth) ? todayMonth : (months[0] || todayMonth);
+    renderGames();
+  });
+  els.scheduleCalendarPrevBtn?.addEventListener("click", () => {
+    const months = scheduleCalendarMonthOptions(scheduleSeasonFilter);
+    const currentIndex = months.indexOf(scheduleCalendarMonth);
+    if (currentIndex > 0) scheduleCalendarMonth = months[currentIndex - 1];
+    renderGames();
+  });
+  els.scheduleCalendarNextBtn?.addEventListener("click", () => {
+    const months = scheduleCalendarMonthOptions(scheduleSeasonFilter);
+    const currentIndex = months.indexOf(scheduleCalendarMonth);
+    if (currentIndex >= 0 && currentIndex < months.length - 1) scheduleCalendarMonth = months[currentIndex + 1];
+    renderGames();
+  });
+  els.scheduleCalendarMonthSelect?.addEventListener("change", (event) => {
+    const nextMonth = monthKeyFromDateValue(event.target.value || "");
+    if (!nextMonth) return;
+    scheduleCalendarMonth = nextMonth;
+    renderGames();
+  });
+  els.scheduleSeasonSelect?.addEventListener("change", (event) => {
+    scheduleSeasonFilter = normalizeScheduleSeasonFilter(event.target.value);
+    const nextSeasonMonths = scheduleCalendarMonthOptions(scheduleSeasonFilter);
+    if (!nextSeasonMonths.some((monthKey) => monthKey === scheduleCalendarMonth)) {
+      scheduleCalendarMonth = nextSeasonMonths[0] || `${scheduleSeasonFilter}-01`;
+    }
+    renderGames();
+  });
   els.scheduleResultsArchiveLink?.addEventListener("click", () => switchView("archive"));
   els.scheduleResultsBody?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-game-action]");
+    if (!button) return;
+    handleGameActionClick(event);
+  });
+  els.scheduleCalendarGrid?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-game-action]");
     if (!button) return;
     handleGameActionClick(event);
@@ -3024,6 +3108,7 @@ function bindEvents() {
     const button = event.target.closest("[data-game-filter]");
     if (!button) return;
     gameFilter = button.dataset.gameFilter || "all";
+    scheduleGamesLayout = "dashboard";
     renderGames();
   });
 
@@ -3342,6 +3427,19 @@ function bindEvents() {
     renderRoster();
   });
 
+  els.archiveSeasonSelect?.addEventListener("change", (event) => {
+    archiveSeasonFilter = normalizeArchiveSeasonFilter(event.target.value);
+    archivePage = 1;
+    renderArchive();
+  });
+  els.archivePrevPageBtn?.addEventListener("click", () => {
+    archivePage = Math.max(1, archivePage - 1);
+    renderArchive();
+  });
+  els.archiveNextPageBtn?.addEventListener("click", () => {
+    archivePage += 1;
+    renderArchive();
+  });
   els.archiveGrid.addEventListener("click", handleGameActionClick);
   els.gameSummaryBody?.addEventListener("click", handleGameActionClick);
   els.closeGameSummaryBtn?.addEventListener("click", () => {
@@ -6760,6 +6858,39 @@ function formatGameDateDisplay(value) {
   return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" }).format(date);
 }
 
+function formatGameDateWithYear(value) {
+  if (!value) return "Date TBD";
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return value;
+  const date = new Date(year, month - 1, day);
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
+}
+
+async function shareBoxScoreGame() {
+  const game = state.games.find((item) => item.id === boxScoreGameId) || activeScoreGame();
+  if (!game) return;
+  const teams = boxScoreTeams(game);
+  const away = teams.find((team) => team.side === "away") || teams[0];
+  const home = teams.find((team) => team.side === "home") || teams[1] || teams[0];
+  const title = `${gameMatchupLabel(game)} Box Score`;
+  const text = `${title}\n${formatGameDateWithYear(game.date)} | ${gameStatusLabel(game)}\n${away.name} ${away.score} - ${home.score} ${home.name}`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title, text });
+      return;
+    }
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      window.alert("Box score details copied to clipboard.");
+      return;
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+    console.warn("Share failed, falling back to alert.", error);
+  }
+  window.alert(text);
+}
+
 function homeNextGameMobileLabel(game) {
   if (!game) return "No upcoming game scheduled";
   return `Lions vs ${homeOpponentName(game)}`;
@@ -6771,6 +6902,15 @@ function formatShortMonthDay(value) {
   if (!year || !month || !day) return value;
   const date = new Date(year, month - 1, day);
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
+}
+
+function formatArchiveDate(value) {
+  if (!value) return "Date TBD";
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return value;
+  const date = new Date(year, month - 1, day);
+  const monthLabel = new Intl.DateTimeFormat("en-US", { month: "short" }).format(date).toUpperCase();
+  return `${monthLabel}-${String(day).padStart(2, "0")}-${String(year).slice(-2)}`;
 }
 
 function formatGameTimeDisplay(value) {
@@ -8546,10 +8686,54 @@ function statCell(label, value) {
   return `<span>${label}<strong>${value}</strong></span>`;
 }
 
+function availableArchiveSeasons() {
+  const seasons = new Set([String(currentLeagueSeason())]);
+  state.games.filter(gameIsFinal).forEach((game) => {
+    const season = String(game?.date || "").slice(0, 4);
+    if (/^\d{4}$/.test(season)) seasons.add(season);
+  });
+  return [...seasons].sort((a, b) => Number(b) - Number(a));
+}
+
+function normalizeArchiveSeasonFilter(value, options = availableArchiveSeasons()) {
+  const requested = String(value || "");
+  if (options.includes(requested)) return requested;
+  return options[0] || String(currentLeagueSeason());
+}
+
+function populateArchiveSeasonSelect() {
+  if (!els.archiveSeasonSelect) return;
+  const seasons = availableArchiveSeasons();
+  archiveSeasonFilter = normalizeArchiveSeasonFilter(archiveSeasonFilter, seasons);
+  els.archiveSeasonSelect.innerHTML = seasons
+    .map((season) => `<option value="${escapeHtml(season)}">${escapeHtml(`${season} Season`)}</option>`)
+    .join("");
+  els.archiveSeasonSelect.value = archiveSeasonFilter;
+}
+
+function renderArchivePagination(totalGames) {
+  if (!els.archivePagination || !els.archivePageLabel) return;
+  const pageSize = 6;
+  const totalPages = Math.max(1, Math.ceil(totalGames / pageSize));
+  archivePage = Math.min(Math.max(1, archivePage), totalPages);
+  const shouldShow = totalGames > pageSize;
+  els.archivePagination.hidden = !shouldShow;
+  els.archivePageLabel.textContent = `Page ${archivePage} of ${totalPages}`;
+  if (els.archivePrevPageBtn) els.archivePrevPageBtn.disabled = archivePage <= 1;
+  if (els.archiveNextPageBtn) els.archiveNextPageBtn.disabled = archivePage >= totalPages;
+}
+
 function renderArchive() {
-  const games = state.games
-    .filter(gameIsFinal)
-    .sort((a, b) => b.date.localeCompare(a.date));
+  populateArchiveSeasonSelect();
+  const allGames = state.games
+    .filter((game) => gameIsFinal(game) && String(game?.date || "").startsWith(`${archiveSeasonFilter}-`))
+    .sort(sortGamesNewestFirst);
+  const pageSize = 6;
+  const totalPages = Math.max(1, Math.ceil(allGames.length / pageSize));
+  archivePage = Math.min(Math.max(1, archivePage), totalPages);
+  const pageStart = (archivePage - 1) * pageSize;
+  const games = allGames.slice(pageStart, pageStart + pageSize);
+  renderArchivePagination(allGames.length);
 
   els.archiveGrid.innerHTML = games.length
     ? games.map(renderArchiveCard).join("")
@@ -8557,17 +8741,68 @@ function renderArchive() {
 }
 
 function renderArchiveCard(game) {
-  const final = gameIsFinal(game);
-  return `<article class="archive-card">
-    <div class="archive-score">
-      <span>${escapeHtml(game.date)}</span>
-      <span>${escapeHtml(gameScoreLabel(game))}</span>
+  const lionsHome = lionsSide(game) === "home";
+  const opponentName = homeOpponentName(game);
+  const lionsScore = Number(game?.score?.lions || 0);
+  const opponentScore = Number(game?.score?.opponent || 0);
+  const outcome = lionsScore > opponentScore ? "W" : lionsScore < opponentScore ? "L" : "T";
+  const outcomeClass = outcome === "W" ? "is-win" : outcome === "L" ? "is-loss" : "is-tie";
+  const leftTeam = lionsHome
+    ? {
+        name: "Lions",
+        score: lionsScore,
+        logo: "assets/team-logos/lions.png"
+      }
+    : {
+        name: opponentName,
+        score: opponentScore,
+        logo: window.MatchupImages?.getTeamLogo?.(opponentName, "opponent") || "assets/team-logos/lions.png"
+      };
+  const rightTeam = lionsHome
+    ? {
+        name: opponentName,
+        score: opponentScore,
+        logo: window.MatchupImages?.getTeamLogo?.(opponentName, "opponent") || "assets/team-logos/lions.png"
+      }
+    : {
+        name: "Lions",
+        score: lionsScore,
+        logo: "assets/team-logos/lions.png"
+      };
+  const syncState = stableGameSyncState(game, { keepActiveSync: true });
+  const isAdmin = isAdminMode();
+  const syncButton = isAdminMode()
+    ? `<button type="button" class="secondary-action archive-card-action archive-card-sync" data-game-action="sync" data-game-id="${escapeHtml(game.id)}" ${!canSyncGame(game) ? "disabled" : ""}>${escapeHtml(completedGameSyncButtonLabel(syncState))}</button>`
+    : "";
+  return `<article class="archive-card archive-card-${escapeHtml(outcomeClass)}">
+    <div class="archive-card-head">
+      <span class="archive-result-badge ${escapeHtml(outcomeClass)}">${escapeHtml(outcome)}</span>
+      <span class="archive-card-date">${escapeHtml(formatArchiveDate(game.date))}</span>
     </div>
-    <div class="archive-meta">${escapeHtml(gameTeamMeta(game))} | ${game.events.length} tracked events | ${escapeHtml(gameStatusLabel(game))}</div>
-    <div class="game-actions">
-      ${final ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${escapeHtml(game.id)}">View Summary</button>` : ""}
-      <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
-      <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">View Scorebook</button>
+    <div class="archive-card-scoreline">
+      <div class="archive-card-team archive-card-team-left">
+        <img class="archive-card-logo" src="${escapeHtml(leftTeam.logo)}" alt="" loading="lazy" decoding="async">
+        <strong class="archive-card-team-name">${escapeHtml(leftTeam.name)}</strong>
+      </div>
+      <div class="archive-card-score-center">
+        <strong class="archive-card-score">${escapeHtml(String(leftTeam.score))}</strong>
+        <span class="archive-card-score-separator">-</span>
+        <strong class="archive-card-score">${escapeHtml(String(rightTeam.score))}</strong>
+      </div>
+      <div class="archive-card-team archive-card-team-right">
+        <img class="archive-card-logo" src="${escapeHtml(rightTeam.logo)}" alt="" loading="lazy" decoding="async">
+        <strong class="archive-card-team-name">${escapeHtml(rightTeam.name)}</strong>
+      </div>
+    </div>
+    <div class="archive-card-meta">
+      <span>${escapeHtml(gameLocationLabel(game) || "Location TBD")}</span>
+      <span aria-hidden="true">&bull;</span>
+      <span>Final</span>
+    </div>
+    <div class="archive-card-actions ${isAdmin ? "archive-card-actions-admin" : "archive-card-actions-public"}">
+      <button type="button" class="secondary-action archive-card-action" data-game-action="summary" data-game-id="${escapeHtml(game.id)}">View Summary</button>
+      <button type="button" class="secondary-action archive-card-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
+      ${syncButton}
     </div>
   </article>`;
 }
@@ -8654,6 +8889,7 @@ function renderGames() {
   const admin = isAdminMode();
   const activeId = activeScoreGame()?.id || "";
   const visibleFilters = new Set(["all", "future", "completed"]);
+  populateScheduleSeasonSelect();
   if (!visibleFilters.has(gameFilter)) gameFilter = "all";
   renderRecordSummary();
   if (!admin) {
@@ -8668,14 +8904,15 @@ function renderGames() {
       button.classList.toggle("is-active", button.dataset.gameFilter === gameFilter);
     });
   }
-  const completedGamesSorted = gamesForLifecycle("completed");
+  const completedGamesSorted = gamesForLifecycle("completed", { season: scheduleSeasonFilter });
   const completedTotal = completedGamesSorted.length;
   if (gameFilter === "all") {
-    const upcomingGames = gamesForLifecycle("future");
+    const upcomingGames = gamesForLifecycle("future", { season: scheduleSeasonFilter });
     const featuredUpcoming = upcomingGames[0] || null;
     const additionalUpcoming = upcomingGames.slice(featuredUpcoming ? 1 : 0, featuredUpcoming ? 3 : 2);
     const recentCompleted = completedGamesSorted.slice(0, 6);
-    if (els.scheduleDashboard) els.scheduleDashboard.hidden = false;
+    if (els.scheduleDashboard) els.scheduleDashboard.hidden = scheduleGamesLayout === "calendar";
+    if (els.scheduleCalendarView) els.scheduleCalendarView.hidden = scheduleGamesLayout !== "calendar";
     if (els.gamesGrid) {
       els.gamesGrid.classList.remove("is-grouped");
       els.gamesGrid.innerHTML = "";
@@ -8696,12 +8933,14 @@ function renderGames() {
         ? renderScheduleResultsList(recentCompleted)
         : `<p class="player-meta schedule-shell-empty">No completed games yet.</p>`;
     }
+    if (scheduleGamesLayout === "calendar") renderScheduleCalendar();
     hydrateHomeWeather([featuredUpcoming, ...additionalUpcoming].filter(Boolean));
   } else {
     if (els.scheduleDashboard) els.scheduleDashboard.hidden = true;
+    if (els.scheduleCalendarView) els.scheduleCalendarView.hidden = true;
     if (els.gamesGrid) els.gamesGrid.hidden = false;
     els.gamesGrid.classList.remove("is-grouped");
-    const filtered = gamesForLifecycle(gameFilter).slice(0, gameFilter === "completed" ? 3 : Infinity);
+    const filtered = gamesForLifecycle(gameFilter, { season: scheduleSeasonFilter }).slice(0, gameFilter === "completed" ? 3 : Infinity);
     els.gamesGrid.innerHTML = filtered.length
       ? filtered.map((game) => renderScheduleGameCard(game, activeId)).join("")
       : `<p class="player-meta">No ${escapeHtml(gameFilter)} games found.</p>`;
@@ -8757,6 +8996,154 @@ function renderScheduleResultsList(games = []) {
   return `<div class="schedule-results-list">
     ${games.map((game) => renderScheduleResultRow(game)).join("")}
   </div>`;
+}
+
+function availableScheduleSeasons() {
+  return [String(currentLeagueSeason())];
+}
+
+function normalizeScheduleSeasonFilter(value, options = availableScheduleSeasons()) {
+  const requested = String(value || "");
+  if (options.includes(requested)) return requested;
+  return options[0] || String(currentLeagueSeason());
+}
+
+function scheduleCalendarMonthOptions(season = scheduleSeasonFilter) {
+  const seasonValue = normalizeScheduleSeasonFilter(season);
+  return Array.from({ length: 12 }, (_, index) => `${seasonValue}-${String(index + 1).padStart(2, "0")}`);
+}
+
+function populateScheduleSeasonSelect() {
+  if (!els.scheduleSeasonSelect) return;
+  const seasons = availableScheduleSeasons();
+  scheduleSeasonFilter = normalizeScheduleSeasonFilter(scheduleSeasonFilter, seasons);
+  els.scheduleSeasonSelect.innerHTML = seasons
+    .map((season) => `<option value="${escapeHtml(season)}">${escapeHtml(`${season} Season`)}</option>`)
+    .join("");
+  els.scheduleSeasonSelect.value = scheduleSeasonFilter;
+}
+
+function populateScheduleCalendarMonthSelect() {
+  if (!els.scheduleCalendarMonthSelect) return;
+  const months = scheduleCalendarMonthOptions(scheduleSeasonFilter);
+  if (!months.includes(scheduleCalendarMonth)) {
+    scheduleCalendarMonth = months[0] || monthKeyFromDateValue(todayValue());
+  }
+  els.scheduleCalendarMonthSelect.innerHTML = months
+    .map((monthKey) => `<option value="${escapeHtml(monthKey)}">${escapeHtml(formatCalendarMonthLabel(monthKey))}</option>`)
+    .join("");
+  els.scheduleCalendarMonthSelect.value = scheduleCalendarMonth;
+}
+
+function openScheduleCalendar() {
+  scheduleGamesLayout = "calendar";
+  const anchorGame = gamesForLifecycle("future", { season: scheduleSeasonFilter })[0]
+    || [...state.games]
+      .filter((game) => String(game?.date || "").startsWith(`${scheduleSeasonFilter}-`))
+      .sort(sortGamesOldestFirst)[0]
+    || null;
+  scheduleCalendarMonth = monthKeyFromDateValue(anchorGame?.date || `${scheduleSeasonFilter}-01-01`);
+  renderGames();
+}
+
+function closeScheduleCalendar() {
+  scheduleGamesLayout = "dashboard";
+  renderGames();
+}
+
+function monthKeyFromDateValue(value = todayValue()) {
+  return /^\d{4}-\d{2}/.test(String(value || "")) ? String(value).slice(0, 7) : todayValue().slice(0, 7);
+}
+
+function shiftMonthKey(monthKey, delta = 0) {
+  const { year, month } = parseMonthKey(monthKey);
+  const shifted = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function parseMonthKey(monthKey = todayValue().slice(0, 7)) {
+  const [yearRaw, monthRaw] = String(monthKey || "").split("-");
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  if (!year || !month) {
+    const today = todayValue().slice(0, 7).split("-").map(Number);
+    return { year: today[0], month: today[1] };
+  }
+  return { year, month };
+}
+
+function formatCalendarMonthLabel(monthKey = scheduleCalendarMonth) {
+  const { year, month } = parseMonthKey(monthKey);
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
+    .format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+function renderScheduleCalendar() {
+  if (!els.scheduleCalendarGrid) return;
+  populateScheduleCalendarMonthSelect();
+  const calendarGames = [...state.games]
+    .filter((game) => String(game?.date || "").startsWith(`${scheduleSeasonFilter}-`))
+    .sort(sortGamesOldestFirst);
+  const gamesByDate = calendarGames.reduce((map, game) => {
+    if (!game?.date) return map;
+    const list = map.get(game.date) || [];
+    list.push(game);
+    map.set(game.date, list);
+    return map;
+  }, new Map());
+  els.scheduleCalendarGrid.innerHTML = buildScheduleCalendarCells(scheduleCalendarMonth, gamesByDate);
+}
+
+function buildScheduleCalendarCells(monthKey, gamesByDate) {
+  const { year, month } = parseMonthKey(monthKey);
+  const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
+  const monthStartDay = firstOfMonth.getUTCDay();
+  const gridStart = new Date(Date.UTC(year, month - 1, 1 - monthStartDay));
+  const today = todayValue();
+  const monthString = `${year}-${String(month).padStart(2, "0")}`;
+  return Array.from({ length: 42 }, (_, index) => {
+    const cellDate = new Date(gridStart.getTime());
+    cellDate.setUTCDate(gridStart.getUTCDate() + index);
+    const dateValue = `${cellDate.getUTCFullYear()}-${String(cellDate.getUTCMonth() + 1).padStart(2, "0")}-${String(cellDate.getUTCDate()).padStart(2, "0")}`;
+    const games = gamesByDate.get(dateValue) || [];
+    const outsideMonth = !dateValue.startsWith(monthString);
+    const isToday = dateValue === today;
+    const mobileDateLabel = new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC"
+    }).format(cellDate);
+    return `<article class="schedule-calendar-cell${outsideMonth ? " is-outside-month" : ""}${isToday ? " is-today" : ""}${games.length ? "" : " is-empty"}">
+      <div class="schedule-calendar-date">${escapeHtml(String(cellDate.getUTCDate()))}</div>
+      <div class="schedule-calendar-date-label">${escapeHtml(mobileDateLabel)}</div>
+      <div class="schedule-calendar-events">
+        ${games.map((game) => renderScheduleCalendarEvent(game)).join("")}
+      </div>
+    </article>`;
+  }).join("");
+}
+
+function renderScheduleCalendarEvent(game) {
+  const opponentName = homeOpponentName(game);
+  const logo = window.MatchupImages?.getTeamLogo?.(opponentName, "opponent") || "assets/team-logos/lions.png";
+  const home = lionsSide(game) === "home";
+  const completed = gameLifecycle(game) === "completed";
+  const live = gameLifecycle(game) === "active";
+  const outcome = completed ? (Number(game?.score?.lions || 0) > Number(game?.score?.opponent || 0) ? "W" : Number(game?.score?.lions || 0) < Number(game?.score?.opponent || 0) ? "L" : "T") : "";
+  const finalScore = `${Number(game?.score?.lions || 0)} - ${Number(game?.score?.opponent || 0)}`;
+  const timeLabel = completed ? `Final - ${finalScore}` : (formatGameTimeDisplay(game?.time) || "TBD");
+  const statusClass = `${home ? " is-home" : " is-away"}${completed ? " is-completed" : ""}${live ? " is-live" : ""}`;
+  const action = completed ? "boxscore" : "";
+  return `<button type="button" class="schedule-calendar-event${statusClass}" ${action ? `data-game-action="${escapeHtml(action)}" data-game-id="${escapeHtml(game.id)}"` : "disabled"}>
+    <div class="schedule-calendar-event-top">
+      <span class="schedule-calendar-event-side">${escapeHtml(home ? "vs" : "@")}</span>
+      <img class="schedule-calendar-event-logo" src="${escapeHtml(logo)}" alt="" loading="lazy" decoding="async">
+      ${completed ? `<span class="schedule-calendar-event-outcome schedule-calendar-event-outcome-${escapeHtml(outcome.toLowerCase())}">${escapeHtml(outcome)}</span>` : ""}
+    </div>
+    <strong class="schedule-calendar-event-opponent">${escapeHtml(opponentName)}</strong>
+    <span class="schedule-calendar-event-time">${escapeHtml(timeLabel)}</span>
+  </button>`;
 }
 
 function scheduleCompletedMatchupLabel(game) {
@@ -8841,8 +9228,13 @@ function renderScheduleWeatherInlineContent(game) {
   return `<span class="schedule-weather-inline-icon" aria-hidden="true">${cached.icon}</span><strong>${escapeHtml(cached.temp)}</strong><span>${escapeHtml(cached.label)}</span>`;
 }
 
-function gamesForLifecycle(lifecycle) {
-  const games = state.games.filter((game) => gameLifecycle(game) === lifecycle);
+function gamesForLifecycle(lifecycle, options = {}) {
+  const season = normalizeScheduleSeasonFilter(options.season || scheduleSeasonFilter);
+  const games = state.games.filter((game) => {
+    if (gameLifecycle(game) !== lifecycle) return false;
+    if (!season) return true;
+    return String(game?.date || "").startsWith(`${season}-`);
+  });
   return lifecycle === "completed"
     ? games.sort(sortGamesNewestFirst)
     : games.sort(sortGamesOldestFirst);
@@ -9656,8 +10048,12 @@ function renderBoxScore() {
   if (!active) {
     boxScoreGameId = "";
     els.boxScoreGameSelect.innerHTML = "";
+    if (els.boxScoreMobileGameSelect) els.boxScoreMobileGameSelect.innerHTML = "";
     els.boxScoreTitle.textContent = "Game box score";
+    if (els.boxScoreMobileTitle) els.boxScoreMobileTitle.textContent = "Game box score";
     els.boxScoreMeta.textContent = "No games saved yet.";
+    if (els.boxScoreMobileMetaPrimary) els.boxScoreMobileMetaPrimary.textContent = "No games saved yet.";
+    if (els.boxScoreMobileMetaSecondary) els.boxScoreMobileMetaSecondary.textContent = "";
     els.boxScoreSummary.innerHTML = `<p class="player-meta">Box scores appear after a game is created.</p>`;
     els.boxScoreLineHead.innerHTML = "";
     els.boxScoreLineBody.innerHTML = "";
@@ -9674,12 +10070,23 @@ function renderBoxScore() {
   const innings = boxScoreInnings(game);
   const lineScores = teams.map((team) => boxScoreLineForTeam(game, team, innings));
 
-  els.boxScoreGameSelect.innerHTML = [...state.games]
+  const boxScoreOptions = [...state.games]
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
     .map((item) => `<option value="${item.id}" ${item.id === game.id ? "selected" : ""}>${escapeHtml(item.date || "No date")} ${escapeHtml(gameMatchupLabel(item))}</option>`)
     .join("");
+  els.boxScoreGameSelect.innerHTML = boxScoreOptions;
+  if (els.boxScoreMobileGameSelect) els.boxScoreMobileGameSelect.innerHTML = boxScoreOptions;
   els.boxScoreTitle.textContent = gameMatchupLabel(game);
+  if (els.boxScoreMobileTitle) els.boxScoreMobileTitle.textContent = gameMatchupLabel(game);
   els.boxScoreMeta.textContent = `${game.date || "No date"} | ${gameTeamMeta(game)} | ${gameStatusLabel(game)}`;
+  if (els.boxScoreMobileMetaPrimary) {
+    els.boxScoreMobileMetaPrimary.textContent = `${formatGameDateWithYear(game.date) || "No date"} | ${gameStatusLabel(game)}`;
+  }
+  if (els.boxScoreMobileMetaSecondary) {
+    const away = teams.find((team) => team.side === "away") || teams[0];
+    const home = teams.find((team) => team.side === "home") || teams[1] || teams[0];
+    els.boxScoreMobileMetaSecondary.textContent = `Away: ${away?.name || "Away"} | Home: ${home?.name || "Home"}`;
+  }
   els.boxScoreSummary.innerHTML = renderBoxScoreSummary(game, teams);
   els.boxScoreLineHead.innerHTML = `<tr><th>Team</th>${innings.map((inning) => `<th>${inning}</th>`).join("")}<th>R</th><th>H</th><th>E</th></tr>`;
   els.boxScoreLineBody.innerHTML = lineScores.map((line) => renderBoxScoreLineRow(line, innings)).join("");
@@ -11323,6 +11730,8 @@ if ("serviceWorker" in navigator) {
       });
   });
 }
+
+
 
 
 
