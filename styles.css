@@ -6656,7 +6656,7 @@ label {
   background: var(--panel-dark);
   box-shadow: var(--shadow-dark);
   color: var(--white);
-  backdrop-filter: blur(14px);
+  backdrop-filter: none;
 }
 
 .home-hero-panel,
