@@ -1082,183 +1082,200 @@
         </section>
 
         <section class="view" id="statsView" data-panel="stats">
-          <div class="section-head">
-            <div>
+          <div class="section-head stats-page-head">
+            <div class="stats-page-title">
               <p class="eyebrow">Stats</p>
               <h2>Season roster stats</h2>
+              <p class="player-meta">View advanced stats and leaderboards for this season.</p>
             </div>
-            <span class="player-meta">Updates from completed and in-progress games</span>
+            <div class="stats-page-actions">
+              <span class="player-meta stats-page-updated">Updates from completed and in-progress games</span>
+              <label class="schedule-season-chip" for="statsSeasonSelect" aria-label="Choose stats season">
+                <span class="schedule-season-chip-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="4.5" width="18" height="16" rx="2.5"></rect>
+                    <path d="M8 2.8v3.4M16 2.8v3.4M3 9.3h18"></path>
+                  </svg>
+                </span>
+                <select id="statsSeasonSelect" class="schedule-season-select" aria-label="Stats season"></select>
+                <span class="schedule-season-chip-caret" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 7.5 10 12.5 15 7.5"></path>
+                  </svg>
+                </span>
+              </label>
+            </div>
           </div>
-          <div class="leader-grid" id="leadersGrid"></div>
-          <div class="stats-table-wrap stats-spray-shell">
+          <article class="stats-snapshot-card">
             <div class="mini-head">
-              <h3 class="stats-subhead">Spray Chart</h3>
-              <button type="button" class="secondary-action spray-toggle" id="toggleStatsSprayBtn">Open Spray Chart</button>
+              <h3 class="stats-subhead">Team Stats Snapshot</h3>
+              <span class="stats-snapshot-swipe-note">Swipe for Pitching</span>
             </div>
-            <div class="stats-spray-panel" id="statsSprayPanel">
-            <div class="stats-spray-controls">
+            <div class="stats-snapshot-grid" id="statsSnapshotGrid"></div>
+          </article>
+          <article class="stats-leaders-shell">
+            <div class="stats-mode-tabs" id="statsModeTabs" role="tablist" aria-label="Stats mode">
+              <button type="button" class="stats-mode-tab is-active" data-stats-mode="hitting" role="tab" aria-selected="true">Hitting</button>
+              <button type="button" class="stats-mode-tab" data-stats-mode="pitching" role="tab" aria-selected="false">Pitching</button>
+            </div>
+            <div class="mini-head stats-leaders-head">
+              <h3 class="stats-subhead" id="statsLeadersSectionTitle">Hitting Leaders</h3>
+              <span class="stats-leaders-swipe-note">Swipe to view more</span>
+            </div>
+            <div class="leader-grid stats-leader-grid" id="leadersGrid"></div>
+          </article>
+          <article class="stats-spray-shell">
+            <div class="stats-spray-feature">
+              <div class="stats-spray-preview" aria-hidden="true">
+                <div class="field-layer field-background stats-field-background">
+                  <svg class="field-background-art stats-field-background-art" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false" aria-hidden="true">
+                    <rect width="100" height="100" fill="#276221"></rect>
+                    <path d="M4 39 Q50 -12 96 39" fill="none" stroke="#f5bd21" stroke-width="1.45" stroke-linecap="round"></path>
+                    <path d="M19 67 A31 31 0 0 1 81 67 A17.5 17.5 0 0 0 19 67 Z" fill="#d9ac74"></path>
+                    <path d="M50 39.8 L69.4 65.6 L50 84.6 L30.6 65.6 Z" fill="#8b5a33"></path>
+                    <path d="M50 87 L8 40" fill="none" stroke="#fffdf5" stroke-width="1.15" stroke-linecap="round"></path>
+                    <path d="M50 87 L92 40" fill="none" stroke="#fffdf5" stroke-width="1.15" stroke-linecap="round"></path>
+                    <circle cx="50" cy="86" r="8.6" fill="#d9ac74"></circle>
+                    <circle cx="50" cy="61" r="5.8" fill="#d9ac74"></circle>
+                    <rect x="47.7" y="60.3" width="4.6" height="1.4" rx="0.45" fill="#ffffff"></rect>
+                    <rect x="48.7" y="41.7" width="2.6" height="2.6" rx="0.2" fill="#ffffff" transform="rotate(45 50 43)"></rect>
+                    <rect x="65.7" y="64.7" width="2.6" height="2.6" rx="0.2" fill="#ffffff" transform="rotate(45 67 66)"></rect>
+                    <rect x="31.7" y="64.7" width="2.6" height="2.6" rx="0.2" fill="#ffffff" transform="rotate(45 33 66)"></rect>
+                    <path d="M50 82.1 L52.1 84 L51.35 87 L48.65 87 L47.9 84 Z" fill="#ffffff"></path>
+                  </svg>
+                </div>
+                <span class="stats-spray-preview-dot hit" style="left:18%;top:28%;"></span>
+                <span class="stats-spray-preview-dot hit" style="left:31%;top:18%;"></span>
+                <span class="stats-spray-preview-dot hit" style="left:54%;top:36%;"></span>
+                <span class="stats-spray-preview-dot hit" style="left:70%;top:23%;"></span>
+                <span class="stats-spray-preview-dot out" style="left:39%;top:46%;"></span>
+                <span class="stats-spray-preview-dot out" style="left:62%;top:51%;"></span>
+                <span class="stats-spray-preview-dot out" style="left:79%;top:41%;"></span>
+              </div>
+              <div class="stats-spray-copy">
+                <div class="mini-head">
+                  <h3 class="stats-subhead">Spray Chart</h3>
+                </div>
+                <p class="player-meta">See where your team is putting balls in play.</p>
+                <div class="stats-spray-legend" aria-label="Spray chart legend">
+                  <span><span class="stats-spray-legend-dot hit"></span>Hit</span>
+                  <span><span class="stats-spray-legend-dot out"></span>Out</span>
+                </div>
+              </div>
+              <div class="stats-spray-actions">
+                <button type="button" class="secondary-action spray-toggle" id="toggleStatsSprayBtn">Open Spray Chart &gt;</button>
+              </div>
+            </div>
+          </article>
+          <div class="stats-table-wrap" id="statsHittingSection">
+            <div class="stats-table-shell-head">
+              <div class="stats-table-head-copy">
+                <h3 class="stats-subhead">Hitting Stats</h3>
+                <p class="player-meta" id="statsHittingMeta">Full season roster batting lines.</p>
+              </div>
+              <div class="stats-table-actions">
+                <button type="button" class="secondary-action" id="statsHittingExportBtn">Export</button>
+              </div>
+            </div>
+            <p class="stats-mobile-hint">Swipe sideways to see more stats.</p>
+            <div class="stats-mobile-controls">
               <label>
                 Player
-                <select id="statsSprayPlayerSelect"></select>
+                <select id="mobileHitPlayerSelect"></select>
               </label>
               <label>
                 Game
-                <select id="statsSprayGameSelect"></select>
+                <select id="mobileHitGameSelect"></select>
               </label>
-            </div>
-            <div class="spray-chart stats-spray-chart" id="statsSprayChart" aria-label="Player spray chart">
-              <div class="field-layer field-background stats-field-background" aria-hidden="true">
-                <svg class="field-background-art stats-field-background-art" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false" aria-hidden="true">
-                  <rect width="100" height="100" fill="#276221"></rect>
-                  <path d="M4 39 Q50 -12 96 39" fill="none" stroke="#f5bd21" stroke-width="1.45" stroke-linecap="round"></path>
-                  <path d="M19 67 A31 31 0 0 1 81 67 A17.5 17.5 0 0 0 19 67 Z" fill="#d9ac74"></path>
-                  <path d="M50 39.8 L69.4 65.6 L50 84.6 L30.6 65.6 Z" fill="#8b5a33"></path>
-                  <path d="M50 87 L8 40" fill="none" stroke="#fffdf5" stroke-width="1.15" stroke-linecap="round"></path>
-                  <path d="M50 87 L92 40" fill="none" stroke="#fffdf5" stroke-width="1.15" stroke-linecap="round"></path>
-                  <circle cx="50" cy="86" r="8.6" fill="#d9ac74"></circle>
-                  <circle cx="50" cy="61" r="5.8" fill="#d9ac74"></circle>
-                  <rect x="47.7" y="60.3" width="4.6" height="1.4" rx="0.45" fill="#ffffff"></rect>
-                  <rect x="48.7" y="41.7" width="2.6" height="2.6" rx="0.2" fill="#ffffff" transform="rotate(45 50 43)"></rect>
-                  <rect x="65.7" y="64.7" width="2.6" height="2.6" rx="0.2" fill="#ffffff" transform="rotate(45 67 66)"></rect>
-                  <rect x="31.7" y="64.7" width="2.6" height="2.6" rx="0.2" fill="#ffffff" transform="rotate(45 33 66)"></rect>
-                  <path d="M50 82.1 L52.1 84 L51.35 87 L48.65 87 L47.9 84 Z" fill="#ffffff"></path>
-                </svg>
-              </div>
-              <div class="field-layer stats-spray-chart-overlay">
-                <div class="spray-markers stats-spray-markers" id="statsSprayMarkers"></div>
-              </div>
-            </div>
-            </div>
-          </div>
-          <div class="stats-table-wrap">
-            <h3 class="stats-subhead">Hitting</h3>
-            <p class="stats-mobile-hint">Swipe sideways to see more stats.</p>
-            <div class="stats-mobile-controls">
-              <label>
-                Sort by
-                <select id="mobileHitSortSelect">
-                  <option value="name">Name</option>
-                  <option value="gp">GP</option>
-                  <option value="pa">PA</option>
-                  <option value="ab">AB</option>
-                  <option value="h">Hits</option>
-                  <option value="singles">1B</option>
-                  <option value="doubles">2B</option>
-                  <option value="triples">3B</option>
-                  <option value="hr">HR</option>
-                  <option value="avg">AVG</option>
-                  <option value="obp">OBP</option>
-                  <option value="slg">SLG</option>
-                  <option value="ops">OPS</option>
-                  <option value="rbi">RBI</option>
-                  <option value="bb">BB</option>
-                  <option value="hbp">HBP</option>
-                  <option value="k">K</option>
-                  <option value="sb">SB</option>
-                  <option value="cs">CS</option>
-                  <option value="po">PO</option>
-                  <option value="roe">ROE</option>
-                  <option value="errors">E</option>
-                </select>
-              </label>
-              <button type="button" class="secondary-action stats-mobile-direction-btn" id="mobileHitSortDirectionBtn">High to low</button>
             </div>
             <div class="stats-mobile-list" id="mobileHittingStatsList"></div>
-            <table class="stats-table stats-table-hitting">
-              <thead>
-                <tr>
-                  <th><button type="button" data-hit-sort="name">Player</button></th>
-                  <th><button type="button" data-hit-sort="gp">GP</button></th>
-                  <th><button type="button" data-hit-sort="pa">PA</button></th>
-                  <th><button type="button" data-hit-sort="ab">AB</button></th>
-                  <th><button type="button" data-hit-sort="h">H</button></th>
-                  <th><button type="button" data-hit-sort="singles">1B</button></th>
-                  <th><button type="button" data-hit-sort="doubles">2B</button></th>
-                  <th><button type="button" data-hit-sort="triples">3B</button></th>
-                  <th><button type="button" data-hit-sort="hr">HR</button></th>
-                  <th><button type="button" data-hit-sort="avg">AVG</button></th>
-                  <th><button type="button" data-hit-sort="obp">OBP</button></th>
-                  <th><button type="button" data-hit-sort="slg">SLG</button></th>
-                  <th><button type="button" data-hit-sort="ops">OPS</button></th>
-                  <th><button type="button" data-hit-sort="rbi">RBI</button></th>
-                  <th><button type="button" data-hit-sort="bb">BB</button></th>
-                  <th><button type="button" data-hit-sort="hbp">HBP</button></th>
-                  <th><button type="button" data-hit-sort="k">K</button></th>
-                  <th><button type="button" data-hit-sort="sb">SB</button></th>
-                  <th><button type="button" data-hit-sort="cs">CS</button></th>
-                  <th><button type="button" data-hit-sort="po">PO</button></th>
-                  <th><button type="button" data-hit-sort="roe">ROE</button></th>
-                  <th><button type="button" data-hit-sort="errors">E</button></th>
-                </tr>
-              </thead>
-              <tbody id="hittingStatsBody"></tbody>
-            </table>
+            <div class="stats-table-scroll">
+              <table class="stats-table stats-table-hitting">
+                <thead>
+                  <tr>
+                    <th><button type="button" data-hit-sort="name">Player</button></th>
+                    <th><button type="button" data-hit-sort="gp">GP</button></th>
+                    <th><button type="button" data-hit-sort="pa">PA</button></th>
+                    <th><button type="button" data-hit-sort="ab">AB</button></th>
+                    <th><button type="button" data-hit-sort="h">H</button></th>
+                    <th><button type="button" data-hit-sort="singles">1B</button></th>
+                    <th><button type="button" data-hit-sort="doubles">2B</button></th>
+                    <th><button type="button" data-hit-sort="triples">3B</button></th>
+                    <th><button type="button" data-hit-sort="hr">HR</button></th>
+                    <th><button type="button" data-hit-sort="avg">AVG</button></th>
+                    <th><button type="button" data-hit-sort="ops">OPS</button></th>
+                    <th>RISP</th>
+                    <th><button type="button" data-hit-sort="obp">OBP</button></th>
+                    <th><button type="button" data-hit-sort="slg">SLG</button></th>
+                    <th><button type="button" data-hit-sort="rbi">RBI</button></th>
+                    <th><button type="button" data-hit-sort="bb">BB</button></th>
+                    <th><button type="button" data-hit-sort="hbp">HBP</button></th>
+                    <th><button type="button" data-hit-sort="k">K</button></th>
+                    <th><button type="button" data-hit-sort="sb">SB</button></th>
+                    <th><button type="button" data-hit-sort="cs">CS</button></th>
+                    <th><button type="button" data-hit-sort="po">PO</button></th>
+                    <th><button type="button" data-hit-sort="roe">ROE</button></th>
+                    <th><button type="button" data-hit-sort="errors">E</button></th>
+                  </tr>
+                </thead>
+                <tbody id="hittingStatsBody"></tbody>
+              </table>
+            </div>
           </div>
-          <div class="stats-table-wrap">
-            <h3 class="stats-subhead">Pitching</h3>
+          <div class="stats-table-wrap" id="statsPitchingSection">
+            <div class="stats-table-shell-head">
+              <div class="stats-table-head-copy">
+                <h3 class="stats-subhead">Pitching Stats</h3>
+                <p class="player-meta" id="statsPitchingMeta">Season pitching lines and run prevention.</p>
+              </div>
+              <div class="stats-table-actions">
+                <button type="button" class="secondary-action" id="statsPitchingExportBtn">Export</button>
+              </div>
+            </div>
             <p class="stats-mobile-hint">Swipe sideways to see more stats.</p>
             <div class="stats-mobile-controls">
               <label>
-                Sort by
-                <select id="mobilePitSortSelect">
-                  <option value="name">Name</option>
-                  <option value="wins">Wins</option>
-                  <option value="losses">Losses</option>
-                  <option value="noDecision">ND</option>
-                  <option value="outs">IP</option>
-                  <option value="pitches">NP</option>
-                  <option value="balls">Balls</option>
-                  <option value="strikes">Strikes</option>
-                  <option value="whip">WHIP</option>
-                  <option value="k">K</option>
-                  <option value="batters">BF</option>
-                  <option value="h">Hits</option>
-                  <option value="runs">Runs</option>
-                  <option value="era">ERA</option>
-                  <option value="bb">BB</option>
-                  <option value="hbp">HBP</option>
-                  <option value="strikeRate">Strike %</option>
-                  <option value="kRate">K %</option>
-                  <option value="bbRate">BB %</option>
-                  <option value="kbb">K/BB</option>
-                  <option value="k9">K/9</option>
-                  <option value="r9">R/9</option>
-                  <option value="pitchesPerInning">P/IP</option>
-                </select>
+                Player
+                <select id="mobilePitPlayerSelect"></select>
               </label>
-              <button type="button" class="secondary-action stats-mobile-direction-btn" id="mobilePitSortDirectionBtn">High to low</button>
+              <label>
+                Game
+                <select id="mobilePitGameSelect"></select>
+              </label>
             </div>
             <div class="stats-mobile-list" id="mobilePitchingStatsList"></div>
-            <table class="stats-table stats-table-pitching">
-              <thead>
-                <tr>
-                  <th><button type="button" data-pit-sort="name">Player</button></th>
-                  <th><button type="button" data-pit-sort="wins">W</button></th>
-                  <th><button type="button" data-pit-sort="losses">L</button></th>
-                  <th><button type="button" data-pit-sort="noDecision">ND</button></th>
-                  <th><button type="button" data-pit-sort="outs">IP</button></th>
-                  <th><button type="button" data-pit-sort="pitches">NP</button></th>
-                  <th><button type="button" data-pit-sort="balls">Ball</button></th>
-                  <th><button type="button" data-pit-sort="strikes">Str</button></th>
-                  <th><button type="button" data-pit-sort="strikeRate">Str%</button></th>
-                  <th><button type="button" data-pit-sort="batters">BF</button></th>
-                  <th><button type="button" data-pit-sort="h">H</button></th>
-                  <th><button type="button" data-pit-sort="runs">R</button></th>
-                  <th><button type="button" data-pit-sort="era">ERA</button></th>
-                  <th><button type="button" data-pit-sort="bb">BB</button></th>
-                  <th><button type="button" data-pit-sort="hbp">HBP</button></th>
-                  <th><button type="button" data-pit-sort="k">K</button></th>
-                  <th><button type="button" data-pit-sort="kRate">K%</button></th>
-                  <th><button type="button" data-pit-sort="bbRate">BB%</button></th>
-                  <th><button type="button" data-pit-sort="kbb">K/BB</button></th>
-                  <th><button type="button" data-pit-sort="k9">K/9</button></th>
-                  <th><button type="button" data-pit-sort="r9">R/9</button></th>
-                  <th><button type="button" data-pit-sort="whip">WHIP</button></th>
-                  <th><button type="button" data-pit-sort="pitchesPerInning">P/IP</button></th>
-                </tr>
-              </thead>
-              <tbody id="pitchingStatsBody"></tbody>
-            </table>
+            <div class="stats-table-scroll">
+              <table class="stats-table stats-table-pitching">
+                <thead>
+                  <tr>
+                    <th><button type="button" data-pit-sort="name">Player</button></th>
+                    <th><button type="button" data-pit-sort="wins">W</button></th>
+                    <th><button type="button" data-pit-sort="losses">L</button></th>
+                    <th><button type="button" data-pit-sort="noDecision">ND</button></th>
+                    <th><button type="button" data-pit-sort="outs">IP</button></th>
+                    <th><button type="button" data-pit-sort="pitches">NP</button></th>
+                    <th><button type="button" data-pit-sort="balls">Ball</button></th>
+                    <th><button type="button" data-pit-sort="strikes">Str</button></th>
+                    <th><button type="button" data-pit-sort="strikeRate">Str%</button></th>
+                    <th><button type="button" data-pit-sort="batters">BF</button></th>
+                    <th><button type="button" data-pit-sort="h">H</button></th>
+                    <th><button type="button" data-pit-sort="runs">R</button></th>
+                    <th><button type="button" data-pit-sort="era">ERA</button></th>
+                    <th><button type="button" data-pit-sort="bb">BB</button></th>
+                    <th><button type="button" data-pit-sort="hbp">HBP</button></th>
+                    <th><button type="button" data-pit-sort="k">K</button></th>
+                    <th><button type="button" data-pit-sort="kRate">K%</button></th>
+                    <th><button type="button" data-pit-sort="bbRate">BB%</button></th>
+                    <th><button type="button" data-pit-sort="kbb">K/BB</button></th>
+                    <th><button type="button" data-pit-sort="k9">K/9</button></th>
+                    <th><button type="button" data-pit-sort="r9">R/9</button></th>
+                    <th><button type="button" data-pit-sort="whip">WHIP</button></th>
+                    <th><button type="button" data-pit-sort="pitchesPerInning">P/IP</button></th>
+                  </tr>
+                </thead>
+                <tbody id="pitchingStatsBody"></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -1606,6 +1623,52 @@
           <button type="button" class="secondary-action" id="gameActionsCompleteBtn">Complete Game</button>
         </div>
         <p class="player-meta" id="gameActionsStatusText">Local scoring is ready on this iPad.</p>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="statsSprayModal" hidden>
+      <div class="modal-card stats-spray-modal-card" role="dialog" aria-modal="true" aria-labelledby="statsSprayModalTitle">
+        <div class="mini-head">
+          <div>
+            <p class="eyebrow">Stats</p>
+            <h3 id="statsSprayModalTitle">Spray Chart</h3>
+          </div>
+          <button type="button" class="secondary-action compact-action" id="closeStatsSprayBtn">Close</button>
+        </div>
+        <div class="stats-spray-panel" id="statsSprayPanel">
+          <div class="stats-spray-controls">
+            <label>
+              Player
+              <select id="statsSprayPlayerSelect"></select>
+            </label>
+            <label>
+              Game
+              <select id="statsSprayGameSelect"></select>
+            </label>
+          </div>
+          <div class="spray-chart stats-spray-chart" id="statsSprayChart" aria-label="Player spray chart">
+            <div class="field-layer field-background stats-field-background" aria-hidden="true">
+              <svg class="field-background-art stats-field-background-art" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false" aria-hidden="true">
+                <rect width="100" height="100" fill="#276221"></rect>
+                <path d="M4 39 Q50 -12 96 39" fill="none" stroke="#f5bd21" stroke-width="1.45" stroke-linecap="round"></path>
+                <path d="M19 67 A31 31 0 0 1 81 67 A17.5 17.5 0 0 0 19 67 Z" fill="#d9ac74"></path>
+                <path d="M50 39.8 L69.4 65.6 L50 84.6 L30.6 65.6 Z" fill="#8b5a33"></path>
+                <path d="M50 87 L8 40" fill="none" stroke="#fffdf5" stroke-width="1.15" stroke-linecap="round"></path>
+                <path d="M50 87 L92 40" fill="none" stroke="#fffdf5" stroke-width="1.15" stroke-linecap="round"></path>
+                <circle cx="50" cy="86" r="8.6" fill="#d9ac74"></circle>
+                <circle cx="50" cy="61" r="5.8" fill="#d9ac74"></circle>
+                <rect x="47.7" y="60.3" width="4.6" height="1.4" rx="0.45" fill="#ffffff"></rect>
+                <rect x="48.7" y="41.7" width="2.6" height="2.6" rx="0.2" fill="#ffffff" transform="rotate(45 50 43)"></rect>
+                <rect x="65.7" y="64.7" width="2.6" height="2.6" rx="0.2" fill="#ffffff" transform="rotate(45 67 66)"></rect>
+                <rect x="31.7" y="64.7" width="2.6" height="2.6" rx="0.2" fill="#ffffff" transform="rotate(45 33 66)"></rect>
+                <path d="M50 82.1 L52.1 84 L51.35 87 L48.65 87 L47.9 84 Z" fill="#ffffff"></path>
+              </svg>
+            </div>
+            <div class="field-layer stats-spray-chart-overlay">
+              <div class="spray-markers stats-spray-markers" id="statsSprayMarkers"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
