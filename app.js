@@ -516,8 +516,8 @@ const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 const GA_MEASUREMENT_ID = "G-JWRVWJ9XYP";
 const ACCESS_MODE_STORAGE_KEY = "oakmont-lions-access-mode-v1";
 const ADMIN_EMAIL_STORAGE_KEY = "oakmont-lions-admin-email-v1";
-const PUBLIC_TAB_VIEWS = new Set(["home", "games", "stats", "archive"]);
-const PUBLIC_READ_VIEWS = new Set(["home", "games", "stats", "archive", "scorebook", "boxscore"]);
+const PUBLIC_TAB_VIEWS = new Set(["home", "games", "roster", "stats", "archive"]);
+const PUBLIC_READ_VIEWS = new Set(["home", "games", "roster", "stats", "archive", "scorebook", "boxscore"]);
 const ADMIN_TAB_VIEWS = new Set(["home", "score", "games", "lineup", "roster", "stats", "scouting", "archive", "analysis"]);
 const supabaseStorage = window.ScorebookSupabaseStorage || null;
 
@@ -550,6 +550,9 @@ let hittingSort = { key: "ops", direction: "desc" };
 let pitchingSort = { key: "outs", direction: "desc" };
 let statsSprayExpanded = false;
 let rosterFilter = "active";
+let rosterSearchQuery = "";
+let rosterSortKey = "number";
+let rosterViewMode = "cards";
 let scoutingData = null;
 let selectedScoutingTeamId = "";
 let scoutingRefreshState = "snapshot";
@@ -557,14 +560,30 @@ let scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
 let scorebookGameId = "";
 let boxScoreGameId = "";
 let editingRosterPlayerId = "";
+
+function rosterPlayerDetailsOpen() {
+  return !els.rosterPlayerDetails?.hidden;
+}
+
+function setRosterPlayerDetailsOpen(isOpen) {
+  if (!els.rosterPlayerDetails) return;
+  els.rosterPlayerDetails.hidden = !isOpen;
+}
+
 let boxScoreTeam = "lions";
-let boxScoreReturnView = "analysis";
+let boxScoreReturnView = "archive";
 const shownLineupPreviewKeys = new Set();
 const shownBatterIntroKeys = new Set();
 const BATTER_INTRO_DURATION_MS = 3000;
 let batterIntroTimer = null;
 let visibleBatterIntroKey = "";
 let gameSummaryId = "";
+const ROSTER_SILHOUETTE_ASSETS = {
+  P: "assets/roster/roster-pitcher-image.png",
+  L: "assets/roster/roster-left-image-new.png",
+  R: "assets/roster/roster-right-image-new.png",
+  S: "assets/roster/roster-right-image-new.png"
+};
 let lionsWinAnimationTimer = null;
 let activeLionsWinAnimationGameId = "";
 const playedLionsWinAnimationGameIds = new Set();
@@ -583,6 +602,8 @@ let scheduleSeasonFilter = String(currentLeagueSeason());
 let scheduleCalendarMonth = todayValue().slice(0, 7);
 let archiveSeasonFilter = String(currentLeagueSeason());
 let statsSeasonFilter = String(currentLeagueSeason());
+let statsPlayerFocus = "all";
+let activeCustomSubSelect = null;
 let statsMode = "hitting";
 let mobileHitPlayerFilter = "all";
 let mobileHitGameFilter = "all";
@@ -782,6 +803,8 @@ const els = {
   scheduleCalendarNextBtn: document.getElementById("scheduleCalendarNextBtn"),
   scheduleCalendarMonthSelect: document.getElementById("scheduleCalendarMonthSelect"),
   scheduleCalendarGrid: document.getElementById("scheduleCalendarGrid"),
+  scheduleCalendarWeekdays: document.getElementById("scheduleCalendarWeekdays"),
+  scheduleCalendarFooter: document.getElementById("scheduleCalendarFooter"),
   scheduleResultsArchiveLink: document.getElementById("scheduleResultsArchiveLink"),
   gamesGrid: document.getElementById("gamesGrid"),
   gamesArchiveNote: document.getElementById("gamesArchiveNote"),
@@ -874,15 +897,27 @@ const els = {
   applyOptimizedBtn: document.getElementById("applyOptimizedBtn"),
   addPlayerBtn: document.getElementById("addPlayerBtn"),
   playerForm: document.getElementById("playerForm"),
+  rosterPlayerDetails: document.getElementById("rosterPlayerDetails"),
   playerName: document.getElementById("playerName"),
   playerNumber: document.getElementById("playerNumber"),
   playerPositions: document.getElementById("playerPositions"),
+  playerPrimaryPosition: document.getElementById("playerPrimaryPosition"),
   playerBats: document.getElementById("playerBats"),
+  playerThrows: document.getElementById("playerThrows"),
+  playerHeight: document.getElementById("playerHeight"),
+  playerWeight: document.getElementById("playerWeight"),
   savePlayerBtn: document.getElementById("savePlayerBtn"),
   cancelPlayerEditBtn: document.getElementById("cancelPlayerEditBtn"),
+  rosterSearchInput: document.getElementById("rosterSearchInput"),
   rosterFilter: document.getElementById("rosterFilter"),
   rosterFilterSummary: document.getElementById("rosterFilterSummary"),
+  rosterSortSelect: document.getElementById("rosterSortSelect"),
+  rosterCardsViewBtn: document.getElementById("rosterCardsViewBtn"),
+  rosterListViewBtn: document.getElementById("rosterListViewBtn"),
   rosterGrid: document.getElementById("rosterGrid"),
+  rosterListShell: document.getElementById("rosterListShell"),
+  rosterListMeta: document.getElementById("rosterListMeta"),
+  rosterListBody: document.getElementById("rosterListBody"),
   archiveSeasonSelect: document.getElementById("archiveSeasonSelect"),
   archiveGrid: document.getElementById("archiveGrid"),
   archivePagination: document.getElementById("archivePagination"),
@@ -927,10 +962,18 @@ const els = {
   boxScorePitchingTitle: document.getElementById("boxScorePitchingTitle"),
   boxScorePitchingBody: document.getElementById("boxScorePitchingBody"),
   valueBoard: document.getElementById("valueBoard"),
+  statsView: document.getElementById("statsView"),
   statsSeasonSelect: document.getElementById("statsSeasonSelect"),
+  statsPageHead: document.querySelector("#statsView .stats-page-head"),
+  statsFocusBanner: document.getElementById("statsFocusBanner"),
+  statsFocusLabel: document.getElementById("statsFocusLabel"),
+  clearStatsFocusBtn: document.getElementById("clearStatsFocusBtn"),
+  statsSnapshotCard: document.querySelector("#statsView .stats-snapshot-card"),
   statsSnapshotGrid: document.getElementById("statsSnapshotGrid"),
   statsModeTabs: document.getElementById("statsModeTabs"),
+  statsLeadersShell: document.querySelector("#statsView .stats-leaders-shell"),
   statsLeadersSectionTitle: document.getElementById("statsLeadersSectionTitle"),
+  statsSprayShell: document.querySelector("#statsView .stats-spray-shell"),
   statsHittingSection: document.getElementById("statsHittingSection"),
   statsPitchingSection: document.getElementById("statsPitchingSection"),
   statsHittingMeta: document.getElementById("statsHittingMeta"),
@@ -999,13 +1042,19 @@ render();
 bootstrapSupabaseState();
 initializeSupabaseAuth();
 
-function makePlayer(id, name, number, positions, bats = "R", grades = defaultPlayerGrades()) {
+function makePlayer(id, name, number, positions, bats = "R", grades = defaultPlayerGrades(), details = {}) {
+  const normalizedPositions = normalizePositions(positions);
+  const primaryPosition = String(details.primaryPosition || normalizedPositions[0] || "UTL").trim().toUpperCase();
   return {
     id,
     name,
     number: String(number).trim(),
-    positions: normalizePositions(positions),
+    positions: normalizedPositions,
+    primaryPosition,
     bats,
+    throws: String(details.throws || bats || "R").trim().toUpperCase(),
+    height: String(details.height || "").trim(),
+    weight: normalizeWeight(details.weight || ""),
     active: true,
     grades: { ...defaultPlayerGrades(), ...(grades || {}) }
   };
@@ -1016,16 +1065,57 @@ function defaultPlayerGrades() {
 }
 
 function normalizePositions(positions) {
-  if (Array.isArray(positions)) return positions.map((position) => String(position).trim()).filter(Boolean);
+  if (Array.isArray(positions)) {
+    return positions
+      .map((position) => String(position).trim().toUpperCase())
+      .map((position) => (position === "UTIL" ? "UTL" : position))
+      .filter(Boolean);
+  }
   return String(positions || "UTL")
     .split(/[|,]/)
-    .map((position) => position.trim())
+    .map((position) => position.trim().toUpperCase())
+    .map((position) => (position === "UTIL" ? "UTL" : position))
     .filter(Boolean);
+}
+
+function normalizeWeight(weight) {
+  const raw = String(weight || "").trim();
+  if (!raw) return "";
+  return /\d$/.test(raw) ? `${raw} lbs` : raw;
 }
 
 function formatPositions(positions) {
   const normalized = normalizePositions(positions);
   return normalized.length ? normalized.join(", ") : "UTL";
+}
+
+function playerPrimaryPosition(player) {
+  return String(player?.primaryPosition || normalizePositions(player?.positions)[0] || "UTL").trim().toUpperCase();
+}
+
+function formatRosterBatsThrows(player) {
+  const bats = String(player?.bats || "R").trim().toUpperCase();
+  const throws = String(player?.throws || bats || "R").trim().toUpperCase();
+  return `${bats} / ${throws}`;
+}
+
+function formatRosterHeightWeight(player) {
+  const height = String(player?.height || "").trim() || "--";
+  const weight = normalizeWeight(player?.weight || "") || "--";
+  return `${height} / ${weight}`;
+}
+
+function rosterDisplayNameParts(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return ["Player", ""];
+  if (parts.length === 1) return [parts[0], ""];
+  return [parts[0], parts.slice(1).join(" ")];
+}
+
+function rosterSilhouetteAsset(player) {
+  if (playerPrimaryPosition(player) === "P") return ROSTER_SILHOUETTE_ASSETS.P;
+  const bats = String(player?.bats || "R").trim().toUpperCase();
+  return ROSTER_SILHOUETTE_ASSETS[bats] || ROSTER_SILHOUETTE_ASSETS.R;
 }
 
 function playerHasPosition(player, position) {
@@ -1566,7 +1656,11 @@ function normalizeRoster(roster = []) {
     ...player,
     number: String(player.number ?? "").trim(),
     positions: normalizePositions(player.positions),
+    primaryPosition: String(player.primaryPosition || normalizePositions(player.positions)[0] || "UTL").trim().toUpperCase(),
     bats: player.bats || "R",
+    throws: String(player.throws || player.bats || "R").trim().toUpperCase(),
+    height: String(player.height || "").trim(),
+    weight: normalizeWeight(player.weight || ""),
     active: player.active !== false,
     grades: { ...defaultPlayerGrades(), ...(player.grades || {}) }
   }));
@@ -1680,6 +1774,7 @@ function normalizePlateAppearances(plateAppearances, game) {
       batterId: appearance.batterId || appearance.playerId || "",
       pitcherId: appearance.pitcherId || "",
       basesBefore: appearance.basesBefore || emptyBases(false),
+      hasRISP: appearance.hasRISP ?? Boolean(appearance?.basesBefore?.second || appearance?.basesBefore?.third),
       pitches: normalizePitchTrail(appearance.pitches || []),
       result: normalizePlateAppearanceResult(appearance.result),
       basesAfter: appearance.basesAfter || null,
@@ -1701,6 +1796,7 @@ function normalizePlateAppearances(plateAppearances, game) {
       batterId: event.playerId,
       pitcherId: event.pitcherId || "",
       basesBefore: event.basesBefore || emptyBases(false),
+      hasRISP: event.hasRISP ?? Boolean(event?.basesBefore?.second || event?.basesBefore?.third),
       pitches: normalizePitchTrail(event.pitches || []),
       result: normalizePlateAppearanceResult({
         type: event.result,
@@ -2603,13 +2699,23 @@ function saveAccessMode() {
 }
 
 function boxScoreReturnLabel(view = boxScoreReturnView) {
-  if (view === "analysis") return "Analysis";
+  if (view === "analysis") return "Archive";
   if (view === "archive") return "Archive";
   if (view === "games") return "Schedule";
   if (view === "home") return "Home";
   if (view === "scorebook") return "Scorebook";
-  return isAdminMode() ? "Analysis" : "Schedule";
+  return "Archive";
 }
+
+function archiveUsesContinuousScroll() {
+  try {
+    return window.matchMedia?.("(max-width: 760px)")?.matches ?? false;
+  } catch (error) {
+    return false;
+  }
+}
+
+let archiveContinuousScrollMode = archiveUsesContinuousScroll();
 
 function loadStoredAdminEmail() {
   try {
@@ -3407,9 +3513,16 @@ function bindEvents() {
   window.addEventListener("focus", () => {
     requestSupabaseRefresh("focus");
   });
-  window.addEventListener("pageshow", () => {
-    requestSupabaseRefresh("pageshow", { force: true, skipWhenHidden: false });
-  });
+window.addEventListener("pageshow", () => {
+  requestSupabaseRefresh("pageshow", { force: true, skipWhenHidden: false });
+});
+
+window.addEventListener("resize", () => {
+  const nextMode = archiveUsesContinuousScroll();
+  if (nextMode === archiveContinuousScrollMode) return;
+  archiveContinuousScrollMode = nextMode;
+  if (currentView === "archive") renderArchive();
+});
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
       requestSupabaseRefresh("visibility");
@@ -3444,6 +3557,8 @@ function bindEvents() {
 
   els.addPlayerBtn.addEventListener("click", () => {
     resetPlayerForm();
+    setRosterPlayerDetailsOpen(true);
+    updatePlayerFormUi();
     els.playerName.focus();
   });
   els.playerForm.addEventListener("submit", (event) => {
@@ -3451,10 +3566,23 @@ function bindEvents() {
     addPlayer();
   });
   els.cancelPlayerEditBtn?.addEventListener("click", () => resetPlayerForm());
+  els.rosterSearchInput?.addEventListener("input", () => {
+    rosterSearchQuery = (els.rosterSearchInput.value || "").trim().toLowerCase();
+    renderRoster();
+  });
+  els.rosterSearchInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") event.preventDefault();
+  });
 
   els.rosterFilter.addEventListener("change", () => {
     rosterFilter = els.rosterFilter.value;
     renderRoster();
+  });
+  [els.rosterCardsViewBtn, els.rosterListViewBtn].forEach((button) => {
+    button?.addEventListener("click", () => {
+      rosterViewMode = button.dataset.rosterView || "cards";
+      renderRoster();
+    });
   });
 
   els.archiveSeasonSelect?.addEventListener("change", (event) => {
@@ -3464,6 +3592,17 @@ function bindEvents() {
   });
   els.statsSeasonSelect?.addEventListener("change", (event) => {
     statsSeasonFilter = normalizeStatsSeasonFilter(event.target.value);
+    renderSeasonStats();
+    renderLeaders();
+    renderStatsSprayControls();
+  });
+  els.clearStatsFocusBtn?.addEventListener("click", () => {
+    statsPlayerFocus = "all";
+    statsMode = "hitting";
+    mobileHitPlayerFilter = "all";
+    mobilePitPlayerFilter = "all";
+    mobileHitGameFilter = "all";
+    mobilePitGameFilter = "all";
     renderSeasonStats();
     renderLeaders();
     renderStatsSprayControls();
@@ -3562,6 +3701,15 @@ function bindEvents() {
   });
   els.statsPitchingExportBtn?.addEventListener("click", () => {
     exportStatsTable("pitching");
+  });
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest(".sub-custom-select")) return;
+    closeCustomSubSelects();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    closeCustomSubSelects();
   });
 }
 
@@ -3894,6 +4042,7 @@ function startPlateAppearance(game = activeGame(), batterId = currentBatterModel
   syncGameCurrent(game);
   const active = getCurrentPlateAppearance(game, false);
   if (active && !active.result) return active;
+  const basesBefore = deepClone(game.current.runners);
   const plateAppearance = {
     id: createId("pa"),
     gameId: game.id,
@@ -3902,7 +4051,8 @@ function startPlateAppearance(game = activeGame(), batterId = currentBatterModel
     battingSide: battingSide(game),
     batterId,
     pitcherId,
-    basesBefore: deepClone(game.current.runners),
+    basesBefore,
+    hasRISP: Boolean(basesBefore.second || basesBefore.third),
     pitches: [],
     result: null,
     basesAfter: null,
@@ -4049,6 +4199,7 @@ function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
     outsAfter: plateAppearance.outsAfter,
     basesBefore: deepClone(plateAppearance.basesBefore),
     basesAfter: deepClone(plateAppearance.basesAfter),
+    hasRISP: Boolean(plateAppearance.hasRISP),
     scope: plateAppearance.battingSide === lionsSide(game) ? "offense" : "defense",
     pitcherId: plateAppearance.pitcherId,
     note: result.notes,
@@ -5627,7 +5778,8 @@ function openGameScorebook(gameId) {
 
 function openBoxScore(gameId) {
   if (!state.games.some((game) => game.id === gameId)) return;
-  boxScoreReturnView = canAccessView(currentView) ? currentView : (isAdminMode() ? "analysis" : "games");
+  const sourceView = canAccessView(currentView) ? currentView : (isAdminMode() ? "archive" : "games");
+  boxScoreReturnView = sourceView === "analysis" ? "archive" : sourceView;
   boxScoreGameId = gameId;
   renderBoxScore();
   switchView("boxscore");
@@ -5638,6 +5790,7 @@ function openGameStats(gameId) {
   if (!game) return;
   const gameSeason = String(game?.date || "").slice(0, 4);
   if (/^\d{4}$/.test(gameSeason)) statsSeasonFilter = normalizeStatsSeasonFilter(gameSeason);
+  statsPlayerFocus = "all";
   mobileHitPlayerFilter = "all";
   mobilePitPlayerFilter = "all";
   mobileHitGameFilter = game.id;
@@ -5649,6 +5802,34 @@ function openGameStats(gameId) {
     if ([...select.options].some((option) => option.value === game.id)) select.value = game.id;
     renderStatsSprayChart();
   }
+  switchView("stats");
+}
+
+function defaultStatsSeasonForPlayer(playerId) {
+  const seasons = availableStatsSeasons();
+  const match = seasons.find((season) => {
+    const hit = statsForPlayer(playerId, season);
+    const pit = pitcherStats(playerId, null, season);
+    return hit.pa > 0 || hasPitchingStats(pit);
+  });
+  return normalizeStatsSeasonFilter(match || String(currentLeagueSeason()), seasons);
+}
+
+function openPlayerStats(playerId) {
+  const player = state.roster.find((item) => item.id === playerId);
+  if (!player) return;
+  statsSeasonFilter = defaultStatsSeasonForPlayer(playerId);
+  statsPlayerFocus = playerId;
+  mobileHitPlayerFilter = playerId;
+  mobilePitPlayerFilter = playerId;
+  mobileHitGameFilter = "all";
+  mobilePitGameFilter = "all";
+  const hitting = statsForPlayer(playerId, statsSeasonFilter);
+  const pitching = pitcherStats(playerId, null, statsSeasonFilter);
+  statsMode = hitting.pa > 0 || !hasPitchingStats(pitching) ? "hitting" : "pitching";
+  renderSeasonStats();
+  renderLeaders();
+  renderStatsSprayControls();
   switchView("stats");
 }
 
@@ -5804,19 +5985,29 @@ async function addPlayer() {
   if (existingPlayer) {
     existingPlayer.name = name;
     existingPlayer.number = els.playerNumber.value.trim() || "--";
-    existingPlayer.positions = String(els.playerPositions.value.trim() || "UTIL")
+    existingPlayer.positions = String(els.playerPositions.value.trim() || "UTL")
       .split(",")
       .map((position) => position.trim())
       .filter(Boolean);
+    existingPlayer.primaryPosition = String(els.playerPrimaryPosition?.value || existingPlayer.positions[0] || "UTL").trim().toUpperCase();
     existingPlayer.bats = els.playerBats.value || "R";
+    existingPlayer.throws = els.playerThrows?.value || existingPlayer.bats || "R";
+    existingPlayer.height = els.playerHeight?.value.trim() || "";
+    existingPlayer.weight = normalizeWeight(els.playerWeight?.value.trim() || "");
   } else {
     const player = makePlayer(
       uuid(),
       name,
       els.playerNumber.value.trim() || "--",
-      els.playerPositions.value.trim() || "UTIL",
+      els.playerPositions.value.trim() || "UTL",
       els.playerBats.value,
-      defaultPlayerGrades()
+      defaultPlayerGrades(),
+      {
+        primaryPosition: els.playerPrimaryPosition?.value || "UTL",
+        throws: els.playerThrows?.value || els.playerBats.value || "R",
+        height: els.playerHeight?.value.trim() || "",
+        weight: els.playerWeight?.value.trim() || ""
+      }
       );
       state.roster.push(player);
       state.lineup.push(player.id);
@@ -5830,21 +6021,27 @@ async function addPlayer() {
 
 function updatePlayerFormUi() {
   const editing = Boolean(editingRosterPlayerId);
+  const detailsOpen = rosterPlayerDetailsOpen();
+  const admin = isAdminMode();
   if (els.savePlayerBtn) {
     els.savePlayerBtn.textContent = editing ? "Update Player" : "Save Player";
   }
   if (els.cancelPlayerEditBtn) {
-    els.cancelPlayerEditBtn.hidden = !editing;
+    els.cancelPlayerEditBtn.hidden = !admin || !detailsOpen;
   }
   if (els.addPlayerBtn) {
     els.addPlayerBtn.textContent = editing ? "Add New Player" : "Add Player";
+    els.addPlayerBtn.hidden = !admin;
   }
 }
 
 function resetPlayerForm() {
   editingRosterPlayerId = "";
   els.playerForm?.reset();
+  setRosterPlayerDetailsOpen(false);
+  if (els.playerPrimaryPosition) els.playerPrimaryPosition.value = "UTL";
   if (els.playerBats) els.playerBats.value = "R";
+  if (els.playerThrows) els.playerThrows.value = "R";
   updatePlayerFormUi();
 }
 
@@ -5853,6 +6050,7 @@ function beginPlayerEdit(playerId) {
   const player = state.roster.find((item) => item.id === playerId);
   if (!player) return;
   editingRosterPlayerId = player.id;
+  setRosterPlayerDetailsOpen(true);
   if (els.playerName) els.playerName.value = player.name || "";
   if (els.playerNumber) els.playerNumber.value = player.number || "";
   if (els.playerPositions) {
@@ -5860,9 +6058,33 @@ function beginPlayerEdit(playerId) {
       ? player.positions.join(", ")
       : String(player.positions || "");
   }
+  if (els.playerPrimaryPosition) els.playerPrimaryPosition.value = player.primaryPosition || normalizePositions(player.positions)[0] || "UTL";
   if (els.playerBats) els.playerBats.value = player.bats || "R";
+  if (els.playerThrows) els.playerThrows.value = player.throws || player.bats || "R";
+  if (els.playerHeight) els.playerHeight.value = player.height || "";
+  if (els.playerWeight) els.playerWeight.value = player.weight || "";
   updatePlayerFormUi();
   els.playerName?.focus();
+}
+
+async function removeRosterPlayer(playerId) {
+  if (!requireAdminAccess("Admin sign-in required to edit the roster.")) return;
+  const player = state.roster.find((item) => item.id === playerId);
+  if (!player) return;
+  const confirmed = window.confirm(`Remove ${player.name} from the active roster?\n\nThis keeps historical game data intact and moves the player out of the active roster view.`);
+  if (!confirmed) return;
+  if (!(await ensureFreshSharedBaseline("remove-roster-player"))) {
+    window.alert("We couldn't refresh the latest shared roster yet. Try again in a moment.");
+    return;
+  }
+  state.lineup = state.lineup.filter((id) => id !== playerId);
+  state.roster = state.roster.map((item) => item.id === playerId ? { ...item, active: false } : item);
+  if (editingRosterPlayerId === playerId) resetPlayerForm();
+  markSharedAppStateDirty();
+  saveState();
+  optimizedIds = buildOptimizedLineup();
+  render();
+  requestSharedSnapshotSync("remove-roster-player");
 }
 
 function render() {
@@ -8315,6 +8537,84 @@ function renderLiveLineup() {
     .join("");
 }
 
+function closeCustomSubSelects(exceptId = "") {
+  document.querySelectorAll(".sub-custom-select.is-open").forEach((shell) => {
+    if (exceptId && shell.dataset.selectId === exceptId) return;
+    shell.classList.remove("is-open");
+    const trigger = shell.querySelector(".sub-custom-select-trigger");
+    trigger?.setAttribute("aria-expanded", "false");
+  });
+  activeCustomSubSelect = exceptId || null;
+}
+
+function renderCustomSubSelect(select) {
+  if (!select) return;
+  select.hidden = true;
+  select.setAttribute("aria-hidden", "true");
+  select.style.display = "none";
+  let shell = select.parentElement?.querySelector(`.sub-custom-select[data-select-id="${select.id}"]`);
+  if (!shell) {
+    shell = document.createElement("div");
+    shell.className = "sub-custom-select";
+    shell.dataset.selectId = select.id;
+    shell.innerHTML = `
+      <button type="button" class="sub-custom-select-trigger" aria-haspopup="listbox" aria-expanded="false"></button>
+      <div class="sub-custom-select-menu" role="listbox"></div>
+    `;
+    select.insertAdjacentElement("afterend", shell);
+    const trigger = shell.querySelector(".sub-custom-select-trigger");
+    const menu = shell.querySelector(".sub-custom-select-menu");
+    trigger?.addEventListener("click", () => {
+      const willOpen = !shell.classList.contains("is-open");
+      closeCustomSubSelects(willOpen ? select.id : "");
+      shell.classList.toggle("is-open", willOpen);
+      trigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+      if (willOpen) activeCustomSubSelect = select.id;
+    });
+    menu?.addEventListener("click", (event) => {
+      const optionButton = event.target.closest("[data-custom-select-value]");
+      if (!optionButton || optionButton.disabled) return;
+      select.value = optionButton.dataset.customSelectValue || "";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      renderCustomSubSelect(select);
+      closeCustomSubSelects();
+      trigger?.focus();
+    });
+  }
+  shell.classList.toggle("is-disabled", Boolean(select.disabled));
+  const trigger = shell.querySelector(".sub-custom-select-trigger");
+  const menu = shell.querySelector(".sub-custom-select-menu");
+  const selectedOption = select.options[select.selectedIndex] || select.options[0];
+  const hasOptions = select.options.length > 0;
+  if (trigger) {
+    trigger.disabled = Boolean(select.disabled || !hasOptions);
+    trigger.innerHTML = `
+      <span>${escapeHtml(selectedOption?.textContent?.trim() || (hasOptions ? "Select" : "No options"))}</span>
+      <span class="sub-custom-select-chevron" aria-hidden="true">⌄</span>
+    `;
+  }
+  if (menu) {
+    menu.innerHTML = [...select.options]
+      .map((option) => {
+        const selected = option.selected;
+        const disabled = option.disabled;
+        return `<button type="button" class="sub-custom-select-option${selected ? " is-selected" : ""}" role="option" aria-selected="${selected ? "true" : "false"}" data-custom-select-value="${escapeHtml(option.value)}" ${disabled ? "disabled" : ""}>${escapeHtml(option.textContent.trim())}</button>`;
+      })
+      .join("");
+  }
+}
+
+function syncCustomSubControls() {
+  [
+    els.subSpotSelect,
+    els.subPlayerSelect,
+    els.subTypeSelect,
+    els.subPositionSelect,
+    els.opponentMoveTypeSelect,
+    els.opponentMoveSpotSelect
+  ].forEach((select) => renderCustomSubSelect(select));
+}
+
 function renderSubControls() {
   const game = activeGame();
   els.subPanel.classList.toggle("is-hidden", isOpponentAtBat(game));
@@ -8341,6 +8641,7 @@ function renderSubControls() {
     els.subSpotSelect.innerHTML = "";
     els.subPlayerSelect.innerHTML = "";
     if (els.subPositionSelect) els.subPositionSelect.innerHTML = "";
+    syncCustomSubControls();
     return;
   }
   const entries = gameLineupEntries(game);
@@ -8361,6 +8662,7 @@ function renderSubControls() {
       .map((position) => `<option value="${position}" ${position === selectedEntry?.role ? "selected" : ""}>${position}</option>`)
       .join("");
   }
+  syncCustomSubControls();
 }
 
 function applySubstitution() {
@@ -8678,55 +8980,125 @@ function fielderNumber(position) {
 
 function renderRoster() {
   els.rosterGrid.innerHTML = "";
+  if (els.rosterListBody) els.rosterListBody.innerHTML = "";
+  if (els.rosterSearchInput && els.rosterSearchInput.value !== rosterSearchQuery) {
+    els.rosterSearchInput.value = rosterSearchQuery;
+  }
   els.rosterFilter.value = rosterFilter;
+  els.rosterCardsViewBtn?.classList.toggle("is-active", rosterViewMode === "cards");
+  els.rosterListViewBtn?.classList.toggle("is-active", rosterViewMode === "list");
+  if (els.rosterGrid) els.rosterGrid.hidden = rosterViewMode !== "cards";
+  if (els.rosterListShell) els.rosterListShell.hidden = rosterViewMode !== "list";
+  if (!isAdminMode()) setRosterPlayerDetailsOpen(false);
   updatePlayerFormUi();
   const visiblePlayers = state.roster.filter((player) => {
     if (rosterFilter === "all") return true;
     if (rosterFilter === "inactive") return !state.lineup.includes(player.id);
     return state.lineup.includes(player.id);
-  });
-  els.rosterFilterSummary.textContent = `${visiblePlayers.length} ${rosterFilter === "all" ? "total" : rosterFilter} player${visiblePlayers.length === 1 ? "" : "s"}`;
-  if (!visiblePlayers.length) {
-    els.rosterGrid.innerHTML = `<p class="player-meta">No ${escapeHtml(rosterFilter)} players to show.</p>`;
-    return;
-  }
-  visiblePlayers.forEach((player) => {
-    const stats = statsForPlayer(player.id);
-    const node = els.playerTemplate.content.cloneNode(true);
-    const card = node.querySelector(".player-card");
-    card.dataset.playerId = player.id;
-    node.querySelector(".number-pill").textContent = `#${player.number}`;
-    node.querySelector("h3").textContent = player.name;
-    node.querySelector("p").textContent = `${formatPositions(player.positions)} | Bats ${player.bats}`;
-    const editButton = node.querySelector("[data-player-edit]");
-    editButton?.addEventListener("click", () => beginPlayerEdit(player.id));
-    const activeToggle = node.querySelector(".active-toggle input");
-    activeToggle.checked = state.lineup.includes(player.id);
-    activeToggle.addEventListener("change", () => togglePlayerActive(player.id, activeToggle.checked));
-    node.querySelector(".stat-strip").innerHTML = [
-      statCell("AVG", formatRate(stats.avg)),
-      statCell("OBP", formatRate(stats.obp)),
-      statCell("OPS", formatRate(stats.ops))
-    ].join("");
-
-    node.querySelectorAll("[data-grade]").forEach((input) => {
-      const grade = input.dataset.grade;
-      input.value = player.grades[grade];
-      setGradeFill(input);
-        input.addEventListener("input", () => {
-          player.grades[grade] = Number(input.value);
-          setGradeFill(input);
-          markSharedAppStateDirty();
-          saveState();
-          optimizedIds = buildOptimizedLineup();
-        renderOptimizedLineup();
-        renderValueBoard();
-        requestSharedSnapshotSync(`update-player-grade-${grade}`);
-      });
+  }).filter((player) => {
+    if (!rosterSearchQuery) return true;
+    const haystack = [
+      player.name,
+      player.number,
+      playerPrimaryPosition(player),
+      formatPositions(player.positions),
+      player.bats,
+      player.throws,
+      player.height,
+      player.weight
+    ].join(" ").toLowerCase();
+    return haystack.includes(rosterSearchQuery);
     });
-    els.rosterGrid.appendChild(node);
-  });
+  const rankedPlayers = visiblePlayers
+    .map((player) => ({ player, stats: statsForPlayer(player.id) }))
+    .sort((a, b) => compareRosterRows(a, b, "number"));
+  els.rosterFilterSummary.textContent = `${rankedPlayers.length} ${rosterFilter === "all" ? "total" : rosterFilter} player${rankedPlayers.length === 1 ? "" : "s"}`;
+  if (els.rosterListMeta) {
+    els.rosterListMeta.textContent = `${rankedPlayers.length} player${rankedPlayers.length === 1 ? "" : "s"} ordered by jersey number.`;
+  }
+    if (!rankedPlayers.length) {
+      const empty = `<p class="player-meta">No ${escapeHtml(rosterSearchQuery ? "matching" : rosterFilter)} players to show.</p>`;
+      els.rosterGrid.innerHTML = empty;
+      if (els.rosterListBody) {
+        els.rosterListBody.innerHTML = `<tr><td colspan="3" class="player-meta">No players to show.</td></tr>`;
+      }
+      return;
+    }
+    rankedPlayers.forEach(({ player, stats }) => {
+      const node = els.playerTemplate.content.cloneNode(true);
+      const card = node.querySelector(".player-card");
+      card.dataset.playerId = player.id;
+      node.querySelector(".number-pill").textContent = `#${player.number || "--"}`;
+      const positionsSummary = formatPositions(player.positions);
+      const primaryPosition = playerPrimaryPosition(player);
+      node.querySelector("[data-player-primary-position]").textContent = primaryPosition;
+      const positionsLabel = node.querySelector("[data-player-positions-summary]");
+      if (positionsLabel) positionsLabel.textContent = positionsSummary;
+        const silhouette = node.querySelector("[data-player-silhouette-image]");
+        if (silhouette) {
+          silhouette.src = rosterSilhouetteAsset(player);
+          silhouette.alt = `${player.name} player silhouette`;
+        }
+        const [firstName, lastName] = rosterDisplayNameParts(player.name);
+        const nameHeading = node.querySelector("h3");
+        if (nameHeading) {
+          nameHeading.innerHTML = `${`<span>${escapeHtml(firstName)}</span>`}${lastName ? `<span>${escapeHtml(lastName)}</span>` : ""}`;
+        }
+        const metaCopy = node.querySelector("[data-player-card-meta]");
+        if (metaCopy) metaCopy.textContent = `${primaryPosition} | Bats ${player.bats || "R"}`;
+        node.querySelectorAll("[data-player-stats]").forEach((button) => {
+          button?.addEventListener("click", () => openPlayerStats(player.id));
+        });
+      const adminActions = node.querySelector("[data-roster-admin-actions]");
+      if (adminActions) adminActions.hidden = !isAdminMode();
+      node.querySelectorAll("[data-player-edit]").forEach((button) => {
+        button?.addEventListener("click", () => beginPlayerEdit(player.id));
+      });
+      node.querySelectorAll("[data-player-remove]").forEach((button) => {
+        button?.addEventListener("click", () => {
+          removeRosterPlayer(player.id).catch((error) => console.warn("Roster removal failed.", error));
+        });
+      });
+        node.querySelector("[data-player-bats-throws]").textContent = formatRosterBatsThrows(player);
+        node.querySelector("[data-player-height-weight]").textContent = formatRosterHeightWeight(player);
+      els.rosterGrid.appendChild(node);
+        if (els.rosterListBody) {
+          els.rosterListBody.insertAdjacentHTML("beforeend", rosterListRow(player));
+        }
+    });
+  }
+
+function compareRosterRows(a, b, key = "number") {
+  if (key === "name") return a.player.name.localeCompare(b.player.name);
+  if (key === "number") {
+    const numberDiff = Number(a.player.number || 0) - Number(b.player.number || 0);
+    if (numberDiff) return numberDiff;
+    return a.player.name.localeCompare(b.player.name);
+  }
+  if (key === "grade") return b.grade.score - a.grade.score;
+  const diff = {
+    avg: b.stats.avg - a.stats.avg,
+    obp: b.stats.obp - a.stats.obp,
+    ops: b.stats.ops - a.stats.ops
+  }[key] ?? (b.stats.ops - a.stats.ops);
+  if (Math.abs(diff) > 0.0001) return diff;
+  return a.player.name.localeCompare(b.player.name);
 }
+
+function rosterGradeData(player) {
+  const score = Math.round(playerValue(player));
+  if (score >= 150) return { score, label: "Elite", tier: "elite" };
+  if (score >= 115) return { score, label: "Starter", tier: "starter" };
+  return { score, label: "Developing", tier: "developing" };
+}
+
+function rosterListRow(player) {
+    return `<tr>
+        <td>${escapeHtml(player.number || "--")}</td>
+        <td><strong>${escapeHtml(player.name)}</strong></td>
+        <td>${escapeHtml(formatPositions(player.positions))}</td>
+      </tr>`;
+  }
 
 function setGradeFill(input) {
   const min = Number(input.min) || 0;
@@ -8782,12 +9154,11 @@ function populateArchiveSeasonSelect() {
   els.archiveSeasonSelect.value = archiveSeasonFilter;
 }
 
-function renderArchivePagination(totalGames) {
+function renderArchivePagination(totalGames, pageSize) {
   if (!els.archivePagination || !els.archivePageLabel) return;
-  const pageSize = 6;
   const totalPages = Math.max(1, Math.ceil(totalGames / pageSize));
   archivePage = Math.min(Math.max(1, archivePage), totalPages);
-  const shouldShow = totalGames > pageSize;
+  const shouldShow = !archiveUsesContinuousScroll() && totalGames > pageSize;
   els.archivePagination.hidden = !shouldShow;
   els.archivePageLabel.textContent = `Page ${archivePage} of ${totalPages}`;
   if (els.archivePrevPageBtn) els.archivePrevPageBtn.disabled = archivePage <= 1;
@@ -8799,12 +9170,12 @@ function renderArchive() {
   const allGames = state.games
     .filter((game) => gameIsFinal(game) && String(game?.date || "").startsWith(`${archiveSeasonFilter}-`))
     .sort(sortGamesNewestFirst);
-  const pageSize = 6;
+  const pageSize = archiveUsesContinuousScroll() ? Math.max(allGames.length, 1) : 6;
   const totalPages = Math.max(1, Math.ceil(allGames.length / pageSize));
   archivePage = Math.min(Math.max(1, archivePage), totalPages);
   const pageStart = (archivePage - 1) * pageSize;
   const games = allGames.slice(pageStart, pageStart + pageSize);
-  renderArchivePagination(allGames.length);
+  renderArchivePagination(allGames.length, pageSize);
 
   els.archiveGrid.innerHTML = games.length
     ? games.map(renderArchiveCard).join("")
@@ -9078,20 +9449,18 @@ function renderGames() {
     if (els.scheduleCalendarView) els.scheduleCalendarView.hidden = true;
     if (els.gamesGrid) els.gamesGrid.hidden = false;
     els.gamesGrid.classList.remove("is-grouped");
-    const filtered = gamesForLifecycle(gameFilter, { season: scheduleSeasonFilter }).slice(0, gameFilter === "completed" ? 3 : Infinity);
+    const filtered = gamesForLifecycle(gameFilter, { season: scheduleSeasonFilter });
     els.gamesGrid.innerHTML = filtered.length
       ? filtered.map((game) => renderScheduleGameCard(game, activeId)).join("")
       : `<p class="player-meta">No ${escapeHtml(gameFilter)} games found.</p>`;
   }
   if (els.gamesArchiveNote) {
-    if (gameFilter === "all") {
+    if (gameFilter === "all" || gameFilter === "completed") {
       els.gamesArchiveNote.hidden = true;
       els.gamesArchiveNote.innerHTML = "";
     } else {
       els.gamesArchiveNote.hidden = false;
-      els.gamesArchiveNote.innerHTML = completedTotal > 3
-        ? `<span>Showing the 3 most recent completed games.</span><button type="button" class="secondary-action" data-game-action="archive">View full history in Game Archive</button>`
-        : `<span>Full game history lives in Game Archive.</span><button type="button" class="secondary-action" data-game-action="archive">Open Game Archive</button>`;
+      els.gamesArchiveNote.innerHTML = `<span>Full game history lives in Game Archive.</span><button type="button" class="secondary-action" data-game-action="archive">Open Game Archive</button>`;
     }
   }
 }
@@ -9137,7 +9506,12 @@ function renderScheduleResultsList(games = []) {
 }
 
 function availableScheduleSeasons() {
-  return [String(currentLeagueSeason())];
+  const seasons = new Set([String(currentLeagueSeason())]);
+  state.games.forEach((game) => {
+    const season = String(game?.date || "").slice(0, 4);
+    if (/^\d{4}$/.test(season)) seasons.add(season);
+  });
+  return [...seasons].sort((a, b) => Number(b) - Number(a));
 }
 
 function normalizeScheduleSeasonFilter(value, options = availableScheduleSeasons()) {
@@ -9253,6 +9627,7 @@ function getMobilePitchingRows(playerId = "all", gameId = "all") {
 }
 
 function renderMobileStatsFilters() {
+  const focusedPlayerId = statsFocusedPlayerId();
   const gameOptions = [
     `<option value="all">All games</option>`,
     ...statsGamesWithDataForSeason(statsSeasonFilter).map((game) => `<option value="${escapeHtml(game.id)}">${escapeHtml(statsGameOptionLabel(game))}</option>`)
@@ -9266,12 +9641,26 @@ function renderMobileStatsFilters() {
   );
 
   if (els.mobileHitPlayerSelect) {
-    els.mobileHitPlayerSelect.innerHTML = [
-      `<option value="all">All players</option>`,
-      ...hittingPlayers.map((player) => `<option value="${escapeHtml(player.id)}">#${escapeHtml(player.number)} ${escapeHtml(player.name)}</option>`)
-    ].join("");
-    if (!hittingPlayers.some((player) => player.id === mobileHitPlayerFilter)) mobileHitPlayerFilter = "all";
-    els.mobileHitPlayerSelect.value = mobileHitPlayerFilter;
+    const hitPlayerLabel = els.mobileHitPlayerSelect.closest("label");
+    if (focusedPlayerId) {
+      const focusedPlayer = state.roster.find((player) => player.id === focusedPlayerId);
+      els.mobileHitPlayerSelect.innerHTML = focusedPlayer
+        ? `<option value="${escapeHtml(focusedPlayer.id)}">#${escapeHtml(focusedPlayer.number)} ${escapeHtml(focusedPlayer.name)}</option>`
+        : "";
+      mobileHitPlayerFilter = focusedPlayerId;
+      els.mobileHitPlayerSelect.value = focusedPlayerId;
+      els.mobileHitPlayerSelect.disabled = true;
+      if (hitPlayerLabel) hitPlayerLabel.hidden = true;
+    } else {
+      els.mobileHitPlayerSelect.innerHTML = [
+        `<option value="all">All players</option>`,
+        ...hittingPlayers.map((player) => `<option value="${escapeHtml(player.id)}">#${escapeHtml(player.number)} ${escapeHtml(player.name)}</option>`)
+      ].join("");
+      if (!hittingPlayers.some((player) => player.id === mobileHitPlayerFilter)) mobileHitPlayerFilter = "all";
+      els.mobileHitPlayerSelect.value = mobileHitPlayerFilter;
+      els.mobileHitPlayerSelect.disabled = false;
+      if (hitPlayerLabel) hitPlayerLabel.hidden = false;
+    }
   }
 
   if (els.mobileHitGameSelect) {
@@ -9281,12 +9670,26 @@ function renderMobileStatsFilters() {
   }
 
   if (els.mobilePitPlayerSelect) {
-    els.mobilePitPlayerSelect.innerHTML = [
-      `<option value="all">All players</option>`,
-      ...pitchingPlayers.map((player) => `<option value="${escapeHtml(player.id)}">#${escapeHtml(player.number)} ${escapeHtml(player.name)}</option>`)
-    ].join("");
-    if (!pitchingPlayers.some((player) => player.id === mobilePitPlayerFilter)) mobilePitPlayerFilter = "all";
-    els.mobilePitPlayerSelect.value = mobilePitPlayerFilter;
+    const pitPlayerLabel = els.mobilePitPlayerSelect.closest("label");
+    if (focusedPlayerId) {
+      const focusedPlayer = state.roster.find((player) => player.id === focusedPlayerId);
+      els.mobilePitPlayerSelect.innerHTML = focusedPlayer
+        ? `<option value="${escapeHtml(focusedPlayer.id)}">#${escapeHtml(focusedPlayer.number)} ${escapeHtml(focusedPlayer.name)}</option>`
+        : "";
+      mobilePitPlayerFilter = focusedPlayerId;
+      els.mobilePitPlayerSelect.value = focusedPlayerId;
+      els.mobilePitPlayerSelect.disabled = true;
+      if (pitPlayerLabel) pitPlayerLabel.hidden = true;
+    } else {
+      els.mobilePitPlayerSelect.innerHTML = [
+        `<option value="all">All players</option>`,
+        ...pitchingPlayers.map((player) => `<option value="${escapeHtml(player.id)}">#${escapeHtml(player.number)} ${escapeHtml(player.name)}</option>`)
+      ].join("");
+      if (!pitchingPlayers.some((player) => player.id === mobilePitPlayerFilter)) mobilePitPlayerFilter = "all";
+      els.mobilePitPlayerSelect.value = mobilePitPlayerFilter;
+      els.mobilePitPlayerSelect.disabled = false;
+      if (pitPlayerLabel) pitPlayerLabel.hidden = false;
+    }
   }
 
   if (els.mobilePitGameSelect) {
@@ -9298,6 +9701,64 @@ function renderMobileStatsFilters() {
 
 function statsSeasonLabel(season = statsSeasonFilter) {
   return `${normalizeStatsSeasonFilter(season)} Season`;
+}
+
+function playerDisplayName(playerId) {
+  const player = state.roster.find((item) => item.id === playerId);
+  return player ? `#${player.number || "--"} ${player.name}` : "this player";
+}
+
+function statsFocusedPlayerId() {
+  return statsPlayerFocus !== "all" ? statsPlayerFocus : "";
+}
+
+function isPlayerFocusedStatsMode() {
+  return Boolean(statsFocusedPlayerId());
+}
+
+function applyStatsPageMode() {
+  const focusedMode = isPlayerFocusedStatsMode();
+  if (els.statsView) {
+    els.statsView.classList.toggle("is-player-focused", focusedMode);
+  }
+  if (els.statsPageHead) els.statsPageHead.hidden = focusedMode;
+  if (els.statsSnapshotCard) els.statsSnapshotCard.hidden = focusedMode;
+  if (els.statsLeadersShell) els.statsLeadersShell.hidden = focusedMode;
+  if (els.statsView) {
+    if (focusedMode) {
+      if (els.statsFocusBanner) els.statsView.appendChild(els.statsFocusBanner);
+      if (els.statsHittingSection) els.statsView.appendChild(els.statsHittingSection);
+      if (els.statsPitchingSection) els.statsView.appendChild(els.statsPitchingSection);
+      if (els.statsSprayShell) els.statsView.appendChild(els.statsSprayShell);
+    } else {
+      if (els.statsPageHead && els.statsFocusBanner) {
+        els.statsPageHead.insertAdjacentElement("afterend", els.statsFocusBanner);
+      }
+      if (els.statsFocusBanner && els.statsSnapshotCard) {
+        els.statsFocusBanner.insertAdjacentElement("afterend", els.statsSnapshotCard);
+      }
+      if (els.statsSnapshotCard && els.statsLeadersShell) {
+        els.statsSnapshotCard.insertAdjacentElement("afterend", els.statsLeadersShell);
+      }
+      if (els.statsLeadersShell && els.statsSprayShell) {
+        els.statsLeadersShell.insertAdjacentElement("afterend", els.statsSprayShell);
+      }
+      if (els.statsSprayShell && els.statsHittingSection) {
+        els.statsSprayShell.insertAdjacentElement("afterend", els.statsHittingSection);
+      }
+      if (els.statsHittingSection && els.statsPitchingSection) {
+        els.statsHittingSection.insertAdjacentElement("afterend", els.statsPitchingSection);
+      }
+    }
+  }
+}
+
+function renderStatsFocusBanner() {
+  if (!els.statsFocusBanner || !els.statsFocusLabel) return;
+  const focusedPlayerId = statsFocusedPlayerId();
+  els.statsFocusBanner.hidden = !focusedPlayerId;
+  if (!focusedPlayerId) return;
+  els.statsFocusLabel.textContent = `Showing stats for ${playerDisplayName(focusedPlayerId)}.`;
 }
 
 function exportStatsTable(mode) {
@@ -9344,7 +9805,7 @@ function exportStatsTable(mode) {
       hit.hr,
       formatRate(hit.avg),
       formatRate(hit.ops),
-      "--",
+      formatRispRate(hit),
       formatRate(hit.obp),
       formatRate(hit.slg),
       hit.rbi,
@@ -9487,6 +9948,10 @@ function renderScheduleCalendar() {
     map.set(game.date, list);
     return map;
   }, new Map());
+  els.scheduleCalendarView?.classList.remove("is-list-mode");
+  els.scheduleCalendarGrid.classList.remove("is-list-mode");
+  if (els.scheduleCalendarWeekdays) els.scheduleCalendarWeekdays.hidden = false;
+  if (els.scheduleCalendarFooter) els.scheduleCalendarFooter.hidden = false;
   els.scheduleCalendarGrid.innerHTML = buildScheduleCalendarCells(scheduleCalendarMonth, gamesByDate);
 }
 
@@ -9514,21 +9979,23 @@ function buildScheduleCalendarCells(monthKey, gamesByDate) {
       <div class="schedule-calendar-date">${escapeHtml(String(cellDate.getUTCDate()))}</div>
       <div class="schedule-calendar-date-label">${escapeHtml(mobileDateLabel)}</div>
       <div class="schedule-calendar-events">
-        ${games.map((game) => renderScheduleCalendarEvent(game)).join("")}
+        ${games.map((game) => renderScheduleCalendarCellEvent(game)).join("")}
       </div>
     </article>`;
   }).join("");
 }
 
-function renderScheduleCalendarEvent(game) {
+function renderScheduleCalendarCellEvent(game) {
   const opponentName = homeOpponentName(game);
   const logo = window.MatchupImages?.getTeamLogo?.(opponentName, "opponent") || "assets/team-logos/lions.png";
   const home = lionsSide(game) === "home";
   const completed = gameLifecycle(game) === "completed";
   const live = gameLifecycle(game) === "active";
-  const outcome = completed ? (Number(game?.score?.lions || 0) > Number(game?.score?.opponent || 0) ? "W" : Number(game?.score?.lions || 0) < Number(game?.score?.opponent || 0) ? "L" : "T") : "";
+  const outcome = completed
+    ? (Number(game?.score?.lions || 0) > Number(game?.score?.opponent || 0) ? "W" : Number(game?.score?.lions || 0) < Number(game?.score?.opponent || 0) ? "L" : "T")
+    : "";
   const finalScore = `${Number(game?.score?.lions || 0)} - ${Number(game?.score?.opponent || 0)}`;
-  const timeLabel = completed ? `Final - ${finalScore}` : (formatGameTimeDisplay(game?.time) || "TBD");
+  const timeLabel = completed ? `Final - ${finalScore}` : (live ? `Live - ${finalScore}` : (formatGameTimeDisplay(game?.time) || "TBD"));
   const statusClass = `${home ? " is-home" : " is-away"}${completed ? " is-completed" : ""}${live ? " is-live" : ""}`;
   const action = completed ? "boxscore" : "";
   return `<button type="button" class="schedule-calendar-event${statusClass}" ${action ? `data-game-action="${escapeHtml(action)}" data-game-id="${escapeHtml(game.id)}"` : "disabled"}>
@@ -9539,6 +10006,41 @@ function renderScheduleCalendarEvent(game) {
     </div>
     <strong class="schedule-calendar-event-opponent">${escapeHtml(opponentName)}</strong>
     <span class="schedule-calendar-event-time">${escapeHtml(timeLabel)}</span>
+  </button>`;
+}
+
+function renderScheduleCalendarEvent(game) {
+  const opponentName = homeOpponentName(game);
+  const logo = window.MatchupImages?.getTeamLogo?.(opponentName, "opponent") || "assets/team-logos/lions.png";
+  const home = lionsSide(game) === "home";
+  const completed = gameLifecycle(game) === "completed";
+  const live = gameLifecycle(game) === "active";
+  const outcome = completed ? (Number(game?.score?.lions || 0) > Number(game?.score?.opponent || 0) ? "W" : Number(game?.score?.lions || 0) < Number(game?.score?.opponent || 0) ? "L" : "T") : "";
+  const lionsScore = Number(game?.score?.lions || 0);
+  const opponentScore = Number(game?.score?.opponent || 0);
+  const scoreLabel = `${lionsScore} - ${opponentScore}`;
+  const dateLabel = formatShortMonthDay(game?.date || "") || formatGameDateDisplay(game?.date) || "Date TBD";
+  const timeLabel = formatGameTimeDisplay(game?.time) || "TBD";
+  const statusLabel = completed ? "Final" : (live ? "Live" : "Scheduled");
+  const subStatusLabel = completed ? dateLabel : `${dateLabel}${timeLabel ? ` • ${timeLabel}` : ""}`;
+  const statusClass = `${home ? " is-home" : " is-away"}${completed ? " is-completed" : ""}${live ? " is-live" : ""}`;
+  const action = completed ? "boxscore" : "";
+  return `<button type="button" class="schedule-calendar-event schedule-calendar-list-card${statusClass}" ${action ? `data-game-action="${escapeHtml(action)}" data-game-id="${escapeHtml(game.id)}"` : "disabled"}>
+    <div class="schedule-calendar-list-main">
+      <div class="schedule-calendar-list-team">
+        <span class="schedule-calendar-event-side">${escapeHtml(home ? "vs" : "@")}</span>
+        <img class="schedule-calendar-event-logo" src="${escapeHtml(logo)}" alt="" loading="lazy" decoding="async">
+        <strong class="schedule-calendar-event-opponent">${escapeHtml(opponentName)}</strong>
+      </div>
+      <strong class="schedule-calendar-list-score">${escapeHtml(completed || live ? scoreLabel : timeLabel)}</strong>
+    </div>
+    <div class="schedule-calendar-list-meta">
+      <div class="schedule-calendar-list-status">
+        <span class="schedule-calendar-list-status-primary">${escapeHtml(statusLabel)}</span>
+        <span class="schedule-calendar-list-status-secondary">${escapeHtml(subStatusLabel)}</span>
+      </div>
+      ${completed ? `<span class="schedule-calendar-event-outcome schedule-calendar-event-outcome-${escapeHtml(outcome.toLowerCase())}">${escapeHtml(outcome)}</span>` : ""}
+    </div>
   </button>`;
 }
 
@@ -11329,9 +11831,14 @@ function teamStatsPageUrl(team) {
 
 function renderSeasonStats() {
   populateStatsSeasonSelect();
-  renderStatsSnapshot();
+  applyStatsPageMode();
+  if (!isPlayerFocusedStatsMode()) {
+    renderStatsSnapshot();
+  }
+  renderStatsFocusBanner();
   updateSortIndicators();
-  const hittingRows = getSeasonHittingRows();
+  const focusedPlayerId = statsFocusedPlayerId();
+  const hittingRows = getSeasonHittingRows().filter(({ player }) => !focusedPlayerId || player.id === focusedPlayerId);
   els.hittingStatsBody.innerHTML = hittingRows
     .map(({ player, hit, gp }) => {
       return `<tr>
@@ -11346,7 +11853,7 @@ function renderSeasonStats() {
         <td>${hit.hr}</td>
         <td>${formatRate(hit.avg)}</td>
         <td>${formatRate(hit.ops)}</td>
-        <td>--</td>
+        <td>${formatRispRate(hit)}</td>
         <td>${formatRate(hit.obp)}</td>
         <td>${formatRate(hit.slg)}</td>
         <td>${hit.rbi}</td>
@@ -11360,8 +11867,9 @@ function renderSeasonStats() {
         <td>${hit.errors}</td>
       </tr>`;
     })
-    .join("");
-  const pitchingRows = getSeasonPitchingRows();
+    .join("")
+    || `<tr><td colspan="23" class="stats-empty-row">No batting stats yet.</td></tr>`;
+  const pitchingRows = getSeasonPitchingRows().filter(({ player }) => !focusedPlayerId || player.id === focusedPlayerId);
   els.pitchingStatsBody.innerHTML = pitchingRows
     .map(({ player, pit }) => {
       return `<tr>
@@ -11390,12 +11898,17 @@ function renderSeasonStats() {
         <td>${pit.pitchesPerInning.toFixed(1)}</td>
       </tr>`;
     })
-    .join("");
+    .join("")
+    || `<tr><td colspan="23" class="stats-empty-row">No pitching stats yet.</td></tr>`;
   if (els.statsHittingMeta) {
-    els.statsHittingMeta.textContent = `${statsSeasonLabel()} roster batting lines for ${hittingRows.length} players.`;
+    els.statsHittingMeta.textContent = focusedPlayerId
+      ? `${statsSeasonLabel()} batting lines for ${playerDisplayName(focusedPlayerId)} across completed and in-progress games.`
+      : `${statsSeasonLabel()} roster batting lines for ${hittingRows.length} players.`;
   }
   if (els.statsPitchingMeta) {
-    els.statsPitchingMeta.textContent = `${statsSeasonLabel()} pitching lines and run prevention for ${pitchingRows.length} arms.`;
+    els.statsPitchingMeta.textContent = focusedPlayerId
+      ? `${statsSeasonLabel()} pitching lines for ${playerDisplayName(focusedPlayerId)} across completed and in-progress games.`
+      : `${statsSeasonLabel()} pitching lines and run prevention for ${pitchingRows.length} arms.`;
   }
   renderMobileStatsFilters();
   const mobileHittingRows = getMobileHittingRows(mobileHitPlayerFilter, mobileHitGameFilter);
@@ -11414,7 +11927,7 @@ function renderSeasonStats() {
             ${mobileStatPill("H", hit.h)}
             ${mobileStatPill("OPS", formatRate(hit.ops))}
             ${mobileStatPill("RBI", hit.rbi)}
-            ${mobileStatPill("RISP", "--")}
+            ${mobileStatPill("RISP", formatRispRate(hit))}
             ${mobileStatPill("SB", hit.sb)}
             ${mobileStatPill("K", hit.k)}
           </div>
@@ -11479,6 +11992,7 @@ function renderStatsSnapshot() {
 }
 
 function renderStatsMode() {
+  const focusedMode = isPlayerFocusedStatsMode();
   if (els.statsModeTabs) {
     els.statsModeTabs.querySelectorAll("[data-stats-mode]").forEach((button) => {
       const isActive = button.dataset.statsMode === statsMode;
@@ -11489,18 +12003,34 @@ function renderStatsMode() {
   if (els.statsLeadersSectionTitle) {
     els.statsLeadersSectionTitle.textContent = statsMode === "pitching" ? "Pitching Leaders" : "Hitting Leaders";
   }
-  if (els.statsHittingSection) els.statsHittingSection.hidden = statsMode !== "hitting";
-  if (els.statsPitchingSection) els.statsPitchingSection.hidden = statsMode !== "pitching";
+  if (els.statsHittingSection) els.statsHittingSection.hidden = focusedMode ? false : statsMode !== "hitting";
+  if (els.statsPitchingSection) els.statsPitchingSection.hidden = focusedMode ? false : statsMode !== "pitching";
 }
 
 function renderStatsSprayControls() {
+  const focusedPlayerId = statsFocusedPlayerId();
   if (els.statsSprayModal) els.statsSprayModal.hidden = !statsSprayExpanded;
   if (els.statsSprayPanel) els.statsSprayPanel.classList.add("is-visible");
   if (els.toggleStatsSprayBtn) els.toggleStatsSprayBtn.textContent = "Open Spray Chart >";
-  const selectedPlayer = els.statsSprayPlayerSelect.value || state.roster[0]?.id || "";
-  els.statsSprayPlayerSelect.innerHTML = state.roster
-    .map((player) => `<option value="${player.id}" ${player.id === selectedPlayer ? "selected" : ""}>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</option>`)
-    .join("");
+  const preferredPlayer = focusedPlayerId;
+  const selectedPlayer = preferredPlayer || els.statsSprayPlayerSelect.value || state.roster[0]?.id || "";
+  const sprayPlayerLabel = els.statsSprayPlayerSelect?.closest("label");
+  if (focusedPlayerId) {
+    const focusedPlayer = state.roster.find((player) => player.id === focusedPlayerId);
+    els.statsSprayPlayerSelect.innerHTML = focusedPlayer
+      ? `<option value="${escapeHtml(focusedPlayer.id)}">#${escapeHtml(focusedPlayer.number)} ${escapeHtml(focusedPlayer.name)}</option>`
+      : "";
+    els.statsSprayPlayerSelect.value = focusedPlayerId;
+    els.statsSprayPlayerSelect.disabled = true;
+    if (sprayPlayerLabel) sprayPlayerLabel.hidden = true;
+  } else {
+    els.statsSprayPlayerSelect.innerHTML = state.roster
+      .map((player) => `<option value="${player.id}" ${player.id === selectedPlayer ? "selected" : ""}>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</option>`)
+      .join("");
+    if (selectedPlayer) els.statsSprayPlayerSelect.value = selectedPlayer;
+    els.statsSprayPlayerSelect.disabled = false;
+    if (sprayPlayerLabel) sprayPlayerLabel.hidden = false;
+  }
   const selectedGame = els.statsSprayGameSelect.value || "all";
   els.statsSprayGameSelect.innerHTML = [
     `<option value="all">All games</option>`,
@@ -11509,13 +12039,12 @@ function renderStatsSprayControls() {
       .sort((a, b) => b.date.localeCompare(a.date))
       .map((game) => `<option value="${game.id}" ${game.id === selectedGame ? "selected" : ""}>${escapeHtml(game.date)} ${escapeHtml(gameMatchupLabel(game))}</option>`)
   ].join("");
-  if (selectedPlayer) els.statsSprayPlayerSelect.value = selectedPlayer;
   if ([...els.statsSprayGameSelect.options].some((option) => option.value === selectedGame)) els.statsSprayGameSelect.value = selectedGame;
   renderStatsSprayChart();
 }
 
 function renderStatsSprayChart() {
-  const playerId = els.statsSprayPlayerSelect.value || state.roster[0]?.id;
+  const playerId = statsFocusedPlayerId() || els.statsSprayPlayerSelect.value || state.roster[0]?.id;
   const gameId = els.statsSprayGameSelect.value || "all";
   const events = statsGamesForSeason(statsSeasonFilter)
     .flatMap((game) => game.events.map((event) => ({ event, game })))
@@ -11526,9 +12055,13 @@ function renderStatsSprayChart() {
 }
 
 function renderLeaders() {
-  const hitterRows = state.roster.map((player) => ({ player, stats: statsForPlayer(player.id, statsSeasonFilter) }));
+  const focusedPlayerId = statsPlayerFocus !== "all" ? statsPlayerFocus : "";
+  const hitterRows = state.roster
+    .map((player) => ({ player, stats: statsForPlayer(player.id, statsSeasonFilter) }))
+    .filter((row) => !focusedPlayerId || row.player.id === focusedPlayerId);
   const pitcherRows = state.roster
     .map((player) => ({ player, stats: pitcherStats(player.id, null, statsSeasonFilter) }))
+    .filter((row) => !focusedPlayerId || row.player.id === focusedPlayerId)
     .filter((row) => hasPitchingStats(row.stats));
   renderStatsMode();
   const cards = statsMode === "pitching"
@@ -11939,6 +12472,8 @@ function emptyStats() {
     hr: 0,
     bb: 0,
     hbp: 0,
+    rispAB: 0,
+    rispH: 0,
     k: 0,
     sac: 0,
     dp: 0,
@@ -11974,9 +12509,12 @@ function emptyStats() {
 function applyEventToStats(stats, event) {
   const rule = eventRules[event.result];
   if (!rule) return;
+  const hasRISP = eventHasRISP(event);
   if (rule.pa) stats.pa += 1;
   if (rule.ab) stats.ab += 1;
   if (rule.hit) stats.h += 1;
+  if (hasRISP && rule.ab) stats.rispAB += 1;
+  if (hasRISP && rule.hit) stats.rispH += 1;
   if (event.result === "1B") stats.singles += 1;
   if (event.result === "2B") stats.doubles += 1;
   if (event.result === "3B") stats.triples += 1;
@@ -12026,6 +12564,7 @@ function applyEventToStats(stats, event) {
 
 function finishStats(stats) {
   stats.avg = divide(stats.h, stats.ab);
+  stats.risp = divide(stats.rispH, stats.rispAB);
   stats.obp = divide(stats.h + stats.bb + stats.hbp, stats.ab + stats.bb + stats.hbp + stats.sac);
   stats.slg = divide(stats.tb, stats.ab);
   stats.ops = stats.obp + stats.slg;
@@ -12056,10 +12595,20 @@ function safeRate(value) {
   return Number.isFinite(value) ? value : 0;
 }
 
+function eventHasRISP(event) {
+  if (typeof event?.hasRISP === "boolean") return event.hasRISP;
+  return Boolean(event?.basesBefore?.second || event?.basesBefore?.third);
+}
+
 function formatRate(value) {
   const safe = safeRate(value);
   if (safe === 0) return ".000";
   return safe.toFixed(3).replace(/^0/, "");
+}
+
+function formatRispRate(stats) {
+  if (!stats || !stats.rispAB) return "—";
+  return formatRate(stats.risp);
 }
 
 function formatEra(value) {
