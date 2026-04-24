@@ -1100,6 +1100,30 @@ main {
   font-weight: 700;
 }
 
+@media (min-width: 761px) {
+  .home-next-game-link,
+  .home-box-score-link {
+    min-height: 42px;
+    padding: 0 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.88);
+    font-weight: 800;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .home-next-game-link:hover,
+  .home-box-score-link:hover {
+    border-color: rgba(245, 189, 33, 0.38);
+    background: rgba(245, 189, 33, 0.1);
+    color: var(--lion-gold);
+  }
+}
+
 .home-next-game-mobile-title {
   display: none;
   margin: 0;
@@ -2996,6 +3020,222 @@ main {
     display: none;
   }
 
+}
+
+.game-summary-desktop {
+  display: grid;
+  gap: 16px;
+}
+
+.game-summary-mobile-shell {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  #archiveView #gameSummaryPanel {
+    width: min(calc(100% - 20px), 420px);
+    margin: 12px auto 0;
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid rgba(245, 189, 33, 0.18);
+    border-radius: 20px;
+    background: rgba(7, 15, 35, 0.96);
+    box-shadow: 0 22px 44px rgba(0, 0, 0, 0.34);
+  }
+
+  #archiveView #gameSummaryPanel > .mini-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+  }
+
+  #archiveView #gameSummaryPanel > .mini-head h3 {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.98);
+    font-size: clamp(1.85rem, 7vw, 2.45rem);
+    line-height: 1.04;
+  }
+
+  #archiveView #gameSummaryPanel > .mini-head .player-meta {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.98rem;
+  }
+
+  #archiveView #closeGameSummaryBtn {
+    min-width: 74px;
+    min-height: 74px;
+    padding: 0 14px;
+    align-self: start;
+    justify-self: end;
+    border-color: rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  #archiveView #gameSummaryBody {
+    display: block;
+    min-width: 0;
+  }
+
+  #archiveView .game-summary-desktop {
+    display: none;
+  }
+
+  #archiveView .game-summary-mobile-shell {
+    display: grid;
+    gap: 22px;
+  }
+
+  #archiveView .game-summary-mobile-scorecard {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr) 72px;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.045);
+  }
+
+  #archiveView .game-summary-mobile-team {
+    display: grid;
+    place-items: center;
+  }
+
+  #archiveView .game-summary-mobile-logo {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.22));
+  }
+
+  #archiveView .game-summary-mobile-center {
+    display: grid;
+    gap: 6px;
+    text-align: center;
+  }
+
+  #archiveView .game-summary-mobile-center h3 {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.98);
+    font-size: clamp(1.35rem, 5.2vw, 1.92rem);
+    line-height: 1.08;
+  }
+
+  #archiveView .game-summary-mobile-center p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.96rem;
+  }
+
+  #archiveView .game-summary-mobile-section {
+    display: grid;
+    gap: 12px;
+  }
+
+  #archiveView .game-summary-mobile-section-head h3 {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.96);
+    font-size: 1.15rem;
+    line-height: 1.2;
+  }
+
+  #archiveView .game-summary-mobile-list {
+    display: grid;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.045);
+  }
+
+  #archiveView .game-summary-mobile-player,
+  #archiveView .game-summary-mobile-pitcher {
+    display: grid;
+    grid-template-columns: 44px 60px minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+    padding: 16px 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  #archiveView .game-summary-mobile-player:first-child {
+    border-top: 0;
+  }
+
+  #archiveView .game-summary-mobile-pitcher {
+    grid-template-columns: 60px minmax(0, 1fr);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.045);
+  }
+
+  #archiveView .game-summary-mobile-rank,
+  #archiveView .game-summary-mobile-avatar {
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    font-weight: 900;
+  }
+
+  #archiveView .game-summary-mobile-rank {
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.16);
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 1.15rem;
+  }
+
+  #archiveView .game-summary-mobile-player.is-top .game-summary-mobile-rank {
+    background: var(--lion-gold);
+    color: var(--lion-navy);
+  }
+
+  #archiveView .game-summary-mobile-number-pill {
+    align-self: center;
+    justify-self: center;
+    min-width: 54px;
+    min-height: 42px;
+    margin-bottom: 0;
+    padding: 0 10px;
+    border: 2px solid rgba(245, 189, 33, 0.88);
+    border-radius: 12px;
+    font-size: 0.98rem;
+    background: rgba(8, 16, 36, 0.96);
+    color: var(--lion-gold);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 8px 18px rgba(0, 0, 0, 0.22);
+  }
+
+  #archiveView .game-summary-mobile-player-copy {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  #archiveView .game-summary-mobile-player-copy strong {
+    color: rgba(255, 255, 255, 0.98);
+    font-size: 1.12rem;
+    line-height: 1.15;
+  }
+
+  #archiveView .game-summary-mobile-player-copy span {
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 0.98rem;
+    line-height: 1.25;
+  }
+
+  #archiveView .game-summary-mobile-actions {
+    display: grid;
+    gap: 12px;
+  }
+
+  #archiveView .game-summary-mobile-actions > * {
+    width: 100%;
+  }
 }
 
 .game-filter-row .is-active {
@@ -13877,6 +14117,14 @@ label {
 
   .mobile-season-chip {
     display: inline-flex;
+  }
+
+  .mobile-season-chip-caret {
+    display: none;
+  }
+
+  .schedule-season-chip-caret {
+    display: none;
   }
 
   .tabs {

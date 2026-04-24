@@ -5634,11 +5634,19 @@ function openBoxScore(gameId) {
 }
 
 function openGameStats(gameId) {
-  if (!state.games.some((game) => game.id === gameId)) return;
+  const game = state.games.find((item) => item.id === gameId);
+  if (!game) return;
+  const gameSeason = String(game?.date || "").slice(0, 4);
+  if (/^\d{4}$/.test(gameSeason)) statsSeasonFilter = normalizeStatsSeasonFilter(gameSeason);
+  mobileHitPlayerFilter = "all";
+  mobilePitPlayerFilter = "all";
+  mobileHitGameFilter = game.id;
+  mobilePitGameFilter = game.id;
+  renderSeasonStats();
   const select = els.statsSprayGameSelect;
   if (select) {
     renderStatsSprayControls();
-    if ([...select.options].some((option) => option.value === gameId)) select.value = gameId;
+    if ([...select.options].some((option) => option.value === game.id)) select.value = game.id;
     renderStatsSprayChart();
   }
   switchView("stats");
@@ -8875,9 +8883,10 @@ function renderGameSummary() {
   els.gameSummaryPanel?.classList.toggle("is-visible", Boolean(game));
   if (!game || !els.gameSummaryBody) return;
   const summary = gameSummaryStats(game);
-  els.gameSummaryTitle.textContent = `Summary: ${gameMatchupLabel(game)}`;
-  els.gameSummaryMeta.textContent = `${game.date || "No date"} | ${gameScoreLabel(game)} | ${completedInningCount(game)} innings`;
-  els.gameSummaryBody.innerHTML = `<div class="record-summary">
+  els.gameSummaryTitle.textContent = "Summary";
+  els.gameSummaryMeta.textContent = `${game.date || "No date"} • ${gameMatchupLabel(game)} • ${completedInningCount(game)} ${completedInningCount(game) === 1 ? "inning" : "innings"}`;
+  els.gameSummaryBody.innerHTML = `<div class="game-summary-desktop">
+    <div class="record-summary">
       ${metricCard("Final", gameScoreLabel(game), gameTeamMeta(game))}
       ${metricCard("Lions Hits", String(summary.hitting.h), `${summary.hitting.pa} PA | ${summary.hitting.rbi} RBI`)}
       ${metricCard("OPS", formatRate(summary.hitting.ops), `AVG ${formatRate(summary.hitting.avg)} | OBP ${formatRate(summary.hitting.obp)}`)}
@@ -8896,7 +8905,9 @@ function renderGameSummary() {
     <div class="button-row">
       <button type="button" class="primary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">View Scorebook</button>
       <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
-    </div>`;
+    </div>
+  </div>
+  ${renderGameSummaryMobile(game, summary)}`;
 }
 
 function gameSummaryStats(game) {
@@ -8912,10 +8923,11 @@ function gameSummaryStats(game) {
         .filter((event) => event.scope === "offense" && event.playerId === player.id)
         .forEach((event) => applyEventToStats(stats, event));
       finishStats(stats);
-      return { player, stats };
+      const summaryScore = safeRate(stats.avg) + safeRate(stats.ops) + Number(stats.rbi || 0);
+      return { player, stats, summaryScore };
     })
     .filter((row) => row.stats.pa || row.stats.h || row.stats.rbi)
-    .sort((a, b) => b.stats.ops - a.stats.ops || b.stats.h - a.stats.h)
+    .sort((a, b) => b.summaryScore - a.summaryScore || b.stats.rbi - a.stats.rbi || b.stats.ops - a.stats.ops || b.stats.avg - a.stats.avg)
     .slice(0, 5);
   const pitchers = state.roster
     .map((player) => ({ player, stats: pitcherStats(player.id, game.id) }))
@@ -8931,7 +8943,7 @@ function gameSummaryStats(game) {
     return total;
   }, { pitches: 0, k: 0, outs: 0, h: 0, bb: 0, runs: 0, whip: 0 });
   pitching.whip = pitching.outs ? ((pitching.h + pitching.bb) / (pitching.outs / 3)) : 0;
-  return { hitting, hitters, pitching, pitchers };
+  return { hitting, hitters, topHitters: hitters.slice(0, 3), pitching, pitchers, leadPitcher: pitchers[0] || null };
 }
 
 function renderGameSummaryHitter(row) {
@@ -8946,6 +8958,69 @@ function renderGameSummaryPitcher(row) {
     <span>${escapeHtml(row.player.name)}</span>
     <strong>${formatInnings(row.stats.outs)} IP | ${row.stats.k} K | ${row.stats.pitches} NP</strong>
   </div>`;
+}
+
+function renderGameSummaryMobile(game, summary) {
+  const opponentName = homeOpponentName(game);
+  const lionsAway = lionsSide(game) === "away";
+  const opponentLogo = window.MatchupImages?.getTeamLogo?.(opponentName, "opponent") || "assets/team-logos/lions.png";
+  const featuredPitcher = summary.leadPitcher;
+  return `<div class="game-summary-mobile-shell">
+    <article class="game-summary-mobile-scorecard">
+      <div class="game-summary-mobile-team game-summary-mobile-team-left">
+        <img class="game-summary-mobile-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.("Lions", "lions") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
+      </div>
+      <div class="game-summary-mobile-center">
+        <h3>${escapeHtml(`Lions ${game.score?.lions ?? 0} - ${game.score?.opponent ?? 0} ${opponentName}`)}</h3>
+        <p class="player-meta">${escapeHtml(`Away: ${lionsAway ? "Lions" : opponentName} | Home: ${lionsAway ? opponentName : "Lions"}`)}</p>
+      </div>
+      <div class="game-summary-mobile-team game-summary-mobile-team-right">
+        <img class="game-summary-mobile-logo" src="${escapeHtml(opponentLogo)}" alt="" loading="lazy" decoding="async">
+      </div>
+    </article>
+
+    <section class="game-summary-mobile-section">
+      <div class="game-summary-mobile-section-head">
+        <h3>Top Lions Batting Performers</h3>
+      </div>
+      <div class="game-summary-mobile-list">
+        ${summary.topHitters.map((row, index) => renderGameSummaryMobileHitter(row, index)).join("") || `<p class="player-meta">No Lions plate appearances logged.</p>`}
+      </div>
+    </section>
+
+    <section class="game-summary-mobile-section">
+      <div class="game-summary-mobile-section-head">
+        <h3>Lions Pitching (This Game)</h3>
+      </div>
+      ${featuredPitcher ? renderGameSummaryMobilePitcher(featuredPitcher) : `<p class="player-meta">No pitching events logged.</p>`}
+    </section>
+
+    <div class="game-summary-mobile-actions">
+      <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
+    </div>
+  </div>`;
+}
+
+function renderGameSummaryMobileHitter(row, index) {
+  const rankClass = index === 0 ? "is-top" : "";
+  return `<article class="game-summary-mobile-player ${rankClass}">
+    <span class="game-summary-mobile-rank">${index + 1}</span>
+    <span class="number-pill game-summary-mobile-number-pill" aria-hidden="true">#${escapeHtml(row.player.number || "--")}</span>
+    <div class="game-summary-mobile-player-copy">
+      <strong>${escapeHtml(row.player.name)}</strong>
+      <span>${escapeHtml(`${row.stats.h} H | ${row.stats.rbi} RBI | OPS ${formatRate(row.stats.ops)}`)}</span>
+    </div>
+  </article>`;
+}
+
+function renderGameSummaryMobilePitcher(row) {
+  return `<article class="game-summary-mobile-pitcher">
+    <span class="number-pill game-summary-mobile-number-pill game-summary-mobile-number-pill-pitch" aria-hidden="true">#${escapeHtml(row.player.number || "--")}</span>
+    <div class="game-summary-mobile-player-copy">
+      <strong>${escapeHtml(row.player.name)}</strong>
+      <span>${escapeHtml(`${formatInnings(row.stats.outs)} IP | ${row.stats.k} K | ${row.stats.pitches} NP`)}</span>
+    </div>
+  </article>`;
 }
 
 function renderGames() {
