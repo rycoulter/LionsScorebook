@@ -510,7 +510,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.5";
+const APP_VERSION = "v.1.1.7";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -2328,7 +2328,7 @@ function overlaySessionSharedChanges(baseState, localState = state) {
 
   pendingSharedGameIds.forEach((gameId) => {
     const localGame = localGamesById.get(gameId);
-    if (!localGame || localGame.status === "active") return;
+    if (!localGame) return;
     mergedGamesById.set(gameId, deepClone(localGame));
     pushOrderedId(gameId);
   });

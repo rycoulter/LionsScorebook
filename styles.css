@@ -10816,7 +10816,7 @@ label {
 
 #scoreView .scoring-step-panel.is-batter-intro-locked {
   opacity: 0.4;
-  pointer-events: none;
+  pointer-events: auto;
   filter: saturate(0.75);
 }
 

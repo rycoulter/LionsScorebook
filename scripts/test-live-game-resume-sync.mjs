@@ -41,6 +41,14 @@ const requestLiveBody = functionBody(appJs, "requestLiveGameSnapshotSync");
 mustMatch(requestLiveBody, /activeLiveGameForState\(state\)/, "live-game sync should target the current active game");
 mustMatch(requestLiveBody, /requestSharedSnapshotSync\(reason\)/, "live-game sync should reuse the existing Supabase snapshot writer");
 
+const overlaySharedBody = functionBody(appJs, "overlaySessionSharedChanges");
+mustMatch(overlaySharedBody, /pendingSharedGameIds\.forEach[\s\S]*mergedGamesById\.set\(gameId, deepClone\(localGame\)\)/, "dirty in-session game changes should overlay remote snapshots");
+assert.equal(
+  /localGame\.status === "active"/.test(overlaySharedBody),
+  false,
+  "dirty active games should not be skipped while merging a fresh Supabase baseline"
+);
+
 const refreshBody = functionBody(appJs, "refreshSupabaseState");
 mustMatch(refreshBody, /restoreActiveGamePendingScoringState\(\)/, "remote active games should restore pending scoring UI state after bootstrap");
 mustMatch(refreshBody, /saveState\(\{ markLiveGamesDirty: false, capturePendingScoring: false \}\)/, "remote refresh should not immediately dirty or overwrite live checkpoints");
