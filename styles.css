@@ -6191,6 +6191,38 @@ button:focus-visible {
 }
 
 @media (max-width: 760px) {
+  .stat-edit-game-option {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .stat-edit-game-line {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .stat-edit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stat-edit-spray-head,
+  .stat-edit-actions {
+    flex-direction: column;
+  }
+
+  .stat-edit-actions .primary-action,
+  .stat-edit-actions .secondary-action {
+    width: 100%;
+  }
+
+  .stat-edit-spray-mode {
+    width: 100%;
+  }
+
+  .stat-edit-spray-mode .secondary-action {
+    flex: 1 1 0;
+  }
+
   #statsView .stats-spray-shell .stats-spray-feature {
     display: flex;
     flex-direction: column;
@@ -6384,6 +6416,326 @@ button:focus-visible {
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(7, 16, 29, 0.76);
   color: rgba(255, 255, 255, 0.82);
+}
+
+.stats-row-edit-cell {
+  text-align: center;
+}
+
+.stats-row-edit-button {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  place-items: center;
+  border: 1px solid rgba(245, 189, 33, 0.32);
+  border-radius: 8px;
+  padding: 0;
+  background: rgba(245, 189, 33, 0.1);
+  color: var(--lion-gold);
+}
+
+.stats-row-edit-button:hover,
+.stats-row-edit-button:focus-visible {
+  border-color: rgba(245, 189, 33, 0.68);
+  background: rgba(245, 189, 33, 0.18);
+  outline: none;
+}
+
+.stats-row-edit-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stat-edit-select-modal {
+  width: min(100%, 720px);
+  display: grid;
+  gap: 14px;
+}
+
+.stat-edit-game-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(56vh, 520px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.stat-edit-game-option {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.22fr) minmax(0, 1fr) minmax(150px, 0.52fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 62px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--white);
+  text-align: left;
+}
+
+.stat-edit-game-option:hover,
+.stat-edit-game-option:focus-visible {
+  border-color: rgba(245, 189, 33, 0.62);
+  background: rgba(245, 189, 33, 0.11);
+  outline: none;
+}
+
+.stat-edit-game-option.is-edited {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.stat-edit-game-date {
+  color: var(--lion-gold);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.stat-edit-game-copy,
+.stat-edit-game-line {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.stat-edit-game-copy strong,
+.stat-edit-game-line strong {
+  color: var(--white);
+  font-size: 0.94rem;
+}
+
+.stat-edit-game-copy small,
+.stat-edit-game-line small,
+.stat-edit-empty {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.78rem;
+}
+
+.stat-edit-game-line {
+  justify-items: end;
+  text-align: right;
+}
+
+.stat-edit-modal {
+  width: min(100%, 920px);
+  max-height: min(88vh, 860px);
+  display: grid;
+  gap: 14px;
+  overflow: auto;
+}
+
+.stat-edit-form {
+  display: grid;
+  gap: 16px;
+}
+
+.stat-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stat-edit-grid label {
+  display: grid;
+  gap: 6px;
+  color: rgba(245, 189, 33, 0.9);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.stat-edit-grid input {
+  width: 100%;
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+  padding: 8px 9px;
+  font-weight: 900;
+}
+
+.stat-edit-grid input:focus {
+  border-color: rgba(245, 189, 33, 0.72);
+  outline: none;
+}
+
+.stat-edit-spray-section {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.stat-edit-spray-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stat-edit-spray-head h4 {
+  margin: 0 0 3px;
+  color: var(--white);
+}
+
+.stat-edit-spray-mode {
+  display: flex;
+  gap: 8px;
+}
+
+.stat-edit-spray-mode .secondary-action {
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.stat-edit-spray-mode .secondary-action.is-active {
+  border-color: rgba(245, 189, 33, 0.72);
+  background: rgba(245, 189, 33, 0.16);
+  color: var(--lion-gold);
+}
+
+.stat-edit-spray-chart {
+  position: relative;
+  width: min(100%, 560px);
+  max-width: min(100%, 560px);
+  min-height: 0 !important;
+  aspect-ratio: 4 / 3;
+  margin-inline: auto;
+  overflow: hidden;
+  border: 1px solid rgba(245, 189, 33, 0.32);
+  border-radius: 8px;
+  background: #1b4b22;
+  cursor: crosshair;
+}
+
+.stat-edit-spray-chart::before,
+.stat-edit-spray-chart::after {
+  content: none;
+}
+
+.stat-edit-spray-chart > *,
+.stat-edit-spray-chart .field-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.stat-edit-spray-chart .field-background {
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.stat-edit-spray-chart .field-background-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center center;
+}
+
+.stat-edit-spray-chart .stats-spray-chart-overlay {
+  z-index: 3;
+  pointer-events: none;
+}
+
+.stat-edit-spray-chart .stats-spray-markers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.stat-edit-spray-chart:focus-visible {
+  outline: 2px solid rgba(245, 189, 33, 0.75);
+  outline-offset: 3px;
+}
+
+.stat-edit-spray-chart .spray-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 4px;
+  border: 2px solid rgba(255, 255, 255, 0.76);
+  border-radius: 999px;
+  background: #111827;
+  color: #f8fafc;
+  font-size: 0.6rem;
+  font-weight: 950;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.34);
+}
+
+.stat-edit-spray-chart .spray-dot.hit {
+  border-color: #f0be62;
+  color: #f7d27d;
+}
+
+.stat-edit-spray-chart .spray-dot.out {
+  border-color: #ff8f8f;
+  color: #ffd0d0;
+}
+
+.stat-edit-spray-chart .spray-empty {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.stat-edit-spray-list {
+  display: grid;
+  gap: 8px;
+}
+
+.stat-edit-spray-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.stat-edit-spray-row span {
+  display: grid;
+  gap: 2px;
+}
+
+.stat-edit-spray-row strong {
+  color: var(--white);
+  font-size: 0.88rem;
+}
+
+.stat-edit-spray-row small {
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 0.76rem;
+}
+
+.stat-edit-spray-row .secondary-action {
+  min-height: 32px;
+  padding: 5px 10px;
+}
+
+.stat-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .stats-table th button {
@@ -7019,7 +7371,7 @@ button:focus-visible {
 
 .stats-table {
   width: 100%;
-  min-width: 1120px;
+  min-width: 1180px;
   border-collapse: collapse;
 }
 
@@ -9228,6 +9580,11 @@ label {
 
 .opponent-lineup-setup {
   margin-top: 0;
+}
+
+.opponent-lineup-add-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .opponent-lineup-grid {
@@ -14176,7 +14533,7 @@ label {
   }
 
   #statsView .stats-table-hitting {
-    min-width: 980px;
+    min-width: 1040px;
   }
 
   #statsView .stats-table-pitching {

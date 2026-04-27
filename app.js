@@ -550,6 +550,10 @@ let pendingRunnerOutBases = [];
 let hittingSort = { key: "ops", direction: "desc" };
 let pitchingSort = { key: "outs", direction: "desc" };
 let statsSprayExpanded = false;
+let statEditPlayerId = "";
+let statEditGameId = "";
+let statEditSprays = [];
+let statEditSprayMode = "hit";
 let rosterFilter = "active";
 let rosterSearchQuery = "";
 let rosterSortKey = "number";
@@ -861,6 +865,7 @@ const els = {
   opponentLineupPanel: document.getElementById("opponentLineupPanel"),
   opponentLineupContext: document.getElementById("opponentLineupContext"),
   opponentLineupRows: document.getElementById("opponentLineupRows"),
+  addOpponentHitterBtn: document.getElementById("addOpponentHitterBtn"),
   backToLineupBuilderBtn: document.getElementById("backToLineupBuilderBtn"),
   startFromOpponentLineupBtn: document.getElementById("startFromOpponentLineupBtn"),
   cancelLineupBuilderBtn: document.getElementById("cancelLineupBuilderBtn"),
@@ -1047,6 +1052,34 @@ const els = {
   statsSprayPlayerSelect: document.getElementById("statsSprayPlayerSelect"),
   statsSprayGameSelect: document.getElementById("statsSprayGameSelect"),
   statsSprayMarkers: document.getElementById("statsSprayMarkers"),
+  statEditGameSelectModal: document.getElementById("statEditGameSelectModal"),
+  statEditGameSelectTitle: document.getElementById("statEditGameSelectTitle"),
+  statEditGameSelectHint: document.getElementById("statEditGameSelectHint"),
+  statEditGameSelectList: document.getElementById("statEditGameSelectList"),
+  closeStatEditGameSelectBtn: document.getElementById("closeStatEditGameSelectBtn"),
+  statEditGameModal: document.getElementById("statEditGameModal"),
+  statEditGameTitle: document.getElementById("statEditGameTitle"),
+  statEditGameMeta: document.getElementById("statEditGameMeta"),
+  statEditGameForm: document.getElementById("statEditGameForm"),
+  closeStatEditGameBtn: document.getElementById("closeStatEditGameBtn"),
+  cancelStatEditGameBtn: document.getElementById("cancelStatEditGameBtn"),
+  statEditSprayChart: document.getElementById("statEditSprayChart"),
+  statEditSprayMarkers: document.getElementById("statEditSprayMarkers"),
+  statEditSprayList: document.getElementById("statEditSprayList"),
+  statEditSprayModeButtons: [...document.querySelectorAll("[data-stat-edit-spray-mode]")],
+  statEditInputs: {
+    ab: document.getElementById("statEditAb"),
+    h: document.getElementById("statEditH"),
+    singles: document.getElementById("statEditSingles"),
+    doubles: document.getElementById("statEditDoubles"),
+    triples: document.getElementById("statEditTriples"),
+    hr: document.getElementById("statEditHr"),
+    bb: document.getElementById("statEditBb"),
+    hbp: document.getElementById("statEditHbp"),
+    k: document.getElementById("statEditK"),
+    rbi: document.getElementById("statEditRbi"),
+    runs: document.getElementById("statEditRuns")
+  },
   scoutingTeamSelect: document.getElementById("scoutingTeamSelect"),
   refreshScoutingBtn: document.getElementById("refreshScoutingBtn"),
   scoutingSourceStatus: document.getElementById("scoutingSourceStatus"),
@@ -3494,6 +3527,7 @@ function bindEvents() {
   els.useLastLineupBtn?.addEventListener("click", useLastLineup);
   els.lineupTemplatesBtn?.addEventListener("click", () => window.alert("Lineup templates are ready for a future save/load workflow."));
   els.addOpponentLineupBtn?.addEventListener("click", openOpponentLineupStep);
+  els.addOpponentHitterBtn?.addEventListener("click", addPregameOpponentLineupHitter);
   els.opponentLineupRows?.addEventListener("input", (event) => {
     const input = event.target.closest("[data-opponent-pregame-index]");
     if (!input) return;
@@ -3545,13 +3579,14 @@ function bindEvents() {
       }
       if (button.dataset.runnerAction === "pickoff") {
         triggerActionFeedback(actionFeedbackForButton(button), button);
-        applyEvent(game, { type: "special_action", action: "pickoff", target: base });
+        applyEvent(game, { type: "special_action", action: "pickoff", source: base, target: base });
         return;
       }
       triggerActionFeedback(actionFeedbackForButton(button), button);
       applyEvent(activeGame(), {
         type: "special_action",
         action: button.dataset.runnerAction,
+        source: base,
         target: nextBaseForRunner(base)
       });
     });
@@ -3859,6 +3894,37 @@ window.addEventListener("resize", () => {
     statsSprayExpanded = false;
     renderStatsSprayControls();
   });
+  els.hittingStatsBody?.addEventListener("click", handleHittingStatsEditClick);
+  els.mobileHittingStatsList?.addEventListener("click", handleHittingStatsEditClick);
+  els.closeStatEditGameSelectBtn?.addEventListener("click", closeStatEditGameSelectModal);
+  els.statEditGameSelectModal?.addEventListener("click", (event) => {
+    if (event.target === els.statEditGameSelectModal) closeStatEditGameSelectModal();
+  });
+  els.statEditGameSelectList?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-stat-edit-game-id]");
+    if (!button) return;
+    openStatEditGameModal(statEditPlayerId, button.dataset.statEditGameId);
+  });
+  els.closeStatEditGameBtn?.addEventListener("click", closeStatEditGameModal);
+  els.cancelStatEditGameBtn?.addEventListener("click", closeStatEditGameModal);
+  els.statEditGameModal?.addEventListener("click", (event) => {
+    if (event.target === els.statEditGameModal) closeStatEditGameModal();
+  });
+  els.statEditGameForm?.addEventListener("submit", saveStatEditGameStats);
+  els.statEditSprayModeButtons?.forEach((button) => {
+    button.addEventListener("click", () => setStatEditSprayMode(button.dataset.statEditSprayMode));
+  });
+  els.statEditSprayChart?.addEventListener("pointerdown", addStatEditSprayFromPointer);
+  els.statEditSprayChart?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    addStatEditSprayAt(50, 45);
+  });
+  els.statEditSprayList?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-stat-edit-spray-remove]");
+    if (!button) return;
+    removeStatEditSpray(button.dataset.statEditSprayRemove);
+  });
   els.scoutingTeamSelect.addEventListener("change", () => {
     selectedScoutingTeamId = els.scoutingTeamSelect.value;
     renderScoutingReport();
@@ -3914,6 +3980,14 @@ window.addEventListener("resize", () => {
   });
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
+    if (els.statEditGameModal && !els.statEditGameModal.hidden) {
+      closeStatEditGameModal();
+      return;
+    }
+    if (els.statEditGameSelectModal && !els.statEditGameSelectModal.hidden) {
+      closeStatEditGameSelectModal();
+      return;
+    }
     closeCustomSubSelects();
   });
 }
@@ -4323,7 +4397,7 @@ function applyRunnerAdvancements(game = activeGame(), runnerAdvancements = []) {
     const from = advancement.from || null;
     const to = advancement.to || null;
     const runnerId = advancement.runnerId || (from && runners[from]) || null;
-    if (from && runners[from] === runnerId) runners[from] = false;
+    if (from && sameRunnerValue(runners[from], runnerId)) runners[from] = false;
     if (advancement.remove) return;
     if (advancement.out) {
       outsRecorded += 1;
@@ -4338,6 +4412,23 @@ function applyRunnerAdvancements(game = activeGame(), runnerAdvancements = []) {
   game.current.runners = runners;
   game.bases = deepClone(runners);
   return { runners, runsScored, outsRecorded };
+}
+
+function runnerIdentity(value) {
+  if (!isOccupied(value)) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (typeof value === "object") {
+    return String(value.runnerId || value.playerId || value.id || value.replacementRunnerId || "");
+  }
+  return String(value);
+}
+
+function sameRunnerValue(left, right) {
+  const leftKey = runnerIdentity(left);
+  const rightKey = runnerIdentity(right);
+  if (leftKey && rightKey) return leftKey === rightKey;
+  return left === right;
 }
 
 function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
@@ -4860,8 +4951,8 @@ function applyEvent(game = activeGame(), event = {}) {
   }
 
   if (event.type === "special_action") {
-    if (event.action === "steal") recordSteal(event.target, "safe");
-    if (event.action === "caught_stealing") recordSteal(event.target, "out");
+    if (event.action === "steal") recordSteal(event.target, "safe", event.source);
+    if (event.action === "caught_stealing") recordSteal(event.target, "out", event.source);
     if (event.action === "pickoff") recordPickoff(event.target);
     if (event.action === "tag_up") recordTagUp(event.target);
     scoringStep = "pitch";
@@ -5618,10 +5709,16 @@ function isOccupied(value) {
   return Boolean(value);
 }
 
-function baseKeyForSteal(target) {
-  if (target === "second") return { from: "first", to: "second", label: "2B" };
-  if (target === "third") return { from: "second", to: "third", label: "3B" };
-  return { from: "third", to: "home", label: "Home" };
+function baseKeyForSteal(target, sourceBase = "") {
+  const source = ["first", "second", "third"].includes(sourceBase) ? sourceBase : "";
+  const inferred = target === "second"
+    ? { from: "first", to: "second", label: "2B" }
+    : target === "third"
+      ? { from: "second", to: "third", label: "3B" }
+      : { from: "third", to: "home", label: "Home" };
+  if (!source) return inferred;
+  const to = target || nextBaseForRunner(source);
+  return { from: source, to, label: baseLabel(to) };
 }
 
 function nextBaseForRunner(base) {
@@ -5631,21 +5728,24 @@ function nextBaseForRunner(base) {
   return "";
 }
 
-function recordSteal(target, outcome) {
+function recordSteal(target, outcome, sourceBase = "") {
   const game = activeGame();
   if (gameIsScoreLocked(game)) return;
   if (game.status !== "completed") game.status = "active";
-  const steal = baseKeyForSteal(target);
-  const runner = game.bases[steal.from];
+  syncGameCurrent(game);
+  const steal = baseKeyForSteal(target, sourceBase);
+  const runner = game.bases?.[steal.from];
   if (!isOccupied(runner)) return;
-  if (steal.to !== "home" && isOccupied(game.bases[steal.to])) return;
+  const runnerId = runnerIdentity(runner) || runner;
+  const targetRunner = steal.to !== "home" ? game.bases?.[steal.to] : false;
+  if (steal.to !== "home" && isOccupied(targetRunner) && !sameRunnerValue(targetRunner, runner)) return;
 
   const snapshotBefore = liveGameSnapshot(game);
   const playHistoryEntry = pushPlayHistorySnapshot(game, { reason: "runnerAction", result: outcome === "safe" ? "SB" : "CS" });
   const runnerAdvancements = [
     outcome === "safe"
-      ? { runnerId: runner, from: steal.from, to: steal.to }
-      : { runnerId: runner, from: steal.from, out: true }
+      ? { runnerId, from: steal.from, to: steal.to }
+      : { runnerId, from: steal.from, out: true }
   ];
 
   const movement = applyRunnerAdvancements(game, runnerAdvancements);
@@ -5660,8 +5760,8 @@ function recordSteal(target, outcome) {
   const event = {
     id: uuid(),
     gameId: game.id,
-    playerId: typeof runner === "string" ? runner : currentBatterModelId(game),
-    opponentBatter: isOpponentAtBat(game) ? String(typeof runner === "string" ? runner : currentBatterModelId(game)).replace(/^opp:/, "") : undefined,
+    playerId: runnerId || currentBatterModelId(game),
+    opponentBatter: isOpponentAtBat(game) ? String(runnerId || currentBatterModelId(game)).replace(/^opp:/, "") : undefined,
     result: outcome === "safe" ? "SB" : "CS",
     runs: outcome === "safe" && steal.to === "home" ? 1 : 0,
     rbi: 0,
@@ -5696,21 +5796,23 @@ function recordPickoff(base) {
   const game = activeGame();
   if (gameIsScoreLocked(game)) return;
   if (game.status !== "completed") game.status = "active";
+  syncGameCurrent(game);
   const runner = game.bases?.[base];
   if (!isOccupied(runner)) return;
+  const runnerId = runnerIdentity(runner) || runner;
 
   const snapshotBefore = liveGameSnapshot(game);
   const playHistoryEntry = pushPlayHistorySnapshot(game, { reason: "runnerAction", result: "PO" });
 
-  const movement = applyRunnerAdvancements(game, [{ runnerId: runner, from: base, out: true }]);
+  const movement = applyRunnerAdvancements(game, [{ runnerId, from: base, out: true }]);
   game.current.outs += movement.outsRecorded;
   commitCurrentToLegacy(game);
 
   game.events.push({
     id: uuid(),
     gameId: game.id,
-    playerId: typeof runner === "string" ? runner : currentBatterModelId(game),
-    opponentBatter: isOpponentAtBat(game) ? String(typeof runner === "string" ? runner : currentBatterModelId(game)).replace(/^opp:/, "") : undefined,
+    playerId: runnerId || currentBatterModelId(game),
+    opponentBatter: isOpponentAtBat(game) ? String(runnerId || currentBatterModelId(game)).replace(/^opp:/, "") : undefined,
     result: "PO",
     runs: 0,
     rbi: 0,
@@ -5728,6 +5830,7 @@ function recordPickoff(base) {
     pitches: [],
     count: game.atBat ? `${game.atBat.balls}-${game.atBat.strikes}` : "0-0",
     spray: null,
+    runnerAdvancements: [{ runnerId, from: base, out: true }],
     createdAt: new Date().toISOString(),
     snapshotBefore,
     playHistoryId: playHistoryEntry?.id || ""
@@ -5743,15 +5846,17 @@ function recordTagUp(target) {
   const game = activeGame();
   if (gameIsScoreLocked(game)) return;
   if (game.status !== "completed") game.status = "active";
+  syncGameCurrent(game);
   const tag = tagUpMovement(target);
   if (!tag) return;
   const runner = game.bases[tag.from];
   if (!isOccupied(runner)) return;
+  const runnerId = runnerIdentity(runner) || runner;
   if (tag.to !== "home" && isOccupied(game.bases[tag.to])) return;
 
   const snapshotBefore = liveGameSnapshot(game);
   const playHistoryEntry = pushPlayHistorySnapshot(game, { reason: "runnerAction", result: "TAG" });
-  const movement = applyRunnerAdvancements(game, [{ runnerId: runner, from: tag.from, to: tag.to }]);
+  const movement = applyRunnerAdvancements(game, [{ runnerId, from: tag.from, to: tag.to }]);
   if (movement.runsScored) {
     addRunsForBattingTeam(game, movement.runsScored);
   }
@@ -5759,7 +5864,7 @@ function recordTagUp(target) {
   game.events.push({
     id: createId("event"),
     gameId: game.id,
-    playerId: isLionsAtBat(game) ? runner : undefined,
+    playerId: isLionsAtBat(game) ? runnerId : undefined,
     opponentBatter: isOpponentAtBat(game) ? currentOpponentBatter(game) : undefined,
     result: "TAG",
     runs: movement.runsScored,
@@ -5778,7 +5883,7 @@ function recordTagUp(target) {
     pitches: [],
     count: `${game.atBat?.balls || 0}-${game.atBat?.strikes || 0}`,
     spray: null,
-    runnerAdvancements: [{ runnerId: runner, from: tag.from, to: tag.to }],
+    runnerAdvancements: [{ runnerId, from: tag.from, to: tag.to }],
     createdAt,
     snapshotBefore,
     playHistoryId: playHistoryEntry?.id || ""
@@ -7317,14 +7422,14 @@ function renderRunnerTracker() {
 
 function runnerName(runner) {
   if (!isOccupied(runner)) return "";
-  const player = state.roster.find((item) => item.id === runner);
+  const player = state.roster.find((item) => item.id === runnerIdentity(runner));
   if (player) return player.name.split(" ")[0];
   return runner === true ? "Runner" : "Opponent";
 }
 
 function runnerNumber(runner) {
   if (!isOccupied(runner)) return "";
-  const player = state.roster.find((item) => item.id === runner);
+  const player = state.roster.find((item) => item.id === runnerIdentity(runner));
   return player?.number || "R";
 }
 
@@ -7727,6 +7832,7 @@ function handleScoringPanelClick(event) {
     applyEvent(activeGame(), {
       type: "special_action",
       action: button.dataset.specialAction,
+      source: button.dataset.specialSource || selectedFieldRunnerBase,
       target: button.dataset.specialTarget
     });
     return;
@@ -8682,9 +8788,9 @@ function selectedRunnerActionConfig(game) {
     body: `<div class="special-action-group runner-action-group">
       <span>${escapeHtml(runnerLabel)} selected on ${escapeHtml(baseLabel(base))}</span>
       <div class="step-grid step-grid-special runner-action-grid">
-        <button type="button" class="step-button step-safe" data-special-action="steal" data-special-target="${escapeHtml(stealTarget)}"${canSteal ? "" : " disabled"}>SB ${escapeHtml(baseLabel(stealTarget))}</button>
-        <button type="button" class="step-button step-danger" data-special-action="caught_stealing" data-special-target="${escapeHtml(stealTarget)}">CS ${escapeHtml(baseLabel(stealTarget))}</button>
-        <button type="button" class="step-button step-danger" data-special-action="pickoff" data-special-target="${escapeHtml(base)}">PO ${escapeHtml(baseLabel(base))}</button>
+        <button type="button" class="step-button step-safe" data-special-action="steal" data-special-source="${escapeHtml(base)}" data-special-target="${escapeHtml(stealTarget)}"${canSteal ? "" : " disabled"}>SB ${escapeHtml(baseLabel(stealTarget))}</button>
+        <button type="button" class="step-button step-danger" data-special-action="caught_stealing" data-special-source="${escapeHtml(base)}" data-special-target="${escapeHtml(stealTarget)}">CS ${escapeHtml(baseLabel(stealTarget))}</button>
+        <button type="button" class="step-button step-danger" data-special-action="pickoff" data-special-source="${escapeHtml(base)}" data-special-target="${escapeHtml(base)}">PO ${escapeHtml(baseLabel(base))}</button>
         <button type="button" class="step-button step-neutral" data-special-action="non_runner" data-special-target="${escapeHtml(base)}"${canUseNonRunner ? "" : " disabled"}>NR</button>
       </div>
       <div class="confirm-play-row">
@@ -9607,8 +9713,7 @@ function sprayEvents() {
   if (!game) return [];
   const filter = els.sprayFilter.value;
   const currentHitterId = currentBatterId(game);
-  return game.events
-    .map((event) => ({ event, game }))
+  return sprayEventsForGame(game)
     .filter(({ event, game: item }) => {
       if (!event.spray) return false;
       if (event.scope && event.scope !== "offense") return false;
@@ -10757,7 +10862,7 @@ function getSeasonPitchingRows() {
 
 function statsGamesWithDataForSeason(season = statsSeasonFilter) {
   return statsGamesForSeason(season)
-    .filter((game) => Array.isArray(game?.events) && game.events.length)
+    .filter((game) => (Array.isArray(game?.events) && game.events.length) || Object.keys(hittingStatEditMap(game)).length)
     .sort((a, b) => String(b?.date || "").localeCompare(String(a?.date || "")));
 }
 
@@ -11644,7 +11749,8 @@ function startGameFromOpponentLineupStep() {
   confirmLineupAndStartGame();
 }
 
-function renderOpponentLineupStep() {
+function renderOpponentLineupStep(options = {}) {
+  const { focusIndex = 0 } = options;
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   els.lineupBuilderPanel?.classList.remove("is-visible");
   els.opponentLineupPanel?.classList.toggle("is-visible", Boolean(game));
@@ -11654,15 +11760,19 @@ function renderOpponentLineupStep() {
     els.opponentLineupContext.textContent = `${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent || "Opponent"} | Optional lineup`;
   }
   els.opponentLineupRows.innerHTML = entries.map(renderOpponentLineupSetupRow).join("");
-  els.opponentLineupRows.querySelector("[data-opponent-pregame-index]")?.focus();
+  const focusTarget = els.opponentLineupRows.querySelector(`[data-opponent-pregame-index="${focusIndex}"][data-opponent-pregame-field="name"]`)
+    || els.opponentLineupRows.querySelector(`[data-opponent-pregame-index="${focusIndex}"]`)
+    || els.opponentLineupRows.querySelector("[data-opponent-pregame-index]");
+  focusTarget?.focus();
 }
 
 function pregameOpponentLineupEntries(game) {
   if (!game.lineups) game.lineups = { away: deepClone(game.lineupEntries || []), home: [] };
-  const existing = Array.isArray(game.lineups.home) ? game.lineups.home.slice(0, 9) : [];
+  const existing = Array.isArray(game.lineups.home) ? game.lineups.home : [];
   const names = Array.isArray(game.opponentLineup) ? game.opponentLineup : [];
+  const totalSpots = Math.max(9, existing.length, names.length);
   const entries = [];
-  for (let index = 0; index < 9; index += 1) {
+  for (let index = 0; index < totalSpots; index += 1) {
     const entry = existing[index] || names[index] || {};
     const normalized = normalizeOpponentLineupEntry(entry, index);
     const hasEntryData = entry && typeof entry === "object"
@@ -11678,6 +11788,25 @@ function pregameOpponentLineupEntries(game) {
   game.lineups.home = entries;
   game.opponentLineup = opponentLineupSnapshot(entries);
   return entries;
+}
+
+function addPregameOpponentLineupHitter() {
+  const game = state.games.find((item) => item.id === lineupBuilderGameId);
+  if (!game || gameIsFinal(game)) return;
+  savePregameOpponentLineup();
+  const entries = pregameOpponentLineupEntries(game);
+  const index = entries.length;
+  entries.push({
+    id: createId("opp"),
+    name: "",
+    number: "",
+    order: index + 1,
+    active: true
+  });
+  game.lineups.home = entries;
+  game.opponentLineup = opponentLineupSnapshot(entries);
+  saveState();
+  renderOpponentLineupStep({ focusIndex: index });
 }
 
 function renderOpponentLineupSetupRow(entry, index) {
@@ -12072,10 +12201,10 @@ function renderAnalysis() {
 
 function renderGameBreakdown() {
   els.gameBreakdown.innerHTML = state.games
-    .filter((game) => game.events.length || game.status !== "scheduled")
+    .filter((game) => game.events.length || Object.keys(hittingStatEditMap(game)).length || game.status !== "scheduled")
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
     .map((game) => {
-      const offensiveEvents = game.events.filter((event) => event.scope === "offense" && eventRules[event.result]?.pa);
+      const offensiveEvents = offensiveEventsForStatsGame(game).filter((event) => eventRules[event.result]?.pa);
       const stats = emptyStats();
       offensiveEvents.forEach((event) => applyEventToStats(stats, event));
       finishStats(stats);
@@ -12988,6 +13117,15 @@ function teamStatsPageUrl(team) {
   return team.url || PITTSBURGH_NABA_URL;
 }
 
+function statsEditButtonMarkup(player) {
+  return `<button type="button" class="stats-row-edit-button" data-edit-hitting-player="${escapeHtml(player.id)}" aria-label="Edit game stats for #${escapeHtml(player.number)} ${escapeHtml(player.name)}">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 20h9"></path>
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+    </svg>
+  </button>`;
+}
+
 function renderSeasonStats() {
   populateStatsSeasonSelect();
   applyStatsPageMode();
@@ -13024,10 +13162,11 @@ function renderSeasonStats() {
         <td>${hit.po}</td>
         <td>${hit.roe}</td>
         <td>${hit.errors}</td>
+        <td class="stats-row-edit-cell">${statsEditButtonMarkup(player)}</td>
       </tr>`;
     })
     .join("")
-    || `<tr><td colspan="23" class="stats-empty-row">No batting stats yet.</td></tr>`;
+    || `<tr><td colspan="24" class="stats-empty-row">No batting stats yet.</td></tr>`;
   const pitchingRows = getSeasonPitchingRows().filter(({ player }) => !focusedPlayerId || player.id === focusedPlayerId);
   els.pitchingStatsBody.innerHTML = pitchingRows
     .map(({ player, pit }) => {
@@ -13079,6 +13218,7 @@ function renderSeasonStats() {
             <div>
               <strong>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</strong>
             </div>
+            ${statsEditButtonMarkup(player)}
           </div>
           <div class="stats-mobile-pill-grid">
             ${mobileStatPill("PA", hit.pa)}
@@ -13194,7 +13334,7 @@ function renderStatsSprayControls() {
   els.statsSprayGameSelect.innerHTML = [
     `<option value="all">All games</option>`,
     ...statsGamesForSeason(statsSeasonFilter)
-      .filter((game) => game.events.some((event) => event.spray))
+      .filter((game) => sprayEventsForGame(game).length)
       .sort((a, b) => b.date.localeCompare(a.date))
       .map((game) => `<option value="${game.id}" ${game.id === selectedGame ? "selected" : ""}>${escapeHtml(game.date)} ${escapeHtml(gameMatchupLabel(game))}</option>`)
   ].join("");
@@ -13206,11 +13346,267 @@ function renderStatsSprayChart() {
   const playerId = statsFocusedPlayerId() || els.statsSprayPlayerSelect.value || state.roster[0]?.id;
   const gameId = els.statsSprayGameSelect.value || "all";
   const events = statsGamesForSeason(statsSeasonFilter)
-    .flatMap((game) => game.events.map((event) => ({ event, game })))
+    .flatMap((game) => sprayEventsForGame(game))
     .filter(({ event, game }) => event.spray && event.playerId === playerId && (gameId === "all" || game.id === gameId));
   els.statsSprayMarkers.innerHTML = events.length
     ? events.map((item) => renderSprayDot(item, { resultLabel: true })).join("")
     : `<span class="spray-empty">No tracked batted balls</span>`;
+}
+
+function handleHittingStatsEditClick(event) {
+  const button = event.target.closest("[data-edit-hitting-player]");
+  if (!button) return;
+  event.preventDefault();
+  openStatEditGameSelectModal(button.dataset.editHittingPlayer || "");
+}
+
+function statEditPlayer() {
+  return state.roster.find((player) => player.id === statEditPlayerId) || null;
+}
+
+function statEditGame() {
+  return state.games.find((game) => game.id === statEditGameId) || null;
+}
+
+function playerHasStatsInGame(playerId, game) {
+  if (!playerId || !game) return false;
+  if (hasHittingStatEdit(game, playerId)) return true;
+  if (gameLineupPlayerIds(game).includes(playerId)) return true;
+  if (offensiveEventsForStatsGame(game).some((event) => event.playerId === playerId)) return true;
+  if (sprayEventsForGame(game).some(({ event }) => event.playerId === playerId)) return true;
+  return allOffensiveEvents(null, game.id).some((event) =>
+    (event.runnerAdvancements || []).some((advancement) => advancement?.runnerId === playerId)
+  );
+}
+
+function hittingStatEditGames(playerId) {
+  return statsGamesForSeason(statsSeasonFilter)
+    .filter((game) => playerHasStatsInGame(playerId, game))
+    .sort((a, b) => String(b?.date || "").localeCompare(String(a?.date || "")) || String(b?.time || "").localeCompare(String(a?.time || "")));
+}
+
+function statEditGameLine(playerId, game) {
+  const hit = statsForPlayer(playerId, statsSeasonFilter, game.id);
+  const runs = runsScoredForPlayer(playerId, statsSeasonFilter, game.id);
+  return `${hit.ab} AB | ${hit.h} H | ${hit.rbi} RBI | ${runs} R`;
+}
+
+function openStatEditGameSelectModal(playerId) {
+  if (!requireAdminAccess("Admin sign-in required to edit game stats.")) return;
+  const player = state.roster.find((item) => item.id === playerId);
+  if (!player || !els.statEditGameSelectModal) return;
+  statEditPlayerId = playerId;
+  statEditGameId = "";
+  renderStatEditGameSelectModal();
+  els.statEditGameSelectModal.hidden = false;
+  window.setTimeout(() => {
+    els.statEditGameSelectList?.querySelector("button")?.focus();
+    if (!els.statEditGameSelectList?.querySelector("button")) els.closeStatEditGameSelectBtn?.focus();
+  }, 0);
+}
+
+function closeStatEditGameSelectModal() {
+  if (els.statEditGameSelectModal) els.statEditGameSelectModal.hidden = true;
+}
+
+function renderStatEditGameSelectModal() {
+  const player = statEditPlayer();
+  if (!player || !els.statEditGameSelectList) return;
+  if (els.statEditGameSelectTitle) els.statEditGameSelectTitle.textContent = "Select Game to Edit";
+  if (els.statEditGameSelectHint) {
+    els.statEditGameSelectHint.textContent = `Choose a game-level line for #${player.number || "--"} ${player.name}. Season rates stay calculated from saved game lines.`;
+  }
+  const games = hittingStatEditGames(player.id);
+  els.statEditGameSelectList.innerHTML = games.length
+    ? games.map((game) => {
+      const edited = hasHittingStatEdit(game, player.id);
+      return `<button type="button" class="stat-edit-game-option${edited ? " is-edited" : ""}" data-stat-edit-game-id="${escapeHtml(game.id)}">
+        <span class="stat-edit-game-date">${escapeHtml(formatGameDateWithYear(game.date))}</span>
+        <span class="stat-edit-game-copy">
+          <strong>${escapeHtml(gameMatchupLabel(game))}</strong>
+          <small>${escapeHtml(gameScoreLabel(game))}</small>
+        </span>
+        <span class="stat-edit-game-line">
+          <strong>${escapeHtml(statEditGameLine(player.id, game))}</strong>
+          <small>${edited ? "Manual edit saved" : "Scored line"}</small>
+        </span>
+      </button>`;
+    }).join("")
+    : `<p class="stat-edit-empty">No scored or lineup games are available for this player in ${escapeHtml(statsSeasonLabel())}.</p>`;
+}
+
+function gameSpraysForEditDraft(playerId, game) {
+  return sprayEventsForGame(game)
+    .filter(({ event }) => event.playerId === playerId && event.spray)
+    .map(({ event }, index) => {
+      const rule = eventRules[event.result] || {};
+      return {
+        id: event.id || createId("spray"),
+        type: rule.hit ? "hit" : "out",
+        result: event.result || (rule.hit ? "1B" : "GO"),
+        x: event.spray.x,
+        y: event.spray.y,
+        zone: event.spray.zone || sprayZone(event.spray.x, event.spray.y),
+        order: index + 1
+      };
+    });
+}
+
+function hittingStatEditDraft(playerId, game) {
+  const existing = hittingStatEditMap(game)[playerId];
+  if (existing) return normalizeHittingStatEdit(existing, playerId, game);
+  const hit = statsForPlayer(playerId, statsSeasonFilter, game.id);
+  return normalizeHittingStatEdit({
+    playerId,
+    gameId: game.id,
+    stats: {
+      ab: hit.ab,
+      h: hit.h,
+      singles: hit.singles,
+      doubles: hit.doubles,
+      triples: hit.triples,
+      hr: hit.hr,
+      bb: hit.bb,
+      hbp: hit.hbp,
+      k: hit.k,
+      rbi: hit.rbi,
+      runs: runsScoredForPlayer(playerId, statsSeasonFilter, game.id)
+    },
+    sprays: gameSpraysForEditDraft(playerId, game)
+  }, playerId, game);
+}
+
+function openStatEditGameModal(playerId, gameId) {
+  if (!requireAdminAccess("Admin sign-in required to edit game stats.")) return;
+  const player = state.roster.find((item) => item.id === playerId);
+  const game = state.games.find((item) => item.id === gameId);
+  if (!player || !game || !els.statEditGameModal) return;
+  statEditPlayerId = playerId;
+  statEditGameId = gameId;
+  const draft = hittingStatEditDraft(playerId, game);
+  setStatEditInputs(draft.stats);
+  statEditSprays = normalizeStatEditSprays(draft.sprays);
+  setStatEditSprayMode("hit");
+  renderStatEditSprayEditor();
+  if (els.statEditGameTitle) els.statEditGameTitle.textContent = "Edit Game Stats";
+  if (els.statEditGameMeta) {
+    els.statEditGameMeta.textContent = `#${player.number || "--"} ${player.name} | ${formatGameDateWithYear(game.date)} | ${gameMatchupLabel(game)}`;
+  }
+  closeStatEditGameSelectModal();
+  els.statEditGameModal.hidden = false;
+  window.setTimeout(() => els.statEditInputs?.ab?.focus(), 0);
+}
+
+function closeStatEditGameModal() {
+  if (els.statEditGameModal) els.statEditGameModal.hidden = true;
+}
+
+function setStatEditInputs(stats = {}) {
+  Object.entries(els.statEditInputs || {}).forEach(([key, input]) => {
+    if (!input) return;
+    input.value = String(Number(stats[key] || 0));
+  });
+}
+
+function collectStatEditInputs() {
+  const raw = {};
+  Object.entries(els.statEditInputs || {}).forEach(([key, input]) => {
+    raw[key] = input ? input.value : 0;
+  });
+  return normalizeManualHittingStats(raw);
+}
+
+function setStatEditSprayMode(mode = "hit") {
+  statEditSprayMode = mode === "out" ? "out" : "hit";
+  els.statEditSprayModeButtons?.forEach((button) => {
+    const active = button.dataset.statEditSprayMode === statEditSprayMode;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function addStatEditSprayFromPointer(event) {
+  if (event.target.closest?.("button, input, select, textarea, [contenteditable='true']")) return;
+  const rect = els.statEditSprayChart?.getBoundingClientRect();
+  if (!rect?.width || !rect?.height) return;
+  event.preventDefault();
+  addStatEditSprayAt(
+    ((event.clientX - rect.left) / rect.width) * 100,
+    ((event.clientY - rect.top) / rect.height) * 100
+  );
+}
+
+function addStatEditSprayAt(x, y) {
+  const nextX = Math.max(4, Math.min(96, Math.round(Number(x) || 50)));
+  const nextY = Math.max(4, Math.min(96, Math.round(Number(y) || 45)));
+  statEditSprays = normalizeStatEditSprays([
+    ...statEditSprays,
+    {
+      id: createId("spray"),
+      type: statEditSprayMode,
+      result: statEditSprayMode === "out" ? "GO" : "1B",
+      x: nextX,
+      y: nextY,
+      zone: sprayZone(nextX, nextY),
+      order: statEditSprays.length + 1
+    }
+  ]);
+  renderStatEditSprayEditor();
+}
+
+function removeStatEditSpray(sprayId) {
+  statEditSprays = statEditSprays.filter((spray) => spray.id !== sprayId);
+  renderStatEditSprayEditor();
+}
+
+function renderStatEditSprayEditor() {
+  const sprays = normalizeStatEditSprays(statEditSprays);
+  statEditSprays = sprays;
+  if (els.statEditSprayMarkers) {
+    els.statEditSprayMarkers.innerHTML = sprays.length
+      ? sprays.map((spray) => {
+        const label = spray.type === "out" ? "O" : "H";
+        return `<span class="spray-dot ${escapeHtml(spray.type)}" style="left:${spray.x}%;top:${spray.y}%;" title="${escapeHtml(`${spray.type === "out" ? "Out" : "Hit"}: ${spray.zone}`)}">${label}</span>`;
+      }).join("")
+      : `<span class="spray-empty">Tap the field to add a spray dot</span>`;
+  }
+  if (els.statEditSprayList) {
+    els.statEditSprayList.innerHTML = sprays.length
+      ? sprays.map((spray, index) => `<div class="stat-edit-spray-row">
+        <span>
+          <strong>${index + 1}. ${spray.type === "out" ? "Out" : "Hit"}</strong>
+          <small>${escapeHtml(spray.zone)} | ${spray.x}, ${spray.y}</small>
+        </span>
+        <button type="button" class="secondary-action compact-action" data-stat-edit-spray-remove="${escapeHtml(spray.id)}">Remove</button>
+      </div>`).join("")
+      : `<p class="stat-edit-empty">No spray locations saved for this game line.</p>`;
+  }
+}
+
+function saveStatEditGameStats(event) {
+  event.preventDefault();
+  if (!requireAdminAccess("Admin sign-in required to edit game stats.")) return;
+  const game = statEditGame();
+  const player = statEditPlayer();
+  if (!game || !player) return;
+  const edit = normalizeHittingStatEdit({
+    playerId: player.id,
+    gameId: game.id,
+    stats: collectStatEditInputs(),
+    sprays: statEditSprays,
+    updatedAt: new Date().toISOString()
+  }, player.id, game);
+  hittingStatEditMap(game)[player.id] = edit;
+  markSharedGamesDirty(game.id);
+  if (gameIsFinal(game)) {
+    markGameSyncPending(game);
+    queueCompletedGameSync(game.id, { reason: "game-stat-edit" });
+  }
+  saveStateWithOptions({ liveSyncReason: "game-stat-edit" });
+  closeStatEditGameModal();
+  render();
+  requestSharedSnapshotSync("game-stat-edit");
+  requestCompletedGameSyncRetry("game-stat-edit");
 }
 
 function renderLeaders() {
@@ -13316,7 +13712,9 @@ function gamesPlayedForPlayer(playerId, season = null) {
         .filter((entry) => entry?.active !== false && entry?.playerId)
         .map((entry) => entry.playerId)
       : [];
-    return storedLineupIds.includes(playerId) || game.events.some((event) => event.playerId === playerId);
+    return storedLineupIds.includes(playerId)
+      || hasHittingStatEdit(game, playerId)
+      || offensiveEventsForStatsGame(game).some((event) => event.playerId === playerId);
   }).length;
 }
 
@@ -13586,10 +13984,191 @@ function lineupWeights() {
   };
 }
 
+function hittingStatEditMap(game) {
+  if (!game) return {};
+  if (!game.hittingStatEdits || typeof game.hittingStatEdits !== "object" || Array.isArray(game.hittingStatEdits)) {
+    game.hittingStatEdits = {};
+  }
+  return game.hittingStatEdits;
+}
+
+function hasHittingStatEdit(game, playerId) {
+  return Boolean(game && playerId && Object.prototype.hasOwnProperty.call(hittingStatEditMap(game), playerId));
+}
+
+function normalizeManualHittingStats(input = {}) {
+  let doubles = clampNumber(input.doubles ?? input["2B"] ?? 0, 0, 99);
+  let triples = clampNumber(input.triples ?? input["3B"] ?? 0, 0, 99);
+  let hr = clampNumber(input.hr ?? input.HR ?? 0, 0, 99);
+  let singles = clampNumber(input.singles ?? input["1B"] ?? 0, 0, 99);
+  let h = clampNumber(input.h ?? input.H ?? singles + doubles + triples + hr, 0, 99);
+  const extraBaseHits = doubles + triples + hr;
+  if (h !== singles + extraBaseHits) {
+    if (h >= extraBaseHits) singles = h - extraBaseHits;
+    else h = singles + extraBaseHits;
+  }
+  let ab = clampNumber(input.ab ?? input.AB ?? h, 0, 99);
+  if (ab < h) ab = h;
+  const nonHitAtBats = Math.max(0, ab - h);
+  const k = Math.min(clampNumber(input.k ?? input.K ?? 0, 0, 99), nonHitAtBats);
+  return {
+    ab,
+    h,
+    singles,
+    doubles,
+    triples,
+    hr,
+    bb: clampNumber(input.bb ?? input.BB ?? 0, 0, 99),
+    hbp: clampNumber(input.hbp ?? input.HBP ?? 0, 0, 99),
+    k,
+    rbi: clampNumber(input.rbi ?? input.RBI ?? 0, 0, 99),
+    runs: clampNumber(input.runs ?? input.R ?? 0, 0, 99)
+  };
+}
+
+function normalizeStatEditSprays(sprays = []) {
+  return (Array.isArray(sprays) ? sprays : [])
+    .map((spray, index) => {
+      const x = Math.max(4, Math.min(96, Math.round(Number(spray?.x) || 50)));
+      const y = Math.max(4, Math.min(96, Math.round(Number(spray?.y) || 45)));
+      const type = spray?.type === "out" || spray?.result === "GO" ? "out" : "hit";
+      return {
+        id: spray?.id || createId("spray"),
+        type,
+        result: type === "hit" ? "1B" : "GO",
+        x,
+        y,
+        zone: spray?.zone || sprayZone(x, y),
+        order: Number(spray?.order || index + 1)
+      };
+    });
+}
+
+function normalizeHittingStatEdit(edit = {}, playerId = "", game = null) {
+  return {
+    playerId: edit.playerId || playerId,
+    gameId: edit.gameId || game?.id || "",
+    stats: normalizeManualHittingStats(edit.stats || edit),
+    sprays: normalizeStatEditSprays(edit.sprays || []),
+    updatedAt: edit.updatedAt || new Date().toISOString()
+  };
+}
+
+function manualRunAdvancements(playerId, runs = 0) {
+  return Array.from({ length: Math.max(0, Number(runs) || 0) }, () => ({
+    runnerId: playerId,
+    from: "manual",
+    to: "home",
+    out: false,
+    remove: false
+  }));
+}
+
+function manualHittingStatEvent(game, playerId, result, index, edit, extras = {}) {
+  const rule = eventRules[result] || {};
+  return {
+    id: `stat-edit-${game.id}-${playerId}-${index}`,
+    gameId: game.id,
+    playerId,
+    result,
+    runs: 0,
+    rbi: extras.rbi || 0,
+    contact: "none",
+    launch: rule.launch || "none",
+    leverage: "neutral",
+    inning: 1,
+    half: lionsSide(game) === "away" ? "top" : "bottom",
+    outsBefore: 0,
+    basesBefore: emptyBases(false),
+    scope: "offense",
+    note: "Manual game stat edit",
+    spray: null,
+    pitches: [],
+    runnerAdvancements: extras.runnerAdvancements || [],
+    createdAt: edit.updatedAt || new Date().toISOString(),
+    manualStatEdit: true
+  };
+}
+
+function manualHittingStatEvents(game, playerId, rawEdit = {}) {
+  const edit = normalizeHittingStatEdit(rawEdit, playerId, game);
+  const stats = edit.stats;
+  const events = [];
+  const pushEvents = (result, count) => {
+    for (let index = 0; index < count; index += 1) {
+      events.push(manualHittingStatEvent(game, playerId, result, events.length, edit));
+    }
+  };
+  pushEvents("1B", stats.singles);
+  pushEvents("2B", stats.doubles);
+  pushEvents("3B", stats.triples);
+  pushEvents("HR", stats.hr);
+  const nonHitAtBats = Math.max(0, stats.ab - stats.h);
+  const strikeouts = Math.min(stats.k, nonHitAtBats);
+  pushEvents("K", strikeouts);
+  pushEvents("GO", Math.max(0, nonHitAtBats - strikeouts));
+  pushEvents("BB", stats.bb);
+  pushEvents("HBP", stats.hbp);
+  if (!events.length && (stats.rbi || stats.runs)) {
+    events.push(manualHittingStatEvent(game, playerId, "SUB", events.length, edit));
+  }
+  if (events.length) {
+    events[0].rbi = stats.rbi;
+    events[0].runnerAdvancements = manualRunAdvancements(playerId, stats.runs);
+  }
+  return events;
+}
+
+function manualSprayEventsForGame(game, playerId, rawEdit = {}) {
+  const edit = normalizeHittingStatEdit(rawEdit, playerId, game);
+  return edit.sprays.map((spray, index) => ({
+    event: {
+      id: `stat-edit-spray-${game.id}-${playerId}-${spray.id || index}`,
+      gameId: game.id,
+      playerId,
+      result: spray.result || (spray.type === "out" ? "GO" : "1B"),
+      scope: "offense",
+      spray: {
+        x: spray.x,
+        y: spray.y,
+        zone: spray.zone || sprayZone(spray.x, spray.y)
+      },
+      manualStatEdit: true
+    },
+    game
+  }));
+}
+
+function offensiveEventsForStatsGame(game) {
+  const edits = hittingStatEditMap(game);
+  const editedPlayerIds = new Set(Object.keys(edits));
+  const baseEvents = (Array.isArray(game?.events) ? game.events : [])
+    .filter((event) => {
+      if (event.scope === "defense") return false;
+      if (!editedPlayerIds.has(event.playerId)) return true;
+      return !(eventRules[event.result]?.pa);
+    });
+  const editEvents = Object.entries(edits)
+    .flatMap(([playerId, edit]) => manualHittingStatEvents(game, playerId, edit));
+  return [...baseEvents, ...editEvents];
+}
+
+function sprayEventsForGame(game) {
+  if (!game) return [];
+  const edits = hittingStatEditMap(game);
+  const editedPlayerIds = new Set(Object.keys(edits));
+  const baseEvents = (Array.isArray(game.events) ? game.events : [])
+    .map((event) => ({ event, game }))
+    .filter(({ event }) => event.spray && event.scope !== "defense" && !editedPlayerIds.has(event.playerId));
+  const editEvents = Object.entries(edits)
+    .flatMap(([playerId, edit]) => manualSprayEventsForGame(game, playerId, edit));
+  return [...baseEvents, ...editEvents];
+}
+
 function allOffensiveEvents(season = null, gameId = null) {
   return statsGamesForSeason(season)
     .filter((game) => !gameId || game.id === gameId)
-    .flatMap((game) => game.events.filter((event) => event.scope !== "defense"));
+    .flatMap((game) => offensiveEventsForStatsGame(game));
 }
 
 function statsForPlayer(playerId, season = null, gameId = null) {
@@ -13608,8 +14187,8 @@ function teamStats(season = null) {
   return stats;
 }
 
-function runsScoredForPlayer(playerId, season = null) {
-  return allOffensiveEvents(season).reduce((total, event) => {
+function runsScoredForPlayer(playerId, season = null, gameId = null) {
+  return allOffensiveEvents(season, gameId).reduce((total, event) => {
     const scoredOnAdvancement = (event.runnerAdvancements || []).filter((advancement) =>
       advancement?.runnerId === playerId
         && advancement.to === "home"

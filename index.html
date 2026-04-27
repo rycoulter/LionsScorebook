@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <link rel="manifest" href="manifest.json?v=2026.04.27-build-159">
+    <link rel="manifest" href="manifest.json?v=2026.04.27-build-163">
     <meta name="theme-color" content="#1f2937">
   <title>Oakmont Lions</title>
     <link rel="preconnect" href="https://images.unsplash.com">
-    <link rel="stylesheet" href="styles.css?v=2026.04.27-build-159">
+    <link rel="stylesheet" href="styles.css?v=2026.04.27-build-163">
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-block">
-          <img src="new-lion.png?v=2026.04.27-build-159" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
+          <img src="new-lion.png?v=2026.04.27-build-163" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
           <div class="brand-copy">
             <h1>Oakmont Lions</h1>
           </div>
@@ -82,7 +82,7 @@
                   </p>
                 </div>
                 <img
-                src="new-lion.png?v=2026.04.27-build-159"
+                src="new-lion.png?v=2026.04.27-build-163"
                   alt="Lions matchup graphic"
                   id="homeMatchupImage"
                   class="home-field-image">
@@ -355,7 +355,7 @@
                   </div>
                   <div class="spray-chart" id="sprayChart" role="button" tabindex="0" aria-label="Tap to set batted ball location">
                     <div class="field-layer field-background" aria-hidden="true">
-                      <img class="field-background-art" src="assets/updated-field.png?v=2026.04.27-build-159" alt="" aria-hidden="true">
+                      <img class="field-background-art" src="assets/updated-field.png?v=2026.04.27-build-163" alt="" aria-hidden="true">
                     </div>
                     <div class="field-layer position-marker-layer" aria-hidden="true"></div>
                     <div class="field-layer spray-chart-overlay">
@@ -937,6 +937,7 @@
                     <h3>Opponent Batting Order</h3>
                     <p class="player-meta">Type names in order. Blank spots will use Batter 1, Batter 2, and so on.</p>
                   </div>
+                  <button type="button" class="secondary-action compact-action opponent-lineup-add-btn" id="addOpponentHitterBtn">Add Hitter</button>
                 </div>
                 <div class="opponent-lineup-rows" id="opponentLineupRows"></div>
               </section>
@@ -1175,7 +1176,7 @@
             <div class="stats-spray-feature">
               <div class="stats-spray-preview" aria-hidden="true">
                 <div class="field-layer field-background stats-field-background">
-                  <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.04.27-build-159" alt="" aria-hidden="true">
+                  <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.04.27-build-163" alt="" aria-hidden="true">
                 </div>
                 <span class="stats-spray-preview-dot hit" style="left:18%;top:28%;"></span>
                 <span class="stats-spray-preview-dot hit" style="left:31%;top:18%;"></span>
@@ -1249,6 +1250,7 @@
                     <th><button type="button" data-hit-sort="po">PO</button></th>
                     <th><button type="button" data-hit-sort="roe">ROE</button></th>
                     <th><button type="button" data-hit-sort="errors">E</button></th>
+                    <th>Edit</th>
                   </tr>
                 </thead>
                 <tbody id="hittingStatsBody"></tbody>
@@ -1806,7 +1808,7 @@
           </div>
           <div class="spray-chart stats-spray-chart" id="statsSprayChart" aria-label="Player spray chart">
             <div class="field-layer field-background stats-field-background" aria-hidden="true">
-              <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.04.27-build-159" alt="" aria-hidden="true">
+              <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.04.27-build-163" alt="" aria-hidden="true">
             </div>
             <div class="field-layer stats-spray-chart-overlay">
               <div class="spray-markers stats-spray-markers" id="statsSprayMarkers"></div>
@@ -1816,13 +1818,82 @@
       </div>
     </div>
 
-    <script src="storage.js?v=2026.04.27-build-159"></script>
-    <script src="matchup-images.js?v=2026.04.27-build-159"></script>
+    <div class="modal-backdrop" id="statEditGameSelectModal" hidden>
+      <div class="modal-card stat-edit-select-modal" role="dialog" aria-modal="true" aria-labelledby="statEditGameSelectTitle">
+        <div class="mini-head">
+          <div>
+            <p class="eyebrow">Game Stats</p>
+            <h3 id="statEditGameSelectTitle">Select Game to Edit</h3>
+          </div>
+          <button type="button" class="secondary-action compact-action" id="closeStatEditGameSelectBtn">Close</button>
+        </div>
+        <p class="player-meta" id="statEditGameSelectHint">Choose the game-level line to correct.</p>
+        <div class="stat-edit-game-list" id="statEditGameSelectList"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="statEditGameModal" hidden>
+      <div class="modal-card stat-edit-modal" role="dialog" aria-modal="true" aria-labelledby="statEditGameTitle">
+        <div class="mini-head">
+          <div>
+            <p class="eyebrow">Game-Level Source</p>
+            <h3 id="statEditGameTitle">Edit Game Stats</h3>
+          </div>
+          <button type="button" class="secondary-action compact-action" id="closeStatEditGameBtn">Close</button>
+        </div>
+        <p class="player-meta" id="statEditGameMeta">Only game-level inputs are editable. Season rates recalculate after save.</p>
+        <form class="stat-edit-form" id="statEditGameForm">
+          <div class="stat-edit-grid">
+            <label>AB<input id="statEditAb" name="ab" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>H<input id="statEditH" name="h" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>1B<input id="statEditSingles" name="singles" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>2B<input id="statEditDoubles" name="doubles" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>3B<input id="statEditTriples" name="triples" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>HR<input id="statEditHr" name="hr" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>BB<input id="statEditBb" name="bb" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>HBP<input id="statEditHbp" name="hbp" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>K<input id="statEditK" name="k" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>RBI<input id="statEditRbi" name="rbi" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>Runs<input id="statEditRuns" name="runs" type="number" min="0" step="1" inputmode="numeric"></label>
+          </div>
+
+          <section class="stat-edit-spray-section" aria-label="Spray chart editor">
+            <div class="stat-edit-spray-head">
+              <div>
+                <h4>Spray Chart</h4>
+                <p class="player-meta">Tap the mini field to add a hit or out location. Remove dots from the list below.</p>
+              </div>
+              <div class="stat-edit-spray-mode" role="group" aria-label="Spray dot type">
+                <button type="button" class="secondary-action compact-action is-active" data-stat-edit-spray-mode="hit">Hit</button>
+                <button type="button" class="secondary-action compact-action" data-stat-edit-spray-mode="out">Out</button>
+              </div>
+            </div>
+            <div class="spray-chart stat-edit-spray-chart" id="statEditSprayChart" role="button" tabindex="0" aria-label="Tap to add a spray chart location">
+              <div class="field-layer field-background" aria-hidden="true">
+                <img class="field-background-art" src="assets/updated-field.png?v=2026.04.27-build-163" alt="" aria-hidden="true">
+              </div>
+              <div class="field-layer stats-spray-chart-overlay">
+                <div class="spray-markers stats-spray-markers" id="statEditSprayMarkers"></div>
+              </div>
+            </div>
+            <div class="stat-edit-spray-list" id="statEditSprayList"></div>
+          </section>
+
+          <div class="stat-edit-actions">
+            <button type="button" class="secondary-action" id="cancelStatEditGameBtn">Cancel</button>
+            <button type="submit" class="primary-action" id="saveStatEditGameBtn">Save Game Stats</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="storage.js?v=2026.04.27-build-163"></script>
+    <script src="matchup-images.js?v=2026.04.27-build-163"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=2026.04.27-build-159"></script>
-    <script src="supabase-storage.js?v=2026.04.27-build-159"></script>
+    <script src="supabase-config.js?v=2026.04.27-build-163"></script>
+    <script src="supabase-storage.js?v=2026.04.27-build-163"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
-    <script src="app.js?v=2026.04.27-build-159"></script>
+    <script src="app.js?v=2026.04.27-build-163"></script>
   </body>
 </html>
 

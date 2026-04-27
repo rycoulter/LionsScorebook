@@ -3,7 +3,7 @@
 Last updated: 2026-04-27
 Current commit: `cb59a9b`
 Current app version: `v.1.1.0`
-Current asset build markers: `2026.04.27-build-159`
+Current asset build markers: `2026.04.27-build-163`
 
 ## Project Overview
 
@@ -140,11 +140,13 @@ Current state:
 - tracks RISP event context at plate-appearance start for hitter stats
 - top scoring header/status bar includes a selectable Pitcher section for eligible Lions pitching changes, preserving the current game situation and recording the substitution for undo/history
 - the live scoring dock is split by batting side: Lions batting shows COUNT / AT BAT / SEASON / View Lineup, while opponent batting shows COUNT / PITCHER / AT BAT with a compact Lineup button for editing the opponent order
+- pregame opponent lineup setup can append extra hitters beyond the default nine spots before starting the game
 - Pitch Mode has separate Undo Pitch and Undo Play controls; Undo Play restores completed plays from a pre-play full-game snapshot stack, including half-inning changes
 - Score Game action buttons outside BALL/STRIKE use a shared `actionFeedback` animation layer for quick press/glow/floating-label confirmation
 - Score Game feedback now includes optional `navigator.vibrate` haptics as progressive enhancement only; CSS/JS visual feedback remains the primary confirmation and unsupported devices behave normally
 - Scoring runs triggers a team-branded `runScoreFeedback` field overlay with the scoring team logo and combined run count; it is visual-only and uses the already-calculated runs from the scoring path, and the next-batter intro waits until the overlay clears
 - selected base-runner actions include `NR` for assigning a non-runner from the Lions lineup; later steals, caught stealing, pickoffs, and runs score to the NR runner on base
+- selected base-runner SB/CS/PO actions carry the selected source base and use stable runner identity matching so scored, stolen, caught, or picked-off runners clear from the correct base even after cloned/object-shaped runner state
 - Home next-game card gives admins a direct `Start Game` action for scheduled games and `Score Game` action for already-live games
 - active games are included in shared Supabase snapshots with `app_state.active_game_id`; `saveState()` stores pending scoring checkpoints and debounces live-game sync so reloads can resume the current inning/count/bases/batter/pending flow
 
@@ -180,6 +182,8 @@ Recent stat logic:
   - `rispAB`
   - `rispH`
 - format matches batting-average style and uses `--` when there are no RISP at-bats
+- Hitting Stats rows now expose a game-level stat editor for admins; saved edits live on `game.hittingStatEdits`, replace that player's scored plate-appearance events for the selected game, and feed season AVG/OBP/SLG/OPS recalculation
+- the game-level stat editor also stores manual spray dots per player/game so the season spray chart is derived from edited spray locations when present
 
 ### Schedule & Scores / Game Archive / Box Score
 
