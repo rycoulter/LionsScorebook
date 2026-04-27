@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
 Last updated: 2026-04-27
-Current commit: `6b97b61`
-Current app version: `v.1.1.7`
-Current asset build markers: `2026.04.27-build-171`
+Current commit: `7bb1cd2`
+Current app version: `v.1.1.8`
+Current asset build markers: `2026.04.27-build-172`
 
 ## Project Overview
 
