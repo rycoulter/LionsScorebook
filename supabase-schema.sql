@@ -42,6 +42,40 @@ create table if not exists public.roster_players (
   updated_at timestamptz not null default timezone('utc', now())
 );
 
+alter table public.roster_players
+add column if not exists team_id text not null default 'lions',
+add column if not exists roster_version text not null default '',
+add column if not exists name text not null default 'Unknown Player',
+add column if not exists jersey_number text not null default '',
+add column if not exists positions jsonb not null default '[]'::jsonb,
+add column if not exists primary_position text not null default 'UTL',
+add column if not exists bats text not null default 'R',
+add column if not exists throws text not null default 'R',
+add column if not exists height text not null default '',
+add column if not exists weight text not null default '',
+add column if not exists active boolean not null default true,
+add column if not exists grades jsonb not null default '{}'::jsonb,
+add column if not exists sort_order integer not null default 0,
+add column if not exists metadata jsonb not null default '{}'::jsonb,
+add column if not exists updated_at timestamptz not null default timezone('utc', now());
+
+alter table public.roster_players
+alter column team_id set default 'lions',
+alter column roster_version set default '',
+alter column name set default 'Unknown Player',
+alter column jersey_number set default '',
+alter column positions set default '[]'::jsonb,
+alter column primary_position set default 'UTL',
+alter column bats set default 'R',
+alter column throws set default 'R',
+alter column height set default '',
+alter column weight set default '',
+alter column active set default true,
+alter column grades set default '{}'::jsonb,
+alter column sort_order set default 0,
+alter column metadata set default '{}'::jsonb,
+alter column updated_at set default timezone('utc', now());
+
 create table if not exists public.games (
   id text primary key,
   opponent text not null default 'Opponent',

@@ -20,6 +20,9 @@ function functionBody(source, functionName) {
 }
 
 mustMatch(supabaseSchemaSql, /create table if not exists public\.roster_players/i, "Schema should create roster_players");
+mustMatch(supabaseSchemaSql, /alter table public\.roster_players[\s\S]*add column if not exists team_id/i, "Schema should repair existing roster_players tables");
+mustMatch(supabaseSchemaSql, /add column if not exists height text/i, "Schema should add missing roster height column on rerun");
+mustMatch(supabaseSchemaSql, /add column if not exists metadata jsonb/i, "Schema should add missing roster metadata column on rerun");
 mustMatch(supabaseSchemaSql, /roster_version text/i, "Roster version should be text-compatible");
 mustMatch(supabaseSchemaSql, /alter column roster_version type text/i, "Schema should migrate existing app_state roster_version to text");
 mustMatch(supabaseSchemaSql, /positions jsonb not null default '\[\]'::jsonb/i, "Roster positions should be stored as jsonb");
