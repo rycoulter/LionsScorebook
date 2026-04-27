@@ -3,7 +3,7 @@
 Last updated: 2026-04-27
 Current commit: `cb59a9b`
 Current app version: `v.1.1.0`
-Current asset build markers: `2026.04.27-build-163`
+Current asset build markers: `2026.04.27-build-164`
 
 ## Project Overview
 
@@ -147,6 +147,7 @@ Current state:
 - Scoring runs triggers a team-branded `runScoreFeedback` field overlay with the scoring team logo and combined run count; it is visual-only and uses the already-calculated runs from the scoring path, and the next-batter intro waits until the overlay clears
 - selected base-runner actions include `NR` for assigning a non-runner from the Lions lineup; later steals, caught stealing, pickoffs, and runs score to the NR runner on base
 - selected base-runner SB/CS/PO actions carry the selected source base and use stable runner identity matching so scored, stolen, caught, or picked-off runners clear from the correct base even after cloned/object-shaped runner state
+- runner displays and SB/CS/PO actions reconcile stale base mirrors from the latest completed event's runner advancements before enabling or applying runner actions, which protects live games that already have a stale runner left on a base after a scoring play
 - Home next-game card gives admins a direct `Start Game` action for scheduled games and `Score Game` action for already-live games
 - active games are included in shared Supabase snapshots with `app_state.active_game_id`; `saveState()` stores pending scoring checkpoints and debounces live-game sync so reloads can resume the current inning/count/bases/batter/pending flow
 

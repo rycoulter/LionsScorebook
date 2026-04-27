@@ -58,8 +58,13 @@ assert.match(recordStealBody, /const runnerId = runnerIdentity\(runner\) \|\| ru
 const applyRunnerBody = functionBody(appJs, "applyRunnerAdvancements");
 assert.match(
   applyRunnerBody,
+  /applyAdvancementsToBaseState\(game\.current\.runners \|\| emptyBases\(false\), runnerAdvancements\)/,
+  "Runner advancement should use the shared base-state advancement helper"
+);
+assert.match(
+  functionBody(appJs, "applyAdvancementsToBaseState"),
   /sameRunnerValue\(runners\[from\], runnerId\)/,
-  "Runner advancement should clear the selected source base by stable runner identity"
+  "Base-state advancement should clear the selected source base by stable runner identity"
 );
 
 assert.match(functionBody(appJs, "runnerIdentity"), /value\.runnerId \|\| value\.playerId \|\| value\.id/, "Runner identity should support object-shaped runner values");

@@ -4390,15 +4390,31 @@ function recordPitch(game = activeGame(), outcome) {
 
 function applyRunnerAdvancements(game = activeGame(), runnerAdvancements = []) {
   syncGameCurrent(game);
-  const runners = deepClone(game.current.runners || emptyBases(false));
-  let runsScored = 0;
-  let outsRecorded = 0;
+  const runners = applyAdvancementsToBaseState(game.current.runners || emptyBases(false), runnerAdvancements);
+  const summary = summarizeRunnerAdvancements(runnerAdvancements);
+  game.current.runners = runners;
+  game.bases = deepClone(runners);
+  return { runners, ...summary };
+}
+
+function applyAdvancementsToBaseState(baseState = emptyBases(false), runnerAdvancements = []) {
+  const runners = normalizeBaseState(baseState);
   runnerAdvancements.forEach((advancement) => {
     const from = advancement.from || null;
     const to = advancement.to || null;
     const runnerId = advancement.runnerId || (from && runners[from]) || null;
     if (from && sameRunnerValue(runners[from], runnerId)) runners[from] = false;
-    if (advancement.remove) return;
+    if (advancement.remove || advancement.out || to === "home") return;
+    if (to && Object.prototype.hasOwnProperty.call(runners, to)) runners[to] = runnerId;
+  });
+  return runners;
+}
+
+function summarizeRunnerAdvancements(runnerAdvancements = []) {
+  let runsScored = 0;
+  let outsRecorded = 0;
+  runnerAdvancements.forEach((advancement) => {
+    const to = advancement.to || null;
     if (advancement.out) {
       outsRecorded += 1;
       return;
@@ -4407,11 +4423,55 @@ function applyRunnerAdvancements(game = activeGame(), runnerAdvancements = []) {
       runsScored += 1;
       return;
     }
-    if (to && Object.prototype.hasOwnProperty.call(runners, to)) runners[to] = runnerId;
   });
-  game.current.runners = runners;
-  game.bases = deepClone(runners);
-  return { runners, runsScored, outsRecorded };
+  return { runsScored, outsRecorded };
+}
+
+function normalizeBaseState(baseState = emptyBases(false)) {
+  return {
+    first: baseState?.first || false,
+    second: baseState?.second || false,
+    third: baseState?.third || false
+  };
+}
+
+function baseStatesEqual(left, right) {
+  const leftBases = normalizeBaseState(left);
+  const rightBases = normalizeBaseState(right);
+  return ["first", "second", "third"].every((base) => {
+    const leftRunner = leftBases[base];
+    const rightRunner = rightBases[base];
+    if (!isOccupied(leftRunner) && !isOccupied(rightRunner)) return true;
+    return sameRunnerValue(leftRunner, rightRunner);
+  });
+}
+
+function eventDerivedBasesAfter(event) {
+  if (!event) return null;
+  if (event.basesBefore && Array.isArray(event.runnerAdvancements) && event.runnerAdvancements.length) {
+    return applyAdvancementsToBaseState(event.basesBefore, event.runnerAdvancements);
+  }
+  if (event.basesAfter) return normalizeBaseState(event.basesAfter);
+  return null;
+}
+
+function reconcileGameBasesFromEvents(game = activeGame()) {
+  if (!game?.events?.length) return false;
+  const currentInning = Number(game.inning ?? game.current?.inning ?? 1);
+  const currentHalf = game.half ?? game.current?.half ?? "top";
+  const event = [...game.events].reverse().find((item) => {
+    if (!item) return false;
+    if (Number(item.inning || 0) !== currentInning || item.half !== currentHalf) return false;
+    return Boolean(item.basesAfter || (item.basesBefore && item.runnerAdvancements?.length));
+  });
+  const derivedBases = eventDerivedBasesAfter(event);
+  if (!derivedBases) return false;
+  const currentBases = normalizeBaseState(game.bases || game.current?.runners || emptyBases(false));
+  if (baseStatesEqual(currentBases, derivedBases)) return false;
+  game.bases = deepClone(derivedBases);
+  if (!game.current) game.current = {};
+  game.current.runners = deepClone(derivedBases);
+  return true;
 }
 
 function runnerIdentity(value) {
@@ -5733,6 +5793,7 @@ function recordSteal(target, outcome, sourceBase = "") {
   if (gameIsScoreLocked(game)) return;
   if (game.status !== "completed") game.status = "active";
   syncGameCurrent(game);
+  reconcileGameBasesFromEvents(game);
   const steal = baseKeyForSteal(target, sourceBase);
   const runner = game.bases?.[steal.from];
   if (!isOccupied(runner)) return;
@@ -5797,6 +5858,7 @@ function recordPickoff(base) {
   if (gameIsScoreLocked(game)) return;
   if (game.status !== "completed") game.status = "active";
   syncGameCurrent(game);
+  reconcileGameBasesFromEvents(game);
   const runner = game.bases?.[base];
   if (!isOccupied(runner)) return;
   const runnerId = runnerIdentity(runner) || runner;
@@ -5847,6 +5909,7 @@ function recordTagUp(target) {
   if (gameIsScoreLocked(game)) return;
   if (game.status !== "completed") game.status = "active";
   syncGameCurrent(game);
+  reconcileGameBasesFromEvents(game);
   const tag = tagUpMovement(target);
   if (!tag) return;
   const runner = game.bases[tag.from];
@@ -7351,6 +7414,7 @@ function setScoreGameLocked(locked, game = activeScoreGame()) {
 
 function renderRunnerTracker() {
   const game = activeGame();
+  reconcileGameBasesFromEvents(game);
   const baseLabels = {
     first: "1B",
     second: "2B",
@@ -8772,6 +8836,7 @@ function selectedRunnerActionConfig(game) {
   if (!selectedFieldRunnerBase) return null;
   if (!["pitch", "more"].includes(scoringStep)) return null;
   if (awaitingSprayLocation || awaitingRunnerDecision || game.atBat?.pendingInPlay) return null;
+  reconcileGameBasesFromEvents(game);
   const base = selectedFieldRunnerBase;
   const runner = game.bases?.[base];
   if (!isOccupied(runner)) return null;
