@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
 Last updated: 2026-04-27
-Current commit: `7bb1cd2`
-Current app version: `v.1.1.8`
-Current asset build markers: `2026.04.27-build-172`
+Current commit: v1.1.15 scoring, storage, lineup, and stat-edit release commit
+Current app version: `v.1.1.15`
+Current asset build markers: `2026.04.27-build-179`
 
 ## Project Overview
 
@@ -184,7 +184,10 @@ Recent stat logic:
   - `rispH`
 - format matches batting-average style and uses `--` when there are no RISP at-bats
 - Hitting Stats rows now expose a game-level stat editor for admins; saved edits live on `game.hittingStatEdits`, replace that player's scored plate-appearance events for the selected game, and feed season AVG/OBP/SLG/OPS recalculation
-- the game-level stat editor also stores manual spray dots per player/game so the season spray chart is derived from edited spray locations when present
+- the game-level stat editor accepts optional non-derived count inputs for the trackable hitting/running line, including ROE, E, FC, SAC, DP, GO, LO, FO, SB, CS, and PO
+- completed games are available for game-level stat editing even when a player was not in the scored lineup; saving a manual game line counts that game as a GP for that player
+- the game-level stat editor also stores manual spray dots per player/game with edit-only result choices (`1B`, `2B`, `3B`, `HR`, `GO`, `LO`, `FO`) so the season spray chart is derived from edited spray locations when present
+- Pitching Stats rows now expose a game-level stat editor for admins; saved edits live on `game.pitchingStatEdits`, replace that pitcher's scored defensive events for the selected game, and feed season ERA/WHIP/rate recalculation from IP, pitch count, BF, runs, ER, and decision inputs
 
 ### Schedule & Scores / Game Archive / Box Score
 

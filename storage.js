@@ -1,11 +1,71 @@
 (function initScorebookStorage(global) {
   const STORAGE_KEY = "oakmont-lions-scorebook-v1";
   const GAME_LIBRARY_KEY = "oakmont-lions-game-library-v1";
+  const PLAY_HISTORY_STORAGE_LIMIT = 8;
 
   function deepClone(value) {
     if (value === undefined || value === null) return value;
     if (typeof structuredClone === "function") return structuredClone(value);
     return JSON.parse(JSON.stringify(value));
+  }
+
+  function isQuotaExceeded(error) {
+    return error?.name === "QuotaExceededError"
+      || error?.code === 22
+      || error?.code === 1014
+      || String(error?.message || "").toLowerCase().includes("quota");
+  }
+
+  function setJsonItem(key, value) {
+    const json = JSON.stringify(value);
+    try {
+      global.localStorage.setItem(key, json);
+    } catch (error) {
+      if (!isQuotaExceeded(error)) throw error;
+      global.localStorage.removeItem(key);
+      global.localStorage.setItem(key, json);
+    }
+  }
+
+  function compactPlayHistory(history = [], limit = PLAY_HISTORY_STORAGE_LIMIT) {
+    if (!Array.isArray(history)) return [];
+    return history.slice(-limit).map((entry) => {
+      const next = deepClone(entry);
+      if (next?.game) next.game.playHistory = [];
+      return next;
+    });
+  }
+
+  function compactGameForStorage(game, playHistoryLimit = PLAY_HISTORY_STORAGE_LIMIT) {
+    const next = deepClone(game);
+    if (next?.playHistory) next.playHistory = compactPlayHistory(next.playHistory, playHistoryLimit);
+    return next;
+  }
+
+  function compactLibraryForStorage(library, playHistoryLimit = PLAY_HISTORY_STORAGE_LIMIT) {
+    const normalized = normalizeLibrary(library);
+    const compacted = emptyLibrary();
+    normalized.gameOrder.forEach((gameId) => {
+      const game = normalized.gamesById[gameId];
+      if (!game?.id) return;
+      compacted.gamesById[game.id] = compactGameForStorage(game, playHistoryLimit);
+      compacted.gameOrder.push(game.id);
+    });
+    compacted.activeGameId = normalized.activeGameId;
+    return compacted;
+  }
+
+  function appStateForStorage(state) {
+    const next = deepClone(state || {});
+    next.games = [];
+    return next;
+  }
+
+  function releaseLegacyAppStateGames() {
+    const appState = loadAppState();
+    if (Array.isArray(appState?.games) && appState.games.length) {
+      saveAppState(appState);
+    }
   }
 
   function emptyLibrary() {
@@ -63,7 +123,7 @@
   }
 
   function saveAppState(state) {
-    global.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    setJsonItem(STORAGE_KEY, appStateForStorage(state));
     return deepClone(state);
   }
 
@@ -85,9 +145,17 @@
   }
 
   function saveLibrary(library) {
-    const normalized = normalizeLibrary(library);
-    global.localStorage.setItem(GAME_LIBRARY_KEY, JSON.stringify(normalized));
-    return normalized;
+    const compacted = compactLibraryForStorage(library);
+    releaseLegacyAppStateGames();
+    try {
+      setJsonItem(GAME_LIBRARY_KEY, compacted);
+      return compacted;
+    } catch (error) {
+      if (!isQuotaExceeded(error)) throw error;
+      const emergency = compactLibraryForStorage(library, 2);
+      setJsonItem(GAME_LIBRARY_KEY, emergency);
+      return emergency;
+    }
   }
 
   function saveGame(game, setActive = true) {

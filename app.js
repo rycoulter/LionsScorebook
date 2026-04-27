@@ -8,11 +8,71 @@ if (!window.ScorebookStorage) {
 function createFallbackScorebookStorage(global) {
   const storageKey = "oakmont-lions-scorebook-v1";
   const libraryKey = "oakmont-lions-game-library-v1";
+  const playHistoryStorageLimit = 8;
 
   function clone(value) {
     if (value === undefined || value === null) return value;
     if (typeof structuredClone === "function") return structuredClone(value);
     return JSON.parse(JSON.stringify(value));
+  }
+
+  function isQuotaExceeded(error) {
+    return error?.name === "QuotaExceededError"
+      || error?.code === 22
+      || error?.code === 1014
+      || String(error?.message || "").toLowerCase().includes("quota");
+  }
+
+  function setJsonItem(key, value) {
+    const json = JSON.stringify(value);
+    try {
+      global.localStorage.setItem(key, json);
+    } catch (error) {
+      if (!isQuotaExceeded(error)) throw error;
+      global.localStorage.removeItem(key);
+      global.localStorage.setItem(key, json);
+    }
+  }
+
+  function compactPlayHistory(history = [], limit = playHistoryStorageLimit) {
+    if (!Array.isArray(history)) return [];
+    return history.slice(-limit).map((entry) => {
+      const next = clone(entry);
+      if (next?.game) next.game.playHistory = [];
+      return next;
+    });
+  }
+
+  function compactGameForStorage(game, playHistoryLimit = playHistoryStorageLimit) {
+    const next = clone(game);
+    if (next?.playHistory) next.playHistory = compactPlayHistory(next.playHistory, playHistoryLimit);
+    return next;
+  }
+
+  function compactLibraryForStorage(library, playHistoryLimit = playHistoryStorageLimit) {
+    const normalized = normalizeLibrary(library);
+    const compacted = emptyLibrary();
+    normalized.gameOrder.forEach((gameId) => {
+      const game = normalized.gamesById[gameId];
+      if (!game?.id) return;
+      compacted.gamesById[game.id] = compactGameForStorage(game, playHistoryLimit);
+      compacted.gameOrder.push(game.id);
+    });
+    compacted.activeGameId = normalized.activeGameId;
+    return compacted;
+  }
+
+  function appStateForStorage(state) {
+    const next = clone(state || {});
+    next.games = [];
+    return next;
+  }
+
+  function releaseLegacyAppStateGames() {
+    const appState = loadAppState();
+    if (Array.isArray(appState?.games) && appState.games.length) {
+      saveAppState(appState);
+    }
   }
 
   function emptyLibrary() {
@@ -70,7 +130,7 @@ function createFallbackScorebookStorage(global) {
   }
 
   function saveAppState(state) {
-    global.localStorage.setItem(storageKey, JSON.stringify(state));
+    setJsonItem(storageKey, appStateForStorage(state));
     return clone(state);
   }
 
@@ -90,9 +150,17 @@ function createFallbackScorebookStorage(global) {
   }
 
   function saveLibrary(library) {
-    const normalized = normalizeLibrary(library);
-    global.localStorage.setItem(libraryKey, JSON.stringify(normalized));
-    return normalized;
+    const compacted = compactLibraryForStorage(library);
+    releaseLegacyAppStateGames();
+    try {
+      setJsonItem(libraryKey, compacted);
+      return compacted;
+    } catch (error) {
+      if (!isQuotaExceeded(error)) throw error;
+      const emergency = compactLibraryForStorage(library, 2);
+      setJsonItem(libraryKey, emergency);
+      return emergency;
+    }
   }
 
   function saveGame(game, setActive = true) {
@@ -236,6 +304,9 @@ const fieldPositionsWithoutPitcher = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "
 const battedBallResults = new Set(["1B", "2B", "3B", "HR", "ROE", "FC", "DP", "GO", "FO", "LO", "SAC"]);
 const scorebookFielderResults = new Set(["GO", "FO", "LO", "DP", "FC", "SAC", "ROE"]);
 const scorebookBaseRunningResults = new Set(["SB", "CS", "PO"]);
+const statEditSprayResults = ["1B", "2B", "3B", "HR", "GO", "LO", "FO"];
+const statEditSprayResultSet = new Set(statEditSprayResults);
+const statEditSprayHitResults = new Set(["1B", "2B", "3B", "HR"]);
 
 const PITTSBURGH_NABA_URL = "https://www.pittsburghnaba.org/teams/default.asp?s=baseball&u=PITTSBURGHNABA";
 const PITTSBURGH_NABA_STANDINGS_URL = "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA";
@@ -510,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.8";
+const APP_VERSION = "v.1.1.15";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -553,7 +624,9 @@ let statsSprayExpanded = false;
 let statEditPlayerId = "";
 let statEditGameId = "";
 let statEditSprays = [];
-let statEditSprayMode = "hit";
+let statEditSprayMode = "1B";
+let pitchingStatEditPlayerId = "";
+let pitchingStatEditGameId = "";
 let quickScoreGameId = "";
 let rosterFilter = "active";
 let rosterSearchQuery = "";
@@ -642,6 +715,10 @@ let scoringStepHoldConsumedButton = null;
 let scoringStepHoldConsumedAt = 0;
 let scoringStepPointerActionButton = null;
 let scoringStepPointerActionAt = 0;
+const POINTER_ACTION_CLICK_SUPPRESS_MS = 2500;
+let scoreGameRenderFlushTimer = null;
+let scoreGamePaintFlushFrame = 0;
+let localStorageSaveWarningShown = false;
 let lastPitchFeedback = null;
 let pitchFeedbackTimer = null;
 let pitchFeedbackSequence = 0;
@@ -656,7 +733,7 @@ const pendingSharedGameIds = new Set();
 const pendingDeletedSharedGameIds = new Set();
 let pendingServiceWorkerRefresh = false;
 const SUPABASE_REFRESH_THROTTLE_MS = 15000;
-const PLAY_HISTORY_LIMIT = 25;
+const PLAY_HISTORY_LIMIT = 8;
 const PITCH_FEEDBACK_DURATION_MS = 700;
 const ACTION_FEEDBACK_DURATION_MS = 600;
 const RUN_SCORE_FEEDBACK_DURATION_MS = 1500;
@@ -925,6 +1002,7 @@ const els = {
   subPlayerSelect: document.getElementById("subPlayerSelect"),
   subTypeSelect: document.getElementById("subTypeSelect"),
   subPositionSelect: document.getElementById("subPositionSelect"),
+  subMoveHint: document.getElementById("subMoveHint"),
   applySubBtn: document.getElementById("applySubBtn"),
   opponentSubPanel: document.getElementById("opponentSubPanel"),
   opponentMoveTypeSelect: document.getElementById("opponentMoveTypeSelect"),
@@ -1070,6 +1148,17 @@ const els = {
   statEditSprayMarkers: document.getElementById("statEditSprayMarkers"),
   statEditSprayList: document.getElementById("statEditSprayList"),
   statEditSprayModeButtons: [...document.querySelectorAll("[data-stat-edit-spray-mode]")],
+  pitchingStatEditGameSelectModal: document.getElementById("pitchingStatEditGameSelectModal"),
+  pitchingStatEditGameSelectTitle: document.getElementById("pitchingStatEditGameSelectTitle"),
+  pitchingStatEditGameSelectHint: document.getElementById("pitchingStatEditGameSelectHint"),
+  pitchingStatEditGameSelectList: document.getElementById("pitchingStatEditGameSelectList"),
+  closePitchingStatEditGameSelectBtn: document.getElementById("closePitchingStatEditGameSelectBtn"),
+  pitchingStatEditGameModal: document.getElementById("pitchingStatEditGameModal"),
+  pitchingStatEditGameTitle: document.getElementById("pitchingStatEditGameTitle"),
+  pitchingStatEditGameMeta: document.getElementById("pitchingStatEditGameMeta"),
+  pitchingStatEditGameForm: document.getElementById("pitchingStatEditGameForm"),
+  closePitchingStatEditGameBtn: document.getElementById("closePitchingStatEditGameBtn"),
+  cancelPitchingStatEditGameBtn: document.getElementById("cancelPitchingStatEditGameBtn"),
   quickScoreModal: document.getElementById("quickScoreModal"),
   quickScoreTitle: document.getElementById("quickScoreTitle"),
   quickScoreMeta: document.getElementById("quickScoreMeta"),
@@ -1090,8 +1179,34 @@ const els = {
     bb: document.getElementById("statEditBb"),
     hbp: document.getElementById("statEditHbp"),
     k: document.getElementById("statEditK"),
+    roe: document.getElementById("statEditRoe"),
+    errors: document.getElementById("statEditErrors"),
+    fc: document.getElementById("statEditFc"),
+    sac: document.getElementById("statEditSac"),
+    dp: document.getElementById("statEditDp"),
+    go: document.getElementById("statEditGo"),
+    lo: document.getElementById("statEditLo"),
+    fo: document.getElementById("statEditFo"),
+    sb: document.getElementById("statEditSb"),
+    cs: document.getElementById("statEditCs"),
+    po: document.getElementById("statEditPo"),
     rbi: document.getElementById("statEditRbi"),
     runs: document.getElementById("statEditRuns")
+  },
+  pitchingStatEditInputs: {
+    ip: document.getElementById("pitchingStatEditIp"),
+    pitches: document.getElementById("pitchingStatEditPitches"),
+    balls: document.getElementById("pitchingStatEditBalls"),
+    strikes: document.getElementById("pitchingStatEditStrikes"),
+    batters: document.getElementById("pitchingStatEditBatters"),
+    h: document.getElementById("pitchingStatEditH"),
+    hr: document.getElementById("pitchingStatEditHr"),
+    runs: document.getElementById("pitchingStatEditRuns"),
+    earnedRuns: document.getElementById("pitchingStatEditEarnedRuns"),
+    bb: document.getElementById("pitchingStatEditBb"),
+    hbp: document.getElementById("pitchingStatEditHbp"),
+    k: document.getElementById("pitchingStatEditK"),
+    decision: document.getElementById("pitchingStatEditDecision")
   },
   scoutingTeamSelect: document.getElementById("scoutingTeamSelect"),
   refreshScoutingBtn: document.getElementById("refreshScoutingBtn"),
@@ -2223,6 +2338,56 @@ function downloadTextFile(filename, text, mimeType = "text/plain;charset=utf-8")
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+function forceScoreGamePaintFlush() {
+  const node = document.getElementById("scoreView");
+  if (!node || !node.classList.contains("is-visible")) return;
+  scoreGamePaintFlushFrame += 1;
+  node.dataset.paintFlush = String(scoreGamePaintFlushFrame);
+  node.classList.add("is-score-paint-flush");
+  void node.offsetHeight;
+  window.requestAnimationFrame?.(() => {
+    node.classList.remove("is-score-paint-flush");
+  });
+}
+
+function renderScoreGameSurfacesForFlush() {
+  const game = activeScoreGame();
+  if (!game || currentView !== "score") return;
+  renderScoreEmptyState(game);
+  renderScoreboard();
+  renderAtBat();
+  renderScoringStepPanel();
+  renderRunnerTracker();
+  renderSprayChart();
+  renderPlayFeed();
+  renderLiveSyncStatus(game);
+  forceScoreGamePaintFlush();
+}
+
+function scheduleScoreGameRenderFlush(reason = "score-update") {
+  const game = activeScoreGame();
+  if (!game || currentView !== "score") return;
+  if (scoreGameRenderFlushTimer) {
+    window.clearTimeout(scoreGameRenderFlushTimer);
+    scoreGameRenderFlushTimer = null;
+  }
+  window.requestAnimationFrame?.(() => renderScoreGameSurfacesForFlush(reason));
+  scoreGameRenderFlushTimer = window.setTimeout(() => {
+    scoreGameRenderFlushTimer = null;
+    renderScoreGameSurfacesForFlush(reason);
+  }, 90);
+}
+
+function handleLocalStorageSaveError(error) {
+  console.warn("Unable to save scorebook state locally; continuing with in-memory scoring state.", error);
+  if (!localStorageSaveWarningShown) {
+    localStorageSaveWarningShown = true;
+    window.setTimeout(() => {
+      window.alert("This device is low on local scorebook storage. The app will keep scoring in memory and continue trying to save a compact copy. Sync or export the game when you can.");
+    }, 0);
+  }
+}
+
 function saveState(options = {}) {
   let activeGameObject = null;
   if (state?.games?.length) {
@@ -2235,13 +2400,22 @@ function saveState(options = {}) {
     activeGameObject = state.games.find((game) => game.id === state.activeGameId && game.status === "active" && !gameIsFinal(game));
     if (!activeGameObject) activeGameObject = state.games.find((game) => game.status === "active" && !gameIsFinal(game));
     state.activeGameId = activeGameObject?.id || "";
-    if (activeGameObject) storage.saveGame(activeGameObject, true);
-    const library = buildGameLibraryFromGames(state.games, state.activeGameId);
-    storage.saveLibrary(library);
   }
-  storage.saveAppState(state);
+  try {
+    storage.saveAppState(state);
+    if (state?.games?.length) {
+      if (activeGameObject) storage.saveGame(activeGameObject, true);
+      const library = buildGameLibraryFromGames(state.games, state.activeGameId);
+      storage.saveLibrary(library);
+    }
+  } catch (error) {
+    handleLocalStorageSaveError(error);
+  }
   if (activeGameObject && options.markLiveGamesDirty !== false) {
     queueLiveGameSnapshotSync(activeGameObject, options.liveSyncReason || "live-game-save");
+  }
+  if (activeGameObject && options.flushScoreRender !== false) {
+    scheduleScoreGameRenderFlush(options.liveSyncReason || "live-game-save");
   }
 }
 
@@ -3770,9 +3944,11 @@ function bindEvents() {
   });
   window.addEventListener("offline", render);
   window.addEventListener("focus", () => {
+    scheduleScoreGameRenderFlush("focus");
     requestSupabaseRefresh("focus");
   });
 window.addEventListener("pageshow", () => {
+  scheduleScoreGameRenderFlush("pageshow");
   requestSupabaseRefresh("pageshow", { force: true, skipWhenHidden: false });
 });
 
@@ -3784,6 +3960,7 @@ window.addEventListener("resize", () => {
 });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
+      scheduleScoreGameRenderFlush("visibility");
       requestSupabaseRefresh("visibility");
     }
   });
@@ -3898,6 +4075,8 @@ window.addEventListener("resize", () => {
   });
   els.applySubBtn.addEventListener("click", applySubstitution);
   els.subSpotSelect?.addEventListener("change", renderSubControls);
+  els.subTypeSelect?.addEventListener("change", renderSubControls);
+  els.subPlayerSelect?.addEventListener("change", renderSubControls);
   els.statsSprayPlayerSelect.addEventListener("change", renderStatsSprayChart);
   els.statsSprayGameSelect.addEventListener("change", renderStatsSprayChart);
   els.toggleStatsSprayBtn.addEventListener("click", () => {
@@ -3915,6 +4094,8 @@ window.addEventListener("resize", () => {
   });
   els.hittingStatsBody?.addEventListener("click", handleHittingStatsEditClick);
   els.mobileHittingStatsList?.addEventListener("click", handleHittingStatsEditClick);
+  els.pitchingStatsBody?.addEventListener("click", handlePitchingStatsEditClick);
+  els.mobilePitchingStatsList?.addEventListener("click", handlePitchingStatsEditClick);
   els.closeStatEditGameSelectBtn?.addEventListener("click", closeStatEditGameSelectModal);
   els.statEditGameSelectModal?.addEventListener("click", (event) => {
     if (event.target === els.statEditGameSelectModal) closeStatEditGameSelectModal();
@@ -3930,6 +4111,21 @@ window.addEventListener("resize", () => {
     if (event.target === els.statEditGameModal) closeStatEditGameModal();
   });
   els.statEditGameForm?.addEventListener("submit", saveStatEditGameStats);
+  els.closePitchingStatEditGameSelectBtn?.addEventListener("click", closePitchingStatEditGameSelectModal);
+  els.pitchingStatEditGameSelectModal?.addEventListener("click", (event) => {
+    if (event.target === els.pitchingStatEditGameSelectModal) closePitchingStatEditGameSelectModal();
+  });
+  els.pitchingStatEditGameSelectList?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-pitching-stat-edit-game-id]");
+    if (!button) return;
+    openPitchingStatEditGameModal(pitchingStatEditPlayerId, button.dataset.pitchingStatEditGameId);
+  });
+  els.closePitchingStatEditGameBtn?.addEventListener("click", closePitchingStatEditGameModal);
+  els.cancelPitchingStatEditGameBtn?.addEventListener("click", closePitchingStatEditGameModal);
+  els.pitchingStatEditGameModal?.addEventListener("click", (event) => {
+    if (event.target === els.pitchingStatEditGameModal) closePitchingStatEditGameModal();
+  });
+  els.pitchingStatEditGameForm?.addEventListener("submit", savePitchingStatEditGameStats);
   els.quickScoreForm?.addEventListener("submit", saveQuickScoreResult);
   els.quickScoreCancelBtn?.addEventListener("click", closeQuickScoreModal);
   els.quickScoreCloseBtn?.addEventListener("click", closeQuickScoreModal);
@@ -4015,6 +4211,14 @@ window.addEventListener("resize", () => {
     }
     if (els.statEditGameSelectModal && !els.statEditGameSelectModal.hidden) {
       closeStatEditGameSelectModal();
+      return;
+    }
+    if (els.pitchingStatEditGameModal && !els.pitchingStatEditGameModal.hidden) {
+      closePitchingStatEditGameModal();
+      return;
+    }
+    if (els.pitchingStatEditGameSelectModal && !els.pitchingStatEditGameSelectModal.hidden) {
+      closePitchingStatEditGameSelectModal();
       return;
     }
     closeCustomSubSelects();
@@ -4744,6 +4948,10 @@ function advanceHalfInning(game = activeGame()) {
       game.status = "completed";
     }
   }
+  game.inning = game.current.inning;
+  game.half = game.current.half;
+  game.outs = game.current.outs;
+  game.bases = deepClone(game.current.runners);
   game.current.batterId = currentBatterModelId(game);
   game.current.pitcherId = game.pitcherId || game.current.pitcherId || "";
   game.currentPlateAppearanceId = "";
@@ -4814,6 +5022,78 @@ function addSubstitution(game = activeGame(), substitution = {}) {
   return record;
 }
 
+function appendLionsLineupHitter(game = activeGame(), details = {}) {
+  syncGameCurrent(game);
+  const incomingPlayerId = details.incomingPlayerId || details.playerId;
+  const incomingPlayer = state.roster.find((player) => player.id === incomingPlayerId);
+  if (!incomingPlayerId || !incomingPlayer) return null;
+  const currentEntries = gameLineupEntries(game);
+  if (currentEntries.some((entry) => entry.playerId === incomingPlayerId)) return null;
+  const lineupIndex = currentEntries.length;
+  const role = details.role || playerPrimaryPosition(incomingPlayer) || defaultRoleForSpot(lineupIndex);
+  const record = {
+    id: createId("sub"),
+    gameId: game.id,
+    inning: game.current.inning,
+    half: game.current.half,
+    teamSide: lionsSide(game),
+    lineupEntryId: "",
+    outgoingPlayerId: "",
+    incomingPlayerId,
+    type: "append",
+    role,
+    notes: details.notes || "Hitter added to the end of the Lions lineup",
+    createdAt: new Date().toISOString()
+  };
+  const entry = {
+    id: createId("lineup"),
+    playerId: incomingPlayerId,
+    role,
+    order: lineupIndex + 1,
+    active: true,
+    note: "Added hitter"
+  };
+  game.lineupEntries = [...currentEntries, entry].map((item, index) => ({
+    ...item,
+    order: index + 1
+  }));
+  if (!game.lineups) game.lineups = { away: [], home: opponentLineupEntries(game.opponentLineup || []) };
+  game.lineups.away = deepClone(game.lineupEntries);
+  if (!game.substitutions) game.substitutions = [];
+  game.substitutions.push(record);
+  if (!game.events) game.events = [];
+  game.events.push({
+    id: createId("event"),
+    gameId: game.id,
+    playerId: incomingPlayerId,
+    playerName: incomingPlayer.name,
+    result: "ADD",
+    runs: 0,
+    rbi: 0,
+    contact: "none",
+    launch: "none",
+    leverage: "neutral",
+    inning: game.current.inning,
+    half: game.current.half,
+    outsBefore: game.current.outs,
+    basesBefore: deepClone(game.current.runners),
+    scope: "lineup",
+    teamSide: lionsSide(game),
+    teamLabel: "Lions",
+    substitutionId: record.id,
+    note: `#${incomingPlayer.number || "--"} ${incomingPlayer.name} added to spot ${lineupIndex + 1}.`,
+    pitches: [],
+    count: `${game.current.balls}-${game.current.strikes}`,
+    spray: null,
+    createdAt: record.createdAt,
+    snapshotBefore: liveGameSnapshot(game, {
+      lineupEntries: deepClone(currentEntries)
+    })
+  });
+  syncGameCurrent(game);
+  return record;
+}
+
 function selectChoice(group, value, silent = false) {
   const target = group === "result" ? els.resultSelect : group === "contact" ? els.contactSelect : group === "error" ? els.errorFielderSelect : els.launchSelect;
   if (!target) return;
@@ -4862,19 +5142,20 @@ function clearPendingPlayState(game = activeGame(), clearAtBat = false) {
   awaitingRunnerDecision = false;
   scoringStep = "pitch";
   if (clearAtBat && game?.atBat) game.atBat.pendingInPlay = false;
+  if (clearAtBat && game) game.pendingScoring = null;
 }
 
 function healOrphanedScoringStep(game = activeGame()) {
   if (!game?.atBat) return false;
   const hasRunnerChoices = Object.keys(pendingRunnerChoices || {}).length > 0;
-  const hasInPlayPitch = Boolean(
-    game.atBat.pendingInPlay ||
-      (game.atBat.pitches || []).some((pitch) => pitch?.inPlay || pitch?.type === "in_play")
-  );
-  const hasCompletedAtBatShell = !hasInPlayPitch && !(game.currentPlateAppearanceId || "");
+  const activePlateAppearance = (game.plateAppearances || []).find((appearance) => (
+    appearance?.id === game.currentPlateAppearanceId && !appearance.result
+  ));
+  const hasActivePlateAppearance = Boolean(activePlateAppearance);
+  const hasCompletedAtBatShell = !hasActivePlateAppearance;
   const stepIsOrphaned =
     (hasCompletedAtBatShell && ["outcome", "out_fielder", "spray", "runners"].includes(scoringStep)) ||
-    (scoringStep === "outcome" && !game.atBat.pendingInPlay) ||
+    (scoringStep === "outcome" && (!game.atBat.pendingInPlay || !hasActivePlateAppearance)) ||
     (scoringStep === "out_fielder" && !pendingOutType) ||
     (scoringStep === "spray" && !awaitingSprayLocation && !pendingSpray) ||
     (scoringStep === "runners" && !awaitingRunnerDecision && !hasRunnerChoices);
@@ -4888,11 +5169,15 @@ function setScoringStep(step) {
   renderScoringStepPanel();
 }
 
-function resetBipChoices() {
+function resetBipChoiceControls() {
   selectChoice("result", "1B", true);
   selectChoice("contact", "none", true);
   selectChoice("launch", "none", true);
   selectChoice("error", "", true);
+}
+
+function resetBipChoices() {
+  resetBipChoiceControls();
   clearPendingPlayState(activeGame(), false);
   renderRunnerTracker();
 }
@@ -5634,6 +5919,8 @@ function logPlay() {
   const rbi = automaticRbiForPlay(result, runs);
   const outsRecorded = result === "DP" ? 2 : undefined;
   const snapshotBefore = liveGameSnapshot(game);
+  const inningBeforePlay = game.inning;
+  const halfBeforePlay = game.half;
 
   finalizePlateAppearance(game, {
     type: result,
@@ -5650,11 +5937,14 @@ function logPlay() {
     notes: els.noteInput.value.trim(),
     snapshotBefore
   });
+  const halfInningChanged = game.inning !== inningBeforePlay || game.half !== halfBeforePlay;
   clearPendingPlayState(game, true);
 
   els.runsInput.value = "0";
   els.rbiInput.value = "0";
-  resetBipChoices();
+  resetBipChoiceControls();
+  if (halfInningChanged) clearPendingPlayState(game, true);
+  else renderRunnerTracker();
   els.noteInput.value = "";
   saveState();
   render();
@@ -7995,9 +8285,10 @@ function handleScoringPanelPointerUpAction(event) {
 function handleScoringPanelClick(event) {
   const button = closestFromEventTarget(event.target, "button");
   if (!button) return;
-  if (button === scoringStepPointerActionButton && Date.now() - scoringStepPointerActionAt < 700) {
+  if (button === scoringStepPointerActionButton) {
+    const shouldSuppressSyntheticClick = Date.now() - scoringStepPointerActionAt < POINTER_ACTION_CLICK_SUPPRESS_MS || !button.isConnected;
     scoringStepPointerActionButton = null;
-    return;
+    if (shouldSuppressSyntheticClick) return;
   }
   if (button === scoringStepHoldConsumedButton && Date.now() - scoringStepHoldConsumedAt < 700) {
     scoringStepHoldConsumedButton = null;
@@ -9579,18 +9870,32 @@ function pitcherStats(playerId, gameId = null, season = null) {
   games
     .filter(gameIsFinal)
     .forEach((game) => {
+      const manualDecision = normalizePitchingStatEdit(pitchingStatEditMap(game)[playerId], playerId, game).stats.decision;
+      if (manualDecision === "win") {
+        stats.wins += 1;
+        return;
+      }
+      if (manualDecision === "loss") {
+        stats.losses += 1;
+        return;
+      }
+      if (manualDecision === "noDecision") {
+        stats.noDecision += 1;
+        return;
+      }
+      if (hasPitchingStatEdit(game, playerId)) return;
       const decision = lionsPitchingDecision(game);
       if (decision.winPitcherId === playerId) stats.wins += 1;
       if (decision.lossPitcherId === playerId) stats.losses += 1;
       if (decision.noDecisionPitcherIds.includes(playerId)) stats.noDecision += 1;
     });
   games
-    .flatMap((game) => game.events)
-    .filter((event) => event.scope === "defense" && (
+    .flatMap((game) => pitchingEventsForStatsGame(game).map((event) => ({ event, game })))
+    .filter(({ event }) => event.scope === "defense" && (
       event.pitcherId === playerId ||
       (event.pitches || []).some((pitch) => pitch.pitcherId === playerId)
     ))
-    .forEach((event) => {
+    .forEach(({ event, game }) => {
       const rule = eventRules[event.result] || {};
       const isPitcherOfRecord = event.pitcherId === playerId;
       if (isPitcherOfRecord) {
@@ -9602,7 +9907,7 @@ function pitcherStats(playerId, gameId = null, season = null) {
         stats.bb += event.result === "BB" ? 1 : 0;
         stats.hbp += event.result === "HBP" ? 1 : 0;
         stats.runs += event.runs || 0;
-        stats.earnedRuns += earnedRunMaps.get(event.gameId)?.get(event.id) || 0;
+        stats.earnedRuns += pitchingEventEarnedRuns(event, earnedRunMaps.get(game.id));
       }
       (event.pitches || []).forEach((pitch) => {
         if (pitch.pitcherId) {
@@ -10099,10 +10404,10 @@ function renderSubControls() {
       })
       .join("");
   }
-  const moveType = els.opponentMoveTypeSelect?.value || "sub";
-  if (els.opponentMoveSpotSelect) els.opponentMoveSpotSelect.disabled = moveType === "append";
+  const opponentMoveType = els.opponentMoveTypeSelect?.value || "sub";
+  if (els.opponentMoveSpotSelect) els.opponentMoveSpotSelect.disabled = opponentMoveType === "append";
   if (els.opponentMoveHint) {
-    els.opponentMoveHint.textContent = moveType === "append"
+    els.opponentMoveHint.textContent = opponentMoveType === "append"
       ? `This hitter will be added as spot ${opponentEntries.length + 1} and join the order the next time it turns over.`
       : "Choose the lineup spot to replace, then enter the new hitter's name and number.";
   }
@@ -10114,6 +10419,8 @@ function renderSubControls() {
     return;
   }
   const entries = gameLineupEntries(game);
+  const moveType = els.subTypeSelect?.value || "sub";
+  const appendMode = moveType === "append";
   const selectedSpot = els.subSpotSelect.value || entries[0]?.id || "";
   els.subSpotSelect.innerHTML = entries
     .map((entry, index) => {
@@ -10121,15 +10428,39 @@ function renderSubControls() {
       return `<option value="${entry.id}" ${entry.id === selectedSpot ? "selected" : ""}>${index + 1}. ${escapeHtml(player?.name || "Empty")} (${escapeHtml(entry.role)})</option>`;
     })
     .join("");
+  els.subSpotSelect.disabled = appendMode;
   const activeIds = new Set(entries.map((entry) => entry.playerId));
+  const eligiblePlayers = state.roster.filter((player) => !activeIds.has(player.id));
+  const selectedPlayerId = els.subPlayerSelect.value;
   els.subPlayerSelect.innerHTML = state.roster
     .map((player) => `<option value="${player.id}" ${activeIds.has(player.id) ? "disabled" : ""}>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</option>`)
     .join("");
+  if (eligiblePlayers.some((player) => player.id === selectedPlayerId)) {
+    els.subPlayerSelect.value = selectedPlayerId;
+  } else if (eligiblePlayers[0]) {
+    els.subPlayerSelect.value = eligiblePlayers[0].id;
+  }
+  els.subPlayerSelect.disabled = !eligiblePlayers.length;
+  const selectedPlayer = state.roster.find((player) => player.id === els.subPlayerSelect.value);
   if (els.subPositionSelect) {
     const selectedEntry = entries.find((entry) => entry.id === (els.subSpotSelect.value || selectedSpot)) || entries[0];
+    const preferredPosition = appendMode
+      ? playerPrimaryPosition(selectedPlayer) || defaultRoleForSpot(entries.length)
+      : selectedEntry?.role;
     els.subPositionSelect.innerHTML = lineupPositions
-      .map((position) => `<option value="${position}" ${position === selectedEntry?.role ? "selected" : ""}>${position}</option>`)
+      .map((position) => `<option value="${position}" ${position === preferredPosition ? "selected" : ""}>${position}</option>`)
       .join("");
+  }
+  if (els.subMoveHint) {
+    els.subMoveHint.textContent = appendMode
+      ? `This hitter will be added as spot ${entries.length + 1} and join the order the next time it turns over.`
+      : moveType === "ph"
+        ? "Choose the lineup spot to replace with a pinch hitter."
+        : "Choose the lineup spot to replace with a defensive substitute.";
+  }
+  if (els.applySubBtn) {
+    els.applySubBtn.textContent = appendMode ? "Add Lions Hitter" : "Apply";
+    els.applySubBtn.disabled = !eligiblePlayers.length || (!appendMode && !entries.length);
   }
   syncCustomSubControls();
 }
@@ -10139,8 +10470,20 @@ function applySubstitution() {
   const game = activeGame();
   const entryId = els.subSpotSelect.value;
   const playerId = els.subPlayerSelect.value;
-  if (!entryId || !playerId) return;
+  if (!playerId) return;
   const type = els.subTypeSelect.value;
+  if (type === "append") {
+    const record = appendLionsLineupHitter(game, {
+      incomingPlayerId: playerId,
+      role: els.subPositionSelect?.value || "",
+      notes: "Hitter added to the end of the Lions lineup"
+    });
+    if (!record) return;
+    saveState();
+    render();
+    return;
+  }
+  if (!entryId) return;
   addSubstitution(game, {
     lineupEntryId: entryId,
     incomingPlayerId: playerId,
@@ -11063,7 +11406,7 @@ function getSeasonHittingRows() {
 function getSeasonPitchingRows() {
   return state.roster
     .map((player) => ({ player, pit: pitcherStats(player.id, null, statsSeasonFilter) }))
-    .filter(({ pit }) => hasPitchingStats(pit))
+    .filter(({ player, pit }) => hasPitchingStats(pit) || playerHasPosition(player, "P"))
     .sort((a, b) => comparePitchingRows(a, b));
 }
 
@@ -11081,9 +11424,10 @@ function getMobileHittingRows(playerId = "all", gameId = "all") {
   return state.roster
     .map((player) => ({
       player,
-      hit: statsForPlayer(player.id, statsSeasonFilter, gameId === "all" ? null : gameId)
+      hit: statsForPlayer(player.id, statsSeasonFilter, gameId === "all" ? null : gameId),
+      gp: gamesPlayedForPlayer(player.id, statsSeasonFilter)
     }))
-    .filter(({ player, hit }) => (playerId === "all" || player.id === playerId) && hit.pa > 0)
+    .filter(({ player, hit, gp }) => (playerId === "all" || player.id === playerId) && (hit.pa > 0 || gp > 0))
     .sort((a, b) => compareHittingRows(a, b));
 }
 
@@ -11093,7 +11437,7 @@ function getMobilePitchingRows(playerId = "all", gameId = "all") {
       player,
       pit: pitcherStats(player.id, gameId === "all" ? null : gameId, statsSeasonFilter)
     }))
-    .filter(({ player, pit }) => (playerId === "all" || player.id === playerId) && hasPitchingStats(pit))
+    .filter(({ player, pit }) => (playerId === "all" || player.id === playerId) && (hasPitchingStats(pit) || playerHasPosition(player, "P")))
     .sort((a, b) => comparePitchingRows(a, b));
 }
 
@@ -11330,9 +11674,9 @@ function teamPitchingStats(season = null) {
       if (lionsRuns < opponentRuns) stats.losses += 1;
     });
   games
-    .flatMap((game) => game.events)
-    .filter((event) => event.scope === "defense" && event.pitcherId)
-    .forEach((event) => {
+    .flatMap((game) => pitchingEventsForStatsGame(game).map((event) => ({ event, game })))
+    .filter(({ event }) => event.scope === "defense" && event.pitcherId)
+    .forEach(({ event, game }) => {
       const rule = eventRules[event.result] || {};
       stats.batters += rule.pa ? 1 : 0;
       stats.outs += Math.max(0, (event.outsAfter ?? event.outsBefore ?? 0) - (event.outsBefore ?? 0)) || (rule.out ? 1 : 0);
@@ -11342,7 +11686,7 @@ function teamPitchingStats(season = null) {
       stats.bb += event.result === "BB" ? 1 : 0;
       stats.hbp += event.result === "HBP" ? 1 : 0;
       stats.runs += event.runs || 0;
-      stats.earnedRuns += earnedRunMaps.get(event.gameId)?.get(event.id) || 0;
+      stats.earnedRuns += pitchingEventEarnedRuns(event, earnedRunMaps.get(game.id));
       (event.pitches || []).forEach((pitch) => {
         stats.pitches += 1;
         if (pitch.type === "ball") stats.balls += 1;
@@ -13336,6 +13680,15 @@ function statsEditButtonMarkup(player) {
   </button>`;
 }
 
+function pitchingStatsEditButtonMarkup(player) {
+  return `<button type="button" class="stats-row-edit-button" data-edit-pitching-player="${escapeHtml(player.id)}" aria-label="Edit pitching stats for #${escapeHtml(player.number)} ${escapeHtml(player.name)}">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 20h9"></path>
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+    </svg>
+  </button>`;
+}
+
 function renderSeasonStats() {
   populateStatsSeasonSelect();
   applyStatsPageMode();
@@ -13404,10 +13757,11 @@ function renderSeasonStats() {
         <td>${pit.r9.toFixed(1)}</td>
         <td>${pit.whip.toFixed(2)}</td>
         <td>${pit.pitchesPerInning.toFixed(1)}</td>
+        <td class="stats-row-edit-cell">${pitchingStatsEditButtonMarkup(player)}</td>
       </tr>`;
     })
     .join("")
-    || `<tr><td colspan="23" class="stats-empty-row">No pitching stats yet.</td></tr>`;
+    || `<tr><td colspan="24" class="stats-empty-row">No pitching stats yet.</td></tr>`;
   if (els.statsHittingMeta) {
     els.statsHittingMeta.textContent = focusedPlayerId
       ? `${statsSeasonLabel()} batting lines for ${playerDisplayName(focusedPlayerId)} across completed and in-progress games.`
@@ -13422,7 +13776,7 @@ function renderSeasonStats() {
   const mobileHittingRows = getMobileHittingRows(mobileHitPlayerFilter, mobileHitGameFilter);
   if (els.mobileHittingStatsList) {
     els.mobileHittingStatsList.innerHTML = mobileHittingRows.length
-      ? mobileHittingRows.map(({ player, hit }) => {
+      ? mobileHittingRows.map(({ player, hit, gp }) => {
         return `<article class="stats-mobile-card">
           <div class="stats-mobile-card-head">
             <div>
@@ -13431,6 +13785,7 @@ function renderSeasonStats() {
             ${statsEditButtonMarkup(player)}
           </div>
           <div class="stats-mobile-pill-grid">
+            ${mobileStatPill("GP", gp)}
             ${mobileStatPill("PA", hit.pa)}
             ${mobileStatPill("AVG", formatRate(hit.avg))}
             ${mobileStatPill("H", hit.h)}
@@ -13453,6 +13808,7 @@ function renderSeasonStats() {
             <div>
               <strong>#${escapeHtml(player.number)} ${escapeHtml(player.name)}</strong>
             </div>
+            ${pitchingStatsEditButtonMarkup(player)}
           </div>
           <div class="stats-mobile-pill-grid">
             ${mobileStatPill("W-L", `${pit.wins}-${pit.losses}`)}
@@ -13570,6 +13926,13 @@ function handleHittingStatsEditClick(event) {
   openStatEditGameSelectModal(button.dataset.editHittingPlayer || "");
 }
 
+function handlePitchingStatsEditClick(event) {
+  const button = event.target.closest("[data-edit-pitching-player]");
+  if (!button) return;
+  event.preventDefault();
+  openPitchingStatEditGameSelectModal(button.dataset.editPitchingPlayer || "");
+}
+
 function statEditPlayer() {
   return state.roster.find((player) => player.id === statEditPlayerId) || null;
 }
@@ -13589,9 +13952,15 @@ function playerHasStatsInGame(playerId, game) {
   );
 }
 
+function gameAvailableForHittingStatEdit(playerId, game) {
+  if (!game) return false;
+  if (gameIsFinal(game)) return true;
+  return playerHasStatsInGame(playerId, game);
+}
+
 function hittingStatEditGames(playerId) {
   return statsGamesForSeason(statsSeasonFilter)
-    .filter((game) => playerHasStatsInGame(playerId, game))
+    .filter((game) => gameAvailableForHittingStatEdit(playerId, game))
     .sort((a, b) => String(b?.date || "").localeCompare(String(a?.date || "")) || String(b?.time || "").localeCompare(String(a?.time || "")));
 }
 
@@ -13630,6 +13999,7 @@ function renderStatEditGameSelectModal() {
   els.statEditGameSelectList.innerHTML = games.length
     ? games.map((game) => {
       const edited = hasHittingStatEdit(game, player.id);
+      const playerHasLine = playerHasStatsInGame(player.id, game);
       return `<button type="button" class="stat-edit-game-option${edited ? " is-edited" : ""}" data-stat-edit-game-id="${escapeHtml(game.id)}">
         <span class="stat-edit-game-date">${escapeHtml(formatGameDateWithYear(game.date))}</span>
         <span class="stat-edit-game-copy">
@@ -13638,11 +14008,11 @@ function renderStatEditGameSelectModal() {
         </span>
         <span class="stat-edit-game-line">
           <strong>${escapeHtml(statEditGameLine(player.id, game))}</strong>
-          <small>${edited ? "Manual edit saved" : "Scored line"}</small>
+          <small>${edited ? "Manual edit saved" : playerHasLine ? "Scored line" : "Ready for manual entry"}</small>
         </span>
       </button>`;
     }).join("")
-    : `<p class="stat-edit-empty">No scored or lineup games are available for this player in ${escapeHtml(statsSeasonLabel())}.</p>`;
+    : `<p class="stat-edit-empty">No completed or scored games are available in ${escapeHtml(statsSeasonLabel())}.</p>`;
 }
 
 function gameSpraysForEditDraft(playerId, game) {
@@ -13666,6 +14036,8 @@ function hittingStatEditDraft(playerId, game) {
   const existing = hittingStatEditMap(game)[playerId];
   if (existing) return normalizeHittingStatEdit(existing, playerId, game);
   const hit = statsForPlayer(playerId, statsSeasonFilter, game.id);
+  const gameEvents = offensiveEventsForStatsGame(game).filter((event) => event.playerId === playerId);
+  const resultCount = (result) => gameEvents.filter((event) => event.result === result).length;
   return normalizeHittingStatEdit({
     playerId,
     gameId: game.id,
@@ -13679,6 +14051,17 @@ function hittingStatEditDraft(playerId, game) {
       bb: hit.bb,
       hbp: hit.hbp,
       k: hit.k,
+      roe: hit.roe,
+      errors: hit.errors,
+      fc: resultCount("FC"),
+      sac: hit.sac,
+      dp: hit.dp,
+      go: resultCount("GO"),
+      lo: resultCount("LO"),
+      fo: resultCount("FO"),
+      sb: hit.sb,
+      cs: hit.cs,
+      po: hit.po,
       rbi: hit.rbi,
       runs: runsScoredForPlayer(playerId, statsSeasonFilter, game.id)
     },
@@ -13696,7 +14079,7 @@ function openStatEditGameModal(playerId, gameId) {
   const draft = hittingStatEditDraft(playerId, game);
   setStatEditInputs(draft.stats);
   statEditSprays = normalizeStatEditSprays(draft.sprays);
-  setStatEditSprayMode("hit");
+  setStatEditSprayMode("1B");
   renderStatEditSprayEditor();
   if (els.statEditGameTitle) els.statEditGameTitle.textContent = "Edit Game Stats";
   if (els.statEditGameMeta) {
@@ -13714,7 +14097,8 @@ function closeStatEditGameModal() {
 function setStatEditInputs(stats = {}) {
   Object.entries(els.statEditInputs || {}).forEach(([key, input]) => {
     if (!input) return;
-    input.value = String(Number(stats[key] || 0));
+    const value = Number(stats[key] || 0);
+    input.value = value > 0 ? String(value) : "";
   });
 }
 
@@ -13726,8 +14110,8 @@ function collectStatEditInputs() {
   return normalizeManualHittingStats(raw);
 }
 
-function setStatEditSprayMode(mode = "hit") {
-  statEditSprayMode = mode === "out" ? "out" : "hit";
+function setStatEditSprayMode(mode = "1B") {
+  statEditSprayMode = normalizeStatEditSprayResult(mode);
   els.statEditSprayModeButtons?.forEach((button) => {
     const active = button.dataset.statEditSprayMode === statEditSprayMode;
     button.classList.toggle("is-active", active);
@@ -13749,12 +14133,13 @@ function addStatEditSprayFromPointer(event) {
 function addStatEditSprayAt(x, y) {
   const nextX = Math.max(4, Math.min(96, Math.round(Number(x) || 50)));
   const nextY = Math.max(4, Math.min(96, Math.round(Number(y) || 45)));
+  const result = normalizeStatEditSprayResult(statEditSprayMode);
   statEditSprays = normalizeStatEditSprays([
     ...statEditSprays,
     {
       id: createId("spray"),
-      type: statEditSprayMode,
-      result: statEditSprayMode === "out" ? "GO" : "1B",
+      type: statEditSprayTypeForResult(result),
+      result,
       x: nextX,
       y: nextY,
       zone: sprayZone(nextX, nextY),
@@ -13775,8 +14160,8 @@ function renderStatEditSprayEditor() {
   if (els.statEditSprayMarkers) {
     els.statEditSprayMarkers.innerHTML = sprays.length
       ? sprays.map((spray) => {
-        const label = spray.type === "out" ? "O" : "H";
-        return `<span class="spray-dot ${escapeHtml(spray.type)}" style="left:${spray.x}%;top:${spray.y}%;" title="${escapeHtml(`${spray.type === "out" ? "Out" : "Hit"}: ${spray.zone}`)}">${label}</span>`;
+        const label = spray.result || (spray.type === "out" ? "GO" : "1B");
+        return `<span class="spray-dot ${escapeHtml(spray.type)}" style="left:${spray.x}%;top:${spray.y}%;" title="${escapeHtml(`${resultLabel(label)}: ${spray.zone}`)}">${escapeHtml(label)}</span>`;
       }).join("")
       : `<span class="spray-empty">Tap the field to add a spray dot</span>`;
   }
@@ -13784,7 +14169,7 @@ function renderStatEditSprayEditor() {
     els.statEditSprayList.innerHTML = sprays.length
       ? sprays.map((spray, index) => `<div class="stat-edit-spray-row">
         <span>
-          <strong>${index + 1}. ${spray.type === "out" ? "Out" : "Hit"}</strong>
+          <strong>${index + 1}. ${escapeHtml(spray.result)} - ${escapeHtml(resultLabel(spray.result))}</strong>
           <small>${escapeHtml(spray.zone)} | ${spray.x}, ${spray.y}</small>
         </span>
         <button type="button" class="secondary-action compact-action" data-stat-edit-spray-remove="${escapeHtml(spray.id)}">Remove</button>
@@ -13817,6 +14202,198 @@ function saveStatEditGameStats(event) {
   render();
   requestSharedSnapshotSync("game-stat-edit");
   requestCompletedGameSyncRetry("game-stat-edit");
+}
+
+function pitchingStatEditPlayer() {
+  return state.roster.find((player) => player.id === pitchingStatEditPlayerId) || null;
+}
+
+function pitchingStatEditGame() {
+  return state.games.find((game) => game.id === pitchingStatEditGameId) || null;
+}
+
+function playerHasPitchingStatsInGame(playerId, game) {
+  if (!playerId || !game) return false;
+  if (hasPitchingStatEdit(game, playerId)) return true;
+  if (game?.pitcherId === playerId || game?.current?.pitcherId === playerId) return true;
+  if ((game?.lineupEntries || []).some((entry) => entry?.playerId === playerId && entry?.role === "P")) return true;
+  return (game?.events || []).some((event) =>
+    event.scope === "defense"
+      && (event.pitcherId === playerId || (event.pitches || []).some((pitch) => pitch.pitcherId === playerId))
+  );
+}
+
+function gameAvailableForPitchingStatEdit(playerId, game) {
+  if (!game) return false;
+  if (gameIsFinal(game)) return true;
+  return playerHasPitchingStatsInGame(playerId, game);
+}
+
+function pitchingStatEditGames(playerId) {
+  return statsGamesForSeason(statsSeasonFilter)
+    .filter((game) => gameAvailableForPitchingStatEdit(playerId, game))
+    .sort((a, b) => String(b?.date || "").localeCompare(String(a?.date || "")) || String(b?.time || "").localeCompare(String(a?.time || "")));
+}
+
+function pitchingStatEditGameLine(playerId, game) {
+  const pit = pitcherStats(playerId, game.id, statsSeasonFilter);
+  return `${formatInnings(pit.outs)} IP | ${pit.pitches} NP | ${pit.runs} R | ${pit.k} K`;
+}
+
+function pitchingDecisionForEdit(playerId, game) {
+  const existing = normalizePitchingStatEdit(pitchingStatEditMap(game)[playerId], playerId, game).stats.decision;
+  if (existing) return existing;
+  if (!gameIsFinal(game)) return "";
+  const decision = lionsPitchingDecision(game);
+  if (decision.winPitcherId === playerId) return "win";
+  if (decision.lossPitcherId === playerId) return "loss";
+  if (decision.noDecisionPitcherIds.includes(playerId)) return "noDecision";
+  return "";
+}
+
+function pitchingStatEditDraft(playerId, game) {
+  const existing = pitchingStatEditMap(game)[playerId];
+  if (existing) return normalizePitchingStatEdit(existing, playerId, game);
+  const pit = pitcherStats(playerId, game.id, statsSeasonFilter);
+  return normalizePitchingStatEdit({
+    playerId,
+    gameId: game.id,
+    stats: {
+      outs: pit.outs,
+      pitches: pit.pitches,
+      balls: pit.balls,
+      strikes: pit.strikes,
+      batters: pit.batters,
+      h: pit.h,
+      hr: pit.hr,
+      runs: pit.runs,
+      earnedRuns: pit.earnedRuns,
+      bb: pit.bb,
+      hbp: pit.hbp,
+      k: pit.k,
+      decision: pitchingDecisionForEdit(playerId, game)
+    }
+  }, playerId, game);
+}
+
+function openPitchingStatEditGameSelectModal(playerId) {
+  if (!requireAdminAccess("Admin sign-in required to edit pitching stats.")) return;
+  const player = state.roster.find((item) => item.id === playerId);
+  if (!player || !els.pitchingStatEditGameSelectModal) return;
+  pitchingStatEditPlayerId = playerId;
+  pitchingStatEditGameId = "";
+  renderPitchingStatEditGameSelectModal();
+  els.pitchingStatEditGameSelectModal.hidden = false;
+  window.setTimeout(() => {
+    els.pitchingStatEditGameSelectList?.querySelector("button")?.focus();
+    if (!els.pitchingStatEditGameSelectList?.querySelector("button")) els.closePitchingStatEditGameSelectBtn?.focus();
+  }, 0);
+}
+
+function closePitchingStatEditGameSelectModal() {
+  if (els.pitchingStatEditGameSelectModal) els.pitchingStatEditGameSelectModal.hidden = true;
+}
+
+function renderPitchingStatEditGameSelectModal() {
+  const player = pitchingStatEditPlayer();
+  if (!player || !els.pitchingStatEditGameSelectList) return;
+  if (els.pitchingStatEditGameSelectTitle) els.pitchingStatEditGameSelectTitle.textContent = "Select Game to Edit";
+  if (els.pitchingStatEditGameSelectHint) {
+    els.pitchingStatEditGameSelectHint.textContent = `Choose a game-level pitching line for #${player.number || "--"} ${player.name}. Season rates stay calculated from saved game lines.`;
+  }
+  const games = pitchingStatEditGames(player.id);
+  els.pitchingStatEditGameSelectList.innerHTML = games.length
+    ? games.map((game) => {
+      const edited = hasPitchingStatEdit(game, player.id);
+      const playerHasLine = playerHasPitchingStatsInGame(player.id, game);
+      return `<button type="button" class="stat-edit-game-option${edited ? " is-edited" : ""}" data-pitching-stat-edit-game-id="${escapeHtml(game.id)}">
+        <span class="stat-edit-game-date">${escapeHtml(formatGameDateWithYear(game.date))}</span>
+        <span class="stat-edit-game-copy">
+          <strong>${escapeHtml(gameMatchupLabel(game))}</strong>
+          <small>${escapeHtml(gameScoreLabel(game))}</small>
+        </span>
+        <span class="stat-edit-game-line">
+          <strong>${escapeHtml(pitchingStatEditGameLine(player.id, game))}</strong>
+          <small>${edited ? "Manual edit saved" : playerHasLine ? "Scored line" : "Ready for manual entry"}</small>
+        </span>
+      </button>`;
+    }).join("")
+    : `<p class="stat-edit-empty">No completed or scored games are available in ${escapeHtml(statsSeasonLabel())}.</p>`;
+}
+
+function openPitchingStatEditGameModal(playerId, gameId) {
+  if (!requireAdminAccess("Admin sign-in required to edit pitching stats.")) return;
+  const player = state.roster.find((item) => item.id === playerId);
+  const game = state.games.find((item) => item.id === gameId);
+  if (!player || !game || !els.pitchingStatEditGameModal) return;
+  pitchingStatEditPlayerId = playerId;
+  pitchingStatEditGameId = gameId;
+  const draft = pitchingStatEditDraft(playerId, game);
+  setPitchingStatEditInputs(draft.stats);
+  if (els.pitchingStatEditGameTitle) els.pitchingStatEditGameTitle.textContent = "Edit Pitching Stats";
+  if (els.pitchingStatEditGameMeta) {
+    els.pitchingStatEditGameMeta.textContent = `#${player.number || "--"} ${player.name} | ${formatGameDateWithYear(game.date)} | ${gameMatchupLabel(game)}`;
+  }
+  closePitchingStatEditGameSelectModal();
+  els.pitchingStatEditGameModal.hidden = false;
+  window.setTimeout(() => els.pitchingStatEditInputs?.ip?.focus(), 0);
+}
+
+function closePitchingStatEditGameModal() {
+  if (els.pitchingStatEditGameModal) els.pitchingStatEditGameModal.hidden = true;
+}
+
+function pitchingStatInputValue(stats = {}, key = "") {
+  const value = Number(stats[key] || 0);
+  return value > 0 ? String(value) : "";
+}
+
+function setPitchingStatEditInputs(stats = {}) {
+  Object.entries(els.pitchingStatEditInputs || {}).forEach(([key, input]) => {
+    if (!input) return;
+    if (key === "ip") {
+      input.value = Number(stats.outs || 0) > 0 ? formatInnings(stats.outs) : "";
+      return;
+    }
+    if (key === "decision") {
+      input.value = normalizePitchingDecision(stats.decision);
+      return;
+    }
+    input.value = pitchingStatInputValue(stats, key);
+  });
+}
+
+function collectPitchingStatEditInputs() {
+  const raw = {};
+  Object.entries(els.pitchingStatEditInputs || {}).forEach(([key, input]) => {
+    raw[key] = input ? input.value : "";
+  });
+  return normalizeManualPitchingStats(raw);
+}
+
+function savePitchingStatEditGameStats(event) {
+  event.preventDefault();
+  if (!requireAdminAccess("Admin sign-in required to edit pitching stats.")) return;
+  const game = pitchingStatEditGame();
+  const player = pitchingStatEditPlayer();
+  if (!game || !player) return;
+  const edit = normalizePitchingStatEdit({
+    playerId: player.id,
+    gameId: game.id,
+    stats: collectPitchingStatEditInputs(),
+    updatedAt: new Date().toISOString()
+  }, player.id, game);
+  pitchingStatEditMap(game)[player.id] = edit;
+  markSharedGamesDirty(game.id);
+  if (gameIsFinal(game)) {
+    markGameSyncPending(game);
+    queueCompletedGameSync(game.id, { reason: "pitching-stat-edit" });
+  }
+  saveStateWithOptions({ liveSyncReason: "pitching-stat-edit" });
+  closePitchingStatEditGameModal();
+  render();
+  requestSharedSnapshotSync("pitching-stat-edit");
+  requestCompletedGameSyncRetry("pitching-stat-edit");
 }
 
 function renderLeaders() {
@@ -14206,21 +14783,48 @@ function hasHittingStatEdit(game, playerId) {
   return Boolean(game && playerId && Object.prototype.hasOwnProperty.call(hittingStatEditMap(game), playerId));
 }
 
-function normalizeManualHittingStats(input = {}) {
-  let doubles = clampNumber(input.doubles ?? input["2B"] ?? 0, 0, 99);
-  let triples = clampNumber(input.triples ?? input["3B"] ?? 0, 0, 99);
-  let hr = clampNumber(input.hr ?? input.HR ?? 0, 0, 99);
-  let singles = clampNumber(input.singles ?? input["1B"] ?? 0, 0, 99);
-  let h = clampNumber(input.h ?? input.H ?? singles + doubles + triples + hr, 0, 99);
-  const extraBaseHits = doubles + triples + hr;
-  if (h !== singles + extraBaseHits) {
-    if (h >= extraBaseHits) singles = h - extraBaseHits;
-    else h = singles + extraBaseHits;
+function pitchingStatEditMap(game) {
+  if (!game) return {};
+  if (!game.pitchingStatEdits || typeof game.pitchingStatEdits !== "object" || Array.isArray(game.pitchingStatEdits)) {
+    game.pitchingStatEdits = {};
   }
-  let ab = clampNumber(input.ab ?? input.AB ?? h, 0, 99);
-  if (ab < h) ab = h;
-  const nonHitAtBats = Math.max(0, ab - h);
-  const k = Math.min(clampNumber(input.k ?? input.K ?? 0, 0, 99), nonHitAtBats);
+  return game.pitchingStatEdits;
+}
+
+function hasPitchingStatEdit(game, playerId) {
+  return Boolean(game && playerId && Object.prototype.hasOwnProperty.call(pitchingStatEditMap(game), playerId));
+}
+
+function manualStatValue(input = {}, ...keys) {
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(input, key)) continue;
+    const value = input[key];
+    if (value === null || value === undefined || String(value).trim() === "") continue;
+    return clampNumber(value, 0, 99);
+  }
+  return null;
+}
+
+function normalizeManualHittingStats(input = {}) {
+  let doubles = manualStatValue(input, "doubles", "2B") ?? 0;
+  let triples = manualStatValue(input, "triples", "3B") ?? 0;
+  let hr = manualStatValue(input, "hr", "HR") ?? 0;
+  let singles = manualStatValue(input, "singles", "1B") ?? 0;
+  let h = manualStatValue(input, "h", "H") ?? singles + doubles + triples + hr;
+  const hitBreakdown = singles + doubles + triples + hr;
+  if (h < hitBreakdown) h = hitBreakdown;
+  if (h > hitBreakdown) singles += h - hitBreakdown;
+  const k = manualStatValue(input, "k", "K") ?? 0;
+  const roe = manualStatValue(input, "roe", "ROE") ?? 0;
+  const fc = manualStatValue(input, "fc", "FC") ?? 0;
+  const sac = manualStatValue(input, "sac", "SAC") ?? 0;
+  const dp = manualStatValue(input, "dp", "DP") ?? 0;
+  const go = manualStatValue(input, "go", "GO") ?? 0;
+  const lo = manualStatValue(input, "lo", "LO") ?? 0;
+  const fo = manualStatValue(input, "fo", "FO") ?? 0;
+  const explicitAtBats = h + k + roe + fc + dp + go + lo + fo;
+  let ab = manualStatValue(input, "ab", "AB") ?? explicitAtBats;
+  if (ab < explicitAtBats) ab = explicitAtBats;
   return {
     ab,
     h,
@@ -14228,12 +14832,95 @@ function normalizeManualHittingStats(input = {}) {
     doubles,
     triples,
     hr,
-    bb: clampNumber(input.bb ?? input.BB ?? 0, 0, 99),
-    hbp: clampNumber(input.hbp ?? input.HBP ?? 0, 0, 99),
+    bb: manualStatValue(input, "bb", "BB") ?? 0,
+    hbp: manualStatValue(input, "hbp", "HBP") ?? 0,
     k,
-    rbi: clampNumber(input.rbi ?? input.RBI ?? 0, 0, 99),
-    runs: clampNumber(input.runs ?? input.R ?? 0, 0, 99)
+    roe,
+    errors: manualStatValue(input, "errors", "E") ?? 0,
+    fc,
+    sac,
+    dp,
+    go,
+    lo,
+    fo,
+    sb: manualStatValue(input, "sb", "SB") ?? 0,
+    cs: manualStatValue(input, "cs", "CS") ?? 0,
+    po: manualStatValue(input, "po", "PO") ?? 0,
+    rbi: manualStatValue(input, "rbi", "RBI") ?? 0,
+    runs: manualStatValue(input, "runs", "R") ?? 0
   };
+}
+
+function normalizePitchingDecision(value = "") {
+  return ["win", "loss", "noDecision"].includes(value) ? value : "";
+}
+
+function parsePitchingOuts(value) {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  const raw = String(value).trim();
+  if (/^\d+(?:\.[012])?$/.test(raw)) {
+    const [inningsRaw, outsRaw = "0"] = raw.split(".");
+    return clampNumber(inningsRaw, 0, 99) * 3 + clampNumber(outsRaw, 0, 2);
+  }
+  return clampNumber(raw, 0, 297);
+}
+
+function normalizeManualPitchingStats(input = {}) {
+  const storedOuts = manualStatValue(input, "outs", "OUTS");
+  let outs = parsePitchingOuts(input.ip ?? input.IP);
+  if (outs === null) outs = storedOuts ?? 0;
+  let h = manualStatValue(input, "h", "H") ?? 0;
+  const hr = manualStatValue(input, "hr", "HR") ?? 0;
+  if (h < hr) h = hr;
+  const k = manualStatValue(input, "k", "K") ?? 0;
+  if (outs < k) outs = k;
+  const bb = manualStatValue(input, "bb", "BB") ?? 0;
+  const hbp = manualStatValue(input, "hbp", "HBP") ?? 0;
+  const runs = manualStatValue(input, "runs", "R") ?? 0;
+  let earnedRuns = manualStatValue(input, "earnedRuns", "ER") ?? 0;
+  if (runs < earnedRuns) earnedRuns = runs;
+  const balls = manualStatValue(input, "balls", "B") ?? 0;
+  const strikes = manualStatValue(input, "strikes", "S") ?? 0;
+  let pitches = manualStatValue(input, "pitches", "NP") ?? (balls + strikes);
+  if (pitches < balls + strikes) pitches = balls + strikes;
+  const nonStrikeoutOuts = Math.max(0, outs - k);
+  const minimumBatters = h + bb + hbp + k + nonStrikeoutOuts;
+  let batters = manualStatValue(input, "batters", "BF") ?? minimumBatters;
+  if (batters < minimumBatters) batters = minimumBatters;
+  return {
+    outs,
+    pitches,
+    balls,
+    strikes,
+    batters,
+    h,
+    hr,
+    runs,
+    earnedRuns,
+    bb,
+    hbp,
+    k,
+    decision: normalizePitchingDecision(input.decision)
+  };
+}
+
+function normalizePitchingStatEdit(edit = {}, playerId = "", game = null) {
+  return {
+    playerId: edit?.playerId || playerId,
+    gameId: edit?.gameId || game?.id || "",
+    stats: normalizeManualPitchingStats(edit?.stats || edit || {}),
+    updatedAt: edit?.updatedAt || new Date().toISOString()
+  };
+}
+
+function normalizeStatEditSprayResult(result = "1B", fallback = "1B") {
+  const normalized = String(result || "").trim().toUpperCase();
+  if (statEditSprayResultSet.has(normalized)) return normalized;
+  return statEditSprayResultSet.has(fallback) ? fallback : "1B";
+}
+
+function statEditSprayTypeForResult(result = "1B") {
+  return statEditSprayHitResults.has(normalizeStatEditSprayResult(result)) ? "hit" : "out";
 }
 
 function normalizeStatEditSprays(sprays = []) {
@@ -14241,11 +14928,13 @@ function normalizeStatEditSprays(sprays = []) {
     .map((spray, index) => {
       const x = Math.max(4, Math.min(96, Math.round(Number(spray?.x) || 50)));
       const y = Math.max(4, Math.min(96, Math.round(Number(spray?.y) || 45)));
-      const type = spray?.type === "out" || spray?.result === "GO" ? "out" : "hit";
+      const fallback = spray?.type === "out" ? "GO" : "1B";
+      const result = normalizeStatEditSprayResult(spray?.result, fallback);
+      const type = statEditSprayTypeForResult(result);
       return {
         id: spray?.id || createId("spray"),
         type,
-        result: type === "hit" ? "1B" : "GO",
+        result,
         x,
         y,
         zone: spray?.zone || sprayZone(x, y),
@@ -14291,6 +14980,7 @@ function manualHittingStatEvent(game, playerId, result, index, edit, extras = {}
     outsBefore: 0,
     basesBefore: emptyBases(false),
     scope: "offense",
+    errorOnPlay: Boolean(extras.errorOnPlay),
     note: "Manual game stat edit",
     spray: null,
     pitches: [],
@@ -14304,21 +14994,31 @@ function manualHittingStatEvents(game, playerId, rawEdit = {}) {
   const edit = normalizeHittingStatEdit(rawEdit, playerId, game);
   const stats = edit.stats;
   const events = [];
-  const pushEvents = (result, count) => {
+  const pushEvents = (result, count, extrasForIndex = () => ({})) => {
     for (let index = 0; index < count; index += 1) {
-      events.push(manualHittingStatEvent(game, playerId, result, events.length, edit));
+      events.push(manualHittingStatEvent(game, playerId, result, events.length, edit, extrasForIndex(index)));
     }
   };
   pushEvents("1B", stats.singles);
   pushEvents("2B", stats.doubles);
   pushEvents("3B", stats.triples);
   pushEvents("HR", stats.hr);
-  const nonHitAtBats = Math.max(0, stats.ab - stats.h);
-  const strikeouts = Math.min(stats.k, nonHitAtBats);
-  pushEvents("K", strikeouts);
-  pushEvents("GO", Math.max(0, nonHitAtBats - strikeouts));
+  pushEvents("K", stats.k);
+  pushEvents("ROE", stats.roe, (index) => ({ errorOnPlay: index < stats.errors }));
+  pushEvents("FC", stats.fc);
+  pushEvents("DP", stats.dp);
+  pushEvents("GO", stats.go);
+  pushEvents("LO", stats.lo);
+  pushEvents("FO", stats.fo);
+  const specifiedAtBats = stats.h + stats.k + stats.roe + stats.fc + stats.dp + stats.go + stats.lo + stats.fo;
+  pushEvents("GO", Math.max(0, stats.ab - specifiedAtBats));
+  pushEvents("SAC", stats.sac);
   pushEvents("BB", stats.bb);
   pushEvents("HBP", stats.hbp);
+  pushEvents("SB", stats.sb);
+  pushEvents("CS", stats.cs);
+  pushEvents("PO", stats.po);
+  pushEvents("SUB", Math.max(0, stats.errors - stats.roe), () => ({ errorOnPlay: true }));
   if (!events.length && (stats.rbi || stats.runs)) {
     events.push(manualHittingStatEvent(game, playerId, "SUB", events.length, edit));
   }
@@ -14347,6 +15047,110 @@ function manualSprayEventsForGame(game, playerId, rawEdit = {}) {
     },
     game
   }));
+}
+
+function manualPitchingStatLineHasValues(stats = {}) {
+  return Boolean(
+    stats.outs
+      || stats.pitches
+      || stats.batters
+      || stats.h
+      || stats.hr
+      || stats.runs
+      || stats.earnedRuns
+      || stats.bb
+      || stats.hbp
+      || stats.k
+      || stats.decision
+  );
+}
+
+function manualPitchingPitches(playerId, stats = {}) {
+  const balls = Array.from({ length: Math.max(0, Number(stats.balls) || 0) }, () => ({ type: "ball", pitcherId: playerId }));
+  const strikes = Array.from({ length: Math.max(0, Number(stats.strikes) || 0) }, () => ({ type: "strike", pitcherId: playerId }));
+  const tracked = balls.length + strikes.length;
+  const other = Array.from({ length: Math.max(0, (Number(stats.pitches) || 0) - tracked) }, () => ({ type: "other", pitcherId: playerId }));
+  return [...balls, ...strikes, ...other];
+}
+
+function manualPitchingStatEvent(game, playerId, result, index, edit, extras = {}) {
+  const outsBefore = Math.max(0, Number(extras.outsBefore) || 0);
+  const outsRecorded = Math.max(0, Number(extras.outsRecorded) || 0);
+  return {
+    id: `pitching-stat-edit-${game.id}-${playerId}-${index}`,
+    gameId: game.id,
+    playerId,
+    pitcherId: playerId,
+    result,
+    runs: Number(extras.runs || 0),
+    earnedRuns: Number(extras.earnedRuns || 0),
+    rbi: 0,
+    contact: "none",
+    launch: eventRules[result]?.launch || "none",
+    leverage: "neutral",
+    inning: 1,
+    half: lionsSide(game) === "away" ? "bottom" : "top",
+    outsBefore,
+    outsAfter: outsBefore + outsRecorded,
+    basesBefore: emptyBases(false),
+    scope: "defense",
+    note: "Manual pitching stat edit",
+    spray: null,
+    pitches: extras.pitches || [],
+    runnerAdvancements: [],
+    createdAt: edit.updatedAt || new Date().toISOString(),
+    manualPitchingStatEdit: true
+  };
+}
+
+function manualPitchingStatEvents(game, playerId, rawEdit = {}) {
+  const edit = normalizePitchingStatEdit(rawEdit, playerId, game);
+  const stats = edit.stats;
+  const events = [];
+  let outsLogged = 0;
+  const pushEvent = (result, extras = {}) => {
+    events.push(manualPitchingStatEvent(game, playerId, result, events.length, edit, {
+      outsBefore: outsLogged,
+      ...extras
+    }));
+    outsLogged += Math.max(0, Number(extras.outsRecorded) || 0);
+  };
+  for (let index = 0; index < stats.hr; index += 1) pushEvent("HR");
+  for (let index = 0; index < Math.max(0, stats.h - stats.hr); index += 1) pushEvent("1B");
+  for (let index = 0; index < stats.bb; index += 1) pushEvent("BB");
+  for (let index = 0; index < stats.hbp; index += 1) pushEvent("HBP");
+  for (let index = 0; index < stats.k; index += 1) pushEvent("K", { outsRecorded: 1 });
+  const nonStrikeoutOuts = Math.max(0, stats.outs - stats.k);
+  for (let index = 0; index < nonStrikeoutOuts; index += 1) pushEvent("GO", { outsRecorded: 1 });
+  const minimumBatters = stats.h + stats.bb + stats.hbp + stats.k + nonStrikeoutOuts;
+  for (let index = 0; index < Math.max(0, stats.batters - minimumBatters); index += 1) pushEvent("ROE");
+  if (!events.length && manualPitchingStatLineHasValues(stats)) pushEvent("SUB");
+  if (events.length) {
+    events[0].runs = stats.runs;
+    events[0].earnedRuns = stats.earnedRuns;
+    events[0].pitches = manualPitchingPitches(playerId, stats);
+  }
+  return events;
+}
+
+function pitchingEventsForStatsGame(game) {
+  if (!game) return [];
+  const edits = pitchingStatEditMap(game);
+  const editedPlayerIds = new Set(Object.keys(edits));
+  const baseEvents = (Array.isArray(game.events) ? game.events : [])
+    .filter((event) => {
+      if (event.scope !== "defense") return false;
+      if (editedPlayerIds.has(event.pitcherId)) return false;
+      return !(event.pitches || []).some((pitch) => editedPlayerIds.has(pitch.pitcherId));
+    });
+  const editEvents = Object.entries(edits)
+    .flatMap(([playerId, edit]) => manualPitchingStatEvents(game, playerId, edit));
+  return [...baseEvents, ...editEvents];
+}
+
+function pitchingEventEarnedRuns(event, earnedRunMap = new Map()) {
+  if (event?.manualPitchingStatEdit) return Math.max(0, Number(event.earnedRuns) || 0);
+  return earnedRunMap?.get(event?.id) || 0;
 }
 
 function offensiveEventsForStatsGame(game) {
@@ -14431,6 +15235,10 @@ function emptyStats() {
     cs: 0,
     po: 0,
     roe: 0,
+    fc: 0,
+    go: 0,
+    lo: 0,
+    fo: 0,
     errors: 0,
     bip: 0,
     hard: 0,
@@ -14476,6 +15284,10 @@ function applyEventToStats(stats, event) {
   if (rule.cs) stats.cs += 1;
   if (rule.po) stats.po += 1;
   if (event.result === "ROE") stats.roe += 1;
+  if (event.result === "FC") stats.fc += 1;
+  if (event.result === "GO") stats.go += 1;
+  if (event.result === "LO") stats.lo += 1;
+  if (event.result === "FO") stats.fo += 1;
   if (event.errorOnPlay) stats.errors += 1;
   if (rule.reach) stats.reach += 1;
   stats.tb += rule.tb || 0;

@@ -1788,6 +1788,11 @@ main {
   display: block;
 }
 
+#scoreView.is-score-paint-flush {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
 #homeView {
   padding-top: 12px;
 }
@@ -6269,6 +6274,8 @@ button:focus-visible {
 
   .stat-edit-spray-mode {
     width: 100%;
+    max-width: none;
+    justify-content: stretch;
   }
 
   .stat-edit-spray-mode .secondary-action {
@@ -6604,7 +6611,8 @@ button:focus-visible {
   text-transform: uppercase;
 }
 
-.stat-edit-grid input {
+.stat-edit-grid input,
+.stat-edit-grid select {
   width: 100%;
   min-height: 38px;
   border-radius: 8px;
@@ -6615,7 +6623,13 @@ button:focus-visible {
   font-weight: 900;
 }
 
-.stat-edit-grid input:focus {
+.stat-edit-grid select option {
+  background: #151a2d;
+  color: var(--white);
+}
+
+.stat-edit-grid input:focus,
+.stat-edit-grid select:focus {
   border-color: rgba(245, 189, 33, 0.72);
   outline: none;
 }
@@ -6643,10 +6657,14 @@ button:focus-visible {
 
 .stat-edit-spray-mode {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
+  max-width: 360px;
 }
 
 .stat-edit-spray-mode .secondary-action {
+  min-width: 46px;
   min-height: 34px;
   padding: 6px 10px;
 }

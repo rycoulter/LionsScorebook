@@ -27,14 +27,27 @@ mustMatch(stylesCss, /\.stats-row-edit-button[\s\S]*place-items: center/, "Edit 
 
 mustMatch(indexHtml, /id="statEditGameSelectModal"[\s\S]*Select Game to Edit/, "Select Game to Edit modal should exist");
 mustMatch(indexHtml, /id="statEditGameModal"[\s\S]*Edit Game Stats/, "Edit Game Stats modal should exist");
-["Ab", "H", "Singles", "Doubles", "Triples", "Hr", "Bb", "Hbp", "K", "Rbi", "Runs"].forEach((field) => {
+mustMatch(indexHtml, /id="pitchingStatEditGameSelectModal"[\s\S]*Select Game to Edit/, "Select Game to Edit modal should exist for pitching");
+mustMatch(indexHtml, /id="pitchingStatEditGameModal"[\s\S]*Edit Pitching Stats/, "Edit Pitching Stats modal should exist");
+["Ab", "H", "Singles", "Doubles", "Triples", "Hr", "Bb", "Hbp", "K", "Roe", "Errors", "Fc", "Sac", "Dp", "Go", "Lo", "Fo", "Sb", "Cs", "Po", "Rbi", "Runs"].forEach((field) => {
   mustMatch(indexHtml, new RegExp(`id="statEdit${field}"`), `${field} input should exist`);
 });
+["Ip", "Pitches", "Balls", "Strikes", "Batters", "H", "Hr", "Runs", "EarnedRuns", "Bb", "Hbp", "K", "Decision"].forEach((field) => {
+  mustMatch(indexHtml, new RegExp(`id="pitchingStatEdit${field}"`), `${field} pitching input should exist`);
+});
 assert.equal(/id="statEdit(?:Avg|Obp|Slg|Ops|Total|Pa)"/i.test(indexHtml), false, "Derived or aggregate stats should not be directly editable");
+assert.equal(/id="pitchingStatEdit(?:Era|Whip|K9|R9|StrikeRate|KRate|BbRate|Kbb|PitchesPerInning)"/i.test(indexHtml), false, "Derived pitching rates should not be directly editable");
+["1B", "2B", "3B", "HR", "GO", "LO", "FO"].forEach((result) => {
+  mustMatch(indexHtml, new RegExp(`data-stat-edit-spray-mode="${result}"`), `${result} spray result option should exist`);
+});
+assert.equal(/data-stat-edit-spray-mode="(?:hit|out)"/i.test(indexHtml), false, "Stats edit spray mode should use result types instead of generic hit/out");
 
 mustMatch(appJs, /hittingStatEditMap\(game\)/, "Game-level hitting edit storage should exist");
+mustMatch(appJs, /pitchingStatEditMap\(game\)/, "Game-level pitching edit storage should exist");
 mustMatch(appJs, /normalizeManualHittingStats/, "Manual game stat edits should be normalized before save");
+mustMatch(appJs, /normalizeManualPitchingStats/, "Manual pitching stat edits should be normalized before save");
 mustMatch(appJs, /manualHittingStatEvents/, "Manual game stat lines should become stat-source events");
+mustMatch(appJs, /manualPitchingStatEvents/, "Manual pitching stat lines should become stat-source events");
 mustMatch(appJs, /sprayEventsForGame/, "Spray chart should read through the game-aware spray event helper");
 
 const offenseBody = functionBody(appJs, "offensiveEventsForStatsGame");
@@ -46,11 +59,52 @@ const sprayBody = functionBody(appJs, "sprayEventsForGame");
 mustMatch(sprayBody, /manualSprayEventsForGame\(game, playerId, edit\)/, "Edited spray dots should feed spray chart calculations");
 mustMatch(sprayBody, /!editedPlayerIds\.has\(event\.playerId\)/, "Edited spray dots should replace original dots for that player/game");
 
+const normalizeStatsBody = functionBody(appJs, "normalizeManualHittingStats");
+["roe", "errors", "fc", "sac", "dp", "go", "lo", "fo", "sb", "cs", "po"].forEach((field) => {
+  mustMatch(normalizeStatsBody, new RegExp(`\\b${field}\\b`), `${field} should be normalized as an editable count`);
+});
+
+const manualEventsBody = functionBody(appJs, "manualHittingStatEvents");
+["ROE", "FC", "SAC", "DP", "GO", "LO", "FO", "SB", "CS", "PO"].forEach((result) => {
+  mustMatch(manualEventsBody, new RegExp(`pushEvents\\("${result}"`), `${result} edits should become stat-source events`);
+});
+
+const normalizeSpraysBody = functionBody(appJs, "normalizeStatEditSprays");
+mustMatch(normalizeSpraysBody, /normalizeStatEditSprayResult\(spray\?\.result, fallback\)/, "Edited spray dots should preserve selected result types");
+
 const saveBody = functionBody(appJs, "saveStatEditGameStats");
 mustMatch(saveBody, /hittingStatEditMap\(game\)\[player\.id\] = edit/, "Saving should write the edit to the selected game");
 mustMatch(saveBody, /saveStateWithOptions\(\{ liveSyncReason: "game-stat-edit" \}\)/, "Saving should persist the game edit");
 mustMatch(saveBody, /render\(\)/, "Saving should rerender stats and spray chart views immediately");
 mustMatch(saveBody, /markSharedGamesDirty\(game\.id\)/, "Saving should mark the game dirty for shared sync");
+
+mustMatch(appJs, /pitchingStatsEditButtonMarkup\(player\)/, "Pitching stats rows should render edit buttons");
+mustMatch(appJs, /data-edit-pitching-player="\$\{escapeHtml\(player\.id\)\}"/, "Pitching edit buttons should target a specific player");
+const pitchingRowsBody = functionBody(appJs, "getSeasonPitchingRows");
+mustMatch(pitchingRowsBody, /playerHasPosition\(player, "P"\)/, "Pitching table should expose eligible pitchers even before stats exist");
+
+const pitcherStatsBody = functionBody(appJs, "pitcherStats");
+mustMatch(pitcherStatsBody, /pitchingEventsForStatsGame\(game\)/, "Pitcher stats should read through edited pitching events");
+mustMatch(pitcherStatsBody, /pitchingEventEarnedRuns\(event, earnedRunMaps\.get\(game\.id\)\)/, "Pitcher ERA should use manual earned runs when edited");
+
+const pitchingEventsBody = functionBody(appJs, "pitchingEventsForStatsGame");
+mustMatch(pitchingEventsBody, /manualPitchingStatEvents\(game, playerId, edit\)/, "Pitching edits should replace stat-source defensive events");
+mustMatch(pitchingEventsBody, /editedPlayerIds\.has\(event\.pitcherId\)/, "Edited pitcher events should replace original pitcher events");
+
+const savePitchingBody = functionBody(appJs, "savePitchingStatEditGameStats");
+mustMatch(savePitchingBody, /pitchingStatEditMap\(game\)\[player\.id\] = edit/, "Saving should write the pitching edit to the selected game");
+mustMatch(savePitchingBody, /saveStateWithOptions\(\{ liveSyncReason: "pitching-stat-edit" \}\)/, "Saving should persist the pitching edit");
+mustMatch(savePitchingBody, /render\(\)/, "Saving pitching edits should rerender stats immediately");
+mustMatch(savePitchingBody, /markSharedGamesDirty\(game\.id\)/, "Saving pitching edits should mark the game dirty for shared sync");
+
+const statEditGamesBody = functionBody(appJs, "hittingStatEditGames");
+mustMatch(statEditGamesBody, /gameAvailableForHittingStatEdit\(playerId, game\)/, "Game stat editor should use the completed-game-aware picker filter");
+const availableBody = functionBody(appJs, "gameAvailableForHittingStatEdit");
+mustMatch(availableBody, /gameIsFinal\(game\)/, "Any completed game should be selectable for manual hitting stats");
+mustMatch(availableBody, /playerHasStatsInGame\(playerId, game\)/, "In-progress games should still require an existing player line");
+
+const gamesPlayedBody = functionBody(appJs, "gamesPlayedForPlayer");
+mustMatch(gamesPlayedBody, /hasHittingStatEdit\(game, playerId\)/, "A saved game-level stat edit should count as a game played");
 
 mustMatch(stylesCss, /\.stat-edit-grid[\s\S]*grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/, "Game stat editor inputs should use a compact grid");
 mustMatch(stylesCss, /\.stat-edit-spray-chart[\s\S]*min-height: 0 !important[\s\S]*aspect-ratio: 4 \/ 3/, "Game stat editor field should override the large generic spray chart height");

@@ -80,6 +80,11 @@ assert.match(
   /button === scoringStepPointerActionButton/,
   "Click handling should ignore the synthetic click after a pointerup special action"
 );
+assert.match(
+  scoringClickBody,
+  /POINTER_ACTION_CLICK_SUPPRESS_MS \|\| !button\.isConnected/,
+  "Click handling should suppress delayed synthetic clicks from buttons removed by a render"
+);
 
 assert.match(
   functionBody(appJs, "clearPendingPlayState"),

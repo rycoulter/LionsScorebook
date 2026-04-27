@@ -46,7 +46,7 @@ const runtimeResult = JSON.parse(runInNewContext(`
 
   ${runtimeSource}
 
-  const game = { atBat: { pendingInPlay: false } };
+  const game = { atBat: { pendingInPlay: false }, pendingScoring: { scoringStep: "outcome" } };
   const healed = healOrphanedScoringStep(game);
 
   JSON.stringify({
@@ -54,6 +54,7 @@ const runtimeResult = JSON.parse(runInNewContext(`
     scoringStep,
     selectedFieldRunnerBase,
     pendingInPlay: game.atBat.pendingInPlay,
+    pendingScoring: game.pendingScoring,
     awaitingSprayLocation,
     awaitingRunnerDecision
   });
@@ -63,6 +64,7 @@ assert.equal(runtimeResult.healed, true, "An orphaned outcome step should be hea
 assert.equal(runtimeResult.scoringStep, "pitch", "Healing should return the scoring panel to Pitch Mode");
 assert.equal(runtimeResult.selectedFieldRunnerBase, "", "Healing should clear stale selected runner state");
 assert.equal(runtimeResult.pendingInPlay, false, "Healing should leave the completed at-bat non-pending");
+assert.equal(runtimeResult.pendingScoring, null, "Healing should clear persisted pending scoring snapshots");
 assert.equal(runtimeResult.awaitingSprayLocation, false, "Healing should clear stale spray state");
 assert.equal(runtimeResult.awaitingRunnerDecision, false, "Healing should clear stale runner decision state");
 
@@ -97,7 +99,8 @@ const staleRunnersResult = JSON.parse(runInNewContext(`
   scoringStep = "runners";
   const activeGame = {
     currentPlateAppearanceId: "pa-live",
-    atBat: { pendingInPlay: false, pitches: [{ type: "in_play", inPlay: true }] }
+    atBat: { pendingInPlay: false, pitches: [{ type: "in_play", inPlay: true }] },
+    plateAppearances: [{ id: "pa-live", result: null }]
   };
   const healedActive = healOrphanedScoringStep(activeGame);
 
@@ -120,10 +123,60 @@ assert.equal(staleRunnersResult.activeStep, "runners", "Active in-play runner de
 assert.equal(staleRunnersResult.activeAwaitingRunnerDecision, true, "Active in-play runner decisions should remain pending");
 assert.equal(staleRunnersResult.activeRunnerChoices, 1, "Active runner choices should be preserved");
 
+const abandonedInPlayResult = JSON.parse(runInNewContext(`
+  let pendingSpray = null;
+  let pendingRunnerOutBases = [];
+  let pendingRunnerChoices = {};
+  let pendingOutType = "";
+  let pendingOutFielder = "";
+  let pendingRunnerReplacementBase = "";
+  let selectedFieldRunnerBase = "";
+  let bipOutcomeChosen = true;
+  let awaitingSprayLocation = false;
+  let awaitingRunnerDecision = false;
+  let scoringStep = "outcome";
+
+  ${runtimeSource}
+
+  const abandonedGame = {
+    currentPlateAppearanceId: "",
+    pendingScoring: { scoringStep: "outcome" },
+    atBat: { pendingInPlay: true, pitches: [{ type: "in_play", inPlay: true }] },
+    plateAppearances: [{ id: "pa-complete", result: { type: "FO" } }]
+  };
+  const healed = healOrphanedScoringStep(abandonedGame);
+
+  JSON.stringify({
+    healed,
+    scoringStep,
+    pendingInPlay: abandonedGame.atBat.pendingInPlay,
+    pendingScoring: abandonedGame.pendingScoring
+  });
+`, {}));
+
+assert.equal(abandonedInPlayResult.healed, true, "Abandoned in-play state without an active plate appearance should be healed");
+assert.equal(abandonedInPlayResult.scoringStep, "pitch", "Abandoned in-play state should return to Pitch Mode");
+assert.equal(abandonedInPlayResult.pendingInPlay, false, "Abandoned in-play state should clear pendingInPlay");
+assert.equal(abandonedInPlayResult.pendingScoring, null, "Abandoned in-play state should clear stale pending scoring snapshots");
+
 assert.match(
   functionBody(appJs, "finalizePlateAppearance"),
   /clearPendingPlayState\(game, true\)/,
   "Completed plate appearances should centrally clear pending scoring UI state"
+);
+
+const logPlayBody = functionBody(appJs, "logPlay");
+assert.match(logPlayBody, /const inningBeforePlay = game\.inning;/, "logPlay should remember the inning before finalizing the play");
+assert.match(logPlayBody, /const halfBeforePlay = game\.half;/, "logPlay should remember the half before finalizing the play");
+assert.match(logPlayBody, /const halfInningChanged = game\.inning !== inningBeforePlay \|\| game\.half !== halfBeforePlay;/, "logPlay should detect half-inning transitions");
+assert.match(logPlayBody, /resetBipChoiceControls\(\);/, "logPlay should only reset batted-ball form controls after a completed play");
+assert.match(logPlayBody, /if \(halfInningChanged\) clearPendingPlayState\(game, true\);/, "logPlay should force a full pending-state clear after half-inning transitions");
+assert.doesNotMatch(logPlayBody, /resetBipChoices\(\);/, "logPlay should not run the generic in-play reset against the new half inning");
+
+assert.match(
+  functionBody(appJs, "advanceHalfInning"),
+  /game\.half = game\.current\.half;[\s\S]*game\.current\.batterId = currentBatterModelId\(game\);/,
+  "advanceHalfInning should update legacy half before deriving the next current batter"
 );
 
 console.log("Scoring step healing checks passed.");

@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <link rel="manifest" href="manifest.json?v=2026.04.27-build-172">
+    <link rel="manifest" href="manifest.json?v=2026.04.27-build-179">
     <meta name="theme-color" content="#1f2937">
   <title>Oakmont Lions</title>
     <link rel="preconnect" href="https://images.unsplash.com">
-    <link rel="stylesheet" href="styles.css?v=2026.04.27-build-172">
+    <link rel="stylesheet" href="styles.css?v=2026.04.27-build-179">
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-block">
-          <img src="new-lion.png?v=2026.04.27-build-172" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
+          <img src="new-lion.png?v=2026.04.27-build-179" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
           <div class="brand-copy">
             <h1>Oakmont Lions</h1>
           </div>
@@ -82,7 +82,7 @@
                   </p>
                 </div>
                 <img
-                src="new-lion.png?v=2026.04.27-build-172"
+                src="new-lion.png?v=2026.04.27-build-179"
                   alt="Lions matchup graphic"
                   id="homeMatchupImage"
                   class="home-field-image">
@@ -355,7 +355,7 @@
                   </div>
                   <div class="spray-chart" id="sprayChart" role="button" tabindex="0" aria-label="Tap to set batted ball location">
                     <div class="field-layer field-background" aria-hidden="true">
-                      <img class="field-background-art" src="assets/updated-field.png?v=2026.04.27-build-172" alt="" aria-hidden="true">
+                      <img class="field-background-art" src="assets/updated-field.png?v=2026.04.27-build-179" alt="" aria-hidden="true">
                     </div>
                     <div class="field-layer position-marker-layer" aria-hidden="true"></div>
                     <div class="field-layer spray-chart-overlay">
@@ -534,12 +534,14 @@
                   <select id="subTypeSelect">
                     <option value="sub">Substitute</option>
                     <option value="ph">Pinch hitter</option>
+                    <option value="append">Add hitter to end</option>
                   </select>
                 </label>
                 <label>
                   Game position
                   <select id="subPositionSelect"></select>
                 </label>
+                <p class="player-meta" id="subMoveHint">Replace a hitter in an existing lineup spot or add a new hitter to the end of the order.</p>
                 <button type="button" class="secondary-action" id="applySubBtn">Apply</button>
               </div>
               <label class="opponent-lineup-editor">
@@ -1176,7 +1178,7 @@
             <div class="stats-spray-feature">
               <div class="stats-spray-preview" aria-hidden="true">
                 <div class="field-layer field-background stats-field-background">
-                  <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.04.27-build-172" alt="" aria-hidden="true">
+                  <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.04.27-build-179" alt="" aria-hidden="true">
                 </div>
                 <span class="stats-spray-preview-dot hit" style="left:18%;top:28%;"></span>
                 <span class="stats-spray-preview-dot hit" style="left:31%;top:18%;"></span>
@@ -1306,6 +1308,7 @@
                     <th><button type="button" data-pit-sort="r9">R/9</button></th>
                     <th><button type="button" data-pit-sort="whip">WHIP</button></th>
                     <th><button type="button" data-pit-sort="pitchesPerInning">P/IP</button></th>
+                    <th>Edit</th>
                   </tr>
                 </thead>
                 <tbody id="pitchingStatsBody"></tbody>
@@ -1834,7 +1837,7 @@
           </div>
           <div class="spray-chart stats-spray-chart" id="statsSprayChart" aria-label="Player spray chart">
             <div class="field-layer field-background stats-field-background" aria-hidden="true">
-              <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.04.27-build-172" alt="" aria-hidden="true">
+              <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.04.27-build-179" alt="" aria-hidden="true">
             </div>
             <div class="field-layer stats-spray-chart-overlay">
               <div class="spray-markers stats-spray-markers" id="statsSprayMarkers"></div>
@@ -1879,6 +1882,17 @@
             <label>BB<input id="statEditBb" name="bb" type="number" min="0" step="1" inputmode="numeric"></label>
             <label>HBP<input id="statEditHbp" name="hbp" type="number" min="0" step="1" inputmode="numeric"></label>
             <label>K<input id="statEditK" name="k" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>ROE<input id="statEditRoe" name="roe" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>E<input id="statEditErrors" name="errors" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>FC<input id="statEditFc" name="fc" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>SAC<input id="statEditSac" name="sac" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>DP<input id="statEditDp" name="dp" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>GO<input id="statEditGo" name="go" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>LO<input id="statEditLo" name="lo" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>FO<input id="statEditFo" name="fo" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>SB<input id="statEditSb" name="sb" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>CS<input id="statEditCs" name="cs" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>PO<input id="statEditPo" name="po" type="number" min="0" step="1" inputmode="numeric"></label>
             <label>RBI<input id="statEditRbi" name="rbi" type="number" min="0" step="1" inputmode="numeric"></label>
             <label>Runs<input id="statEditRuns" name="runs" type="number" min="0" step="1" inputmode="numeric"></label>
           </div>
@@ -1887,16 +1901,21 @@
             <div class="stat-edit-spray-head">
               <div>
                 <h4>Spray Chart</h4>
-                <p class="player-meta">Tap the mini field to add a hit or out location. Remove dots from the list below.</p>
+                <p class="player-meta">Choose a result type, then tap the mini field to add that location. Remove dots from the list below.</p>
               </div>
-              <div class="stat-edit-spray-mode" role="group" aria-label="Spray dot type">
-                <button type="button" class="secondary-action compact-action is-active" data-stat-edit-spray-mode="hit">Hit</button>
-                <button type="button" class="secondary-action compact-action" data-stat-edit-spray-mode="out">Out</button>
+              <div class="stat-edit-spray-mode" role="group" aria-label="Spray result type">
+                <button type="button" class="secondary-action compact-action is-active" data-stat-edit-spray-mode="1B">1B</button>
+                <button type="button" class="secondary-action compact-action" data-stat-edit-spray-mode="2B">2B</button>
+                <button type="button" class="secondary-action compact-action" data-stat-edit-spray-mode="3B">3B</button>
+                <button type="button" class="secondary-action compact-action" data-stat-edit-spray-mode="HR">HR</button>
+                <button type="button" class="secondary-action compact-action" data-stat-edit-spray-mode="GO">GO</button>
+                <button type="button" class="secondary-action compact-action" data-stat-edit-spray-mode="LO">LO</button>
+                <button type="button" class="secondary-action compact-action" data-stat-edit-spray-mode="FO">FO</button>
               </div>
             </div>
             <div class="spray-chart stat-edit-spray-chart" id="statEditSprayChart" role="button" tabindex="0" aria-label="Tap to add a spray chart location">
               <div class="field-layer field-background" aria-hidden="true">
-                <img class="field-background-art" src="assets/updated-field.png?v=2026.04.27-build-172" alt="" aria-hidden="true">
+                <img class="field-background-art" src="assets/updated-field.png?v=2026.04.27-build-179" alt="" aria-hidden="true">
               </div>
               <div class="field-layer stats-spray-chart-overlay">
                 <div class="spray-markers stats-spray-markers" id="statEditSprayMarkers"></div>
@@ -1913,12 +1932,66 @@
       </div>
     </div>
 
-    <script src="storage.js?v=2026.04.27-build-172"></script>
-    <script src="matchup-images.js?v=2026.04.27-build-172"></script>
+    <div class="modal-backdrop" id="pitchingStatEditGameSelectModal" hidden>
+      <div class="modal-card stat-edit-select-modal" role="dialog" aria-modal="true" aria-labelledby="pitchingStatEditGameSelectTitle">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">Pitching Stats</p>
+            <h3 id="pitchingStatEditGameSelectTitle">Select Game to Edit</h3>
+          </div>
+          <button type="button" class="secondary-action compact-action" id="closePitchingStatEditGameSelectBtn">Close</button>
+        </div>
+        <p class="player-meta" id="pitchingStatEditGameSelectHint">Choose the game-level pitching line to correct.</p>
+        <div class="stat-edit-game-list" id="pitchingStatEditGameSelectList"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="pitchingStatEditGameModal" hidden>
+      <div class="modal-card stat-edit-modal" role="dialog" aria-modal="true" aria-labelledby="pitchingStatEditGameTitle">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">Pitching Stats</p>
+            <h3 id="pitchingStatEditGameTitle">Edit Pitching Stats</h3>
+          </div>
+          <button type="button" class="secondary-action compact-action" id="closePitchingStatEditGameBtn">Close</button>
+        </div>
+        <p class="player-meta" id="pitchingStatEditGameMeta">Only game-level pitching inputs are editable. Season rates recalculate after save.</p>
+        <form class="stat-edit-form" id="pitchingStatEditGameForm">
+          <div class="stat-edit-grid">
+            <label>IP<input id="pitchingStatEditIp" name="ip" type="text" inputmode="decimal" placeholder="0.0"></label>
+            <label>NP<input id="pitchingStatEditPitches" name="pitches" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>Balls<input id="pitchingStatEditBalls" name="balls" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>Strikes<input id="pitchingStatEditStrikes" name="strikes" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>BF<input id="pitchingStatEditBatters" name="batters" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>H<input id="pitchingStatEditH" name="h" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>HR<input id="pitchingStatEditHr" name="hr" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>R<input id="pitchingStatEditRuns" name="runs" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>ER<input id="pitchingStatEditEarnedRuns" name="earnedRuns" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>BB<input id="pitchingStatEditBb" name="bb" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>HBP<input id="pitchingStatEditHbp" name="hbp" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>K<input id="pitchingStatEditK" name="k" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>Decision<select id="pitchingStatEditDecision" name="decision">
+              <option value="">None</option>
+              <option value="win">Win</option>
+              <option value="loss">Loss</option>
+              <option value="noDecision">No Decision</option>
+            </select></label>
+          </div>
+
+          <div class="stat-edit-actions">
+            <button type="button" class="secondary-action" id="cancelPitchingStatEditGameBtn">Cancel</button>
+            <button type="submit" class="primary-action" id="savePitchingStatEditGameBtn">Save Pitching Stats</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="storage.js?v=2026.04.27-build-179"></script>
+    <script src="matchup-images.js?v=2026.04.27-build-179"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=2026.04.27-build-172"></script>
-    <script src="supabase-storage.js?v=2026.04.27-build-172"></script>
+    <script src="supabase-config.js?v=2026.04.27-build-179"></script>
+    <script src="supabase-storage.js?v=2026.04.27-build-179"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
-    <script src="app.js?v=2026.04.27-build-172"></script>
+    <script src="app.js?v=2026.04.27-build-179"></script>
   </body>
 </html>
