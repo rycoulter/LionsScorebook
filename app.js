@@ -510,7 +510,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.3";
+const APP_VERSION = "v.1.1.4";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -4837,6 +4837,19 @@ function clearPendingPlayState(game = activeGame(), clearAtBat = false) {
   if (clearAtBat && game?.atBat) game.atBat.pendingInPlay = false;
 }
 
+function healOrphanedScoringStep(game = activeGame()) {
+  if (!game?.atBat) return false;
+  const hasRunnerChoices = Object.keys(pendingRunnerChoices || {}).length > 0;
+  const stepIsOrphaned =
+    (scoringStep === "outcome" && !game.atBat.pendingInPlay) ||
+    (scoringStep === "out_fielder" && !pendingOutType) ||
+    (scoringStep === "spray" && !awaitingSprayLocation && !pendingSpray) ||
+    (scoringStep === "runners" && !awaitingRunnerDecision && !hasRunnerChoices);
+  if (!stepIsOrphaned) return false;
+  clearPendingPlayState(game, true);
+  return true;
+}
+
 function setScoringStep(step) {
   scoringStep = step;
   renderScoringStepPanel();
@@ -8633,6 +8646,7 @@ function restoreActiveGamePendingScoringState(game = activeScoreGame()) {
   if (!game?.pendingScoring) return false;
   restorePendingScoringSnapshot(game.pendingScoring);
   syncGameCurrent(game);
+  healOrphanedScoringStep(game);
   return true;
 }
 
@@ -8848,6 +8862,7 @@ function renderScoringStepPanel() {
     renderScoringDockUtilities(game);
     return;
   }
+  healOrphanedScoringStep(game);
   if (isOpponentAtBat(game)) {
     renderOpponentScoringStepPanel(game);
     renderScoringDockUtilities(game);
