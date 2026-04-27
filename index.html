@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <link rel="manifest" href="manifest.json?v=2026.04.27-build-151">
+    <link rel="manifest" href="manifest.json?v=2026.04.27-build-152">
     <meta name="theme-color" content="#1f2937">
   <title>Oakmont Lions</title>
     <link rel="preconnect" href="https://images.unsplash.com">
-    <link rel="stylesheet" href="styles.css?v=2026.04.27-build-151">
+    <link rel="stylesheet" href="styles.css?v=2026.04.27-build-152">
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-block">
-          <img src="new-lion.png?v=2026.04.27-build-151" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
+          <img src="new-lion.png?v=2026.04.27-build-152" alt="Oakmont Lions logo" class="brand-logo" width="48" height="48" style="width:48px;height:48px;object-fit:contain;display:block;">
           <div class="brand-copy">
             <h1>Oakmont Lions</h1>
           </div>
@@ -82,7 +82,7 @@
                   </p>
                 </div>
                 <img
-                src="new-lion.png?v=2026.04.27-build-151"
+                src="new-lion.png?v=2026.04.27-build-152"
                   alt="Lions matchup graphic"
                   id="homeMatchupImage"
                   class="home-field-image">
@@ -355,7 +355,7 @@
                   </div>
                   <div class="spray-chart" id="sprayChart" role="button" tabindex="0" aria-label="Tap to set batted ball location">
                     <div class="field-layer field-background" aria-hidden="true">
-                      <img class="field-background-art" src="assets/updated-field.png?v=2026.04.27-build-151" alt="" aria-hidden="true">
+                      <img class="field-background-art" src="assets/updated-field.png?v=2026.04.27-build-152" alt="" aria-hidden="true">
                     </div>
                     <div class="field-layer position-marker-layer" aria-hidden="true"></div>
                     <div class="field-layer spray-chart-overlay">
@@ -378,6 +378,7 @@
                   <button type="button" class="secondary-action" data-runner-action="steal" disabled>SB</button>
                   <button type="button" class="secondary-action" data-runner-action="caught_stealing" disabled>CS</button>
                   <button type="button" class="secondary-action" data-runner-action="pickoff" disabled>PO</button>
+                  <button type="button" class="secondary-action" data-runner-action="non_runner" disabled>NR</button>
                 </div>
                 <div class="runner-play-grid" id="runnerPlayControls" aria-label="Runner outs on batted ball">
                   <span>Runner Out On Ball In Play</span>
@@ -401,7 +402,7 @@
               </section>
 
               <div class="scoring-dock-footer" id="scoringDockFooter">
-                  <div class="scoring-dock-summary">
+                  <div class="scoring-dock-summary" id="scoringDockSummary">
                     <article class="scoring-dock-summary-card scoring-dock-count-card">
                       <span class="scoring-dock-kicker">Count</span>
                       <strong class="scoring-dock-big" id="dockCountValue">0-0</strong>
@@ -422,6 +423,7 @@
                       </div>
                     </article>
                     <article class="scoring-dock-summary-card scoring-dock-batter-card" id="dockBatterCard">
+                      <span class="scoring-dock-batter-number" id="dockBatterNumber">--</span>
                       <div class="scoring-dock-batter-copy">
                         <span class="scoring-dock-kicker">At Bat</span>
                         <strong id="dockBatterName">No batter</strong>
@@ -429,6 +431,21 @@
                       </div>
                       <span class="scoring-dock-position-pill" id="dockBatterPosition">--</span>
                     </article>
+                    <article class="scoring-dock-summary-card scoring-dock-season-card" id="dockSeasonCard">
+                      <span class="scoring-dock-kicker">Season</span>
+                      <span class="scoring-dock-season-line" id="dockBatterSeasonLine">.000 AVG | 0 HR | 0 RBI | .000 OBP</span>
+                    </article>
+                    <button type="button" class="scoring-dock-lineup-card" id="dockViewLineupBtn">
+                      <span class="scoring-dock-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="9" cy="7" r="4"></circle>
+                          <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                      </span>
+                      <strong>View Lineup</strong>
+                    </button>
                   </div>
                 </div>
 
@@ -1154,7 +1171,7 @@
             <div class="stats-spray-feature">
               <div class="stats-spray-preview" aria-hidden="true">
                 <div class="field-layer field-background stats-field-background">
-                  <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.04.27-build-151" alt="" aria-hidden="true">
+                  <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.04.27-build-152" alt="" aria-hidden="true">
                 </div>
                 <span class="stats-spray-preview-dot hit" style="left:18%;top:28%;"></span>
                 <span class="stats-spray-preview-dot hit" style="left:31%;top:18%;"></span>
@@ -1785,7 +1802,7 @@
           </div>
           <div class="spray-chart stats-spray-chart" id="statsSprayChart" aria-label="Player spray chart">
             <div class="field-layer field-background stats-field-background" aria-hidden="true">
-              <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.04.27-build-151" alt="" aria-hidden="true">
+              <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.04.27-build-152" alt="" aria-hidden="true">
             </div>
             <div class="field-layer stats-spray-chart-overlay">
               <div class="spray-markers stats-spray-markers" id="statsSprayMarkers"></div>
@@ -1795,13 +1812,13 @@
       </div>
     </div>
 
-    <script src="storage.js?v=2026.04.27-build-151"></script>
-    <script src="matchup-images.js?v=2026.04.27-build-151"></script>
+    <script src="storage.js?v=2026.04.27-build-152"></script>
+    <script src="matchup-images.js?v=2026.04.27-build-152"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=2026.04.27-build-151"></script>
-    <script src="supabase-storage.js?v=2026.04.27-build-151"></script>
+    <script src="supabase-config.js?v=2026.04.27-build-152"></script>
+    <script src="supabase-storage.js?v=2026.04.27-build-152"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
-    <script src="app.js?v=2026.04.27-build-151"></script>
+    <script src="app.js?v=2026.04.27-build-152"></script>
   </body>
 </html>
 

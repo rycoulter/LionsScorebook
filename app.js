@@ -196,6 +196,7 @@ const eventRules = {
   LO: { label: "Lineout", pa: true, ab: true, out: true, bip: true, launch: "ld" },
   SAC: { label: "Sacrifice", pa: true, ab: false, out: true, sac: true, bip: true },
   SUB: { label: "Substitution", pa: false },
+  NR: { label: "Non-runner", pa: false },
   ADD: { label: "Added hitter", pa: false },
   SB: { label: "Stolen base", pa: false, sb: true },
   CS: { label: "Caught stealing", pa: false, cs: true, out: true },
@@ -613,6 +614,7 @@ let archivePage = 1;
 let lineupBuilderReturnView = "games";
 let lineupBuilderSelectedEntryId = "";
 let selectedFieldRunnerBase = "";
+let pendingRunnerReplacementBase = "";
 let currentView = "home";
 let pendingAdminView = "";
 let supabaseBootstrapPromise = null;
@@ -777,12 +779,16 @@ const els = {
   panelUndoPitchBtn: document.getElementById("panelUndoPitchBtn"),
   openGameActionsBtn: document.getElementById("openGameActionsBtn"),
   scoringDockFooter: document.getElementById("scoringDockFooter"),
+  scoringDockSummary: document.getElementById("scoringDockSummary"),
   dockCountValue: document.getElementById("dockCountValue"),
   dockCountMeta: document.getElementById("dockCountMeta"),
   dockBaseIndicators: [...document.querySelectorAll("[data-dock-base]")],
   dockOutDots: [...document.querySelectorAll("[data-dock-out]")],
   dockUndoLastPlayBtn: document.getElementById("dockUndoLastPlayBtn"),
   dockChangePitcherBtn: document.getElementById("dockChangePitcherBtn"),
+  dockPitcherCard: document.getElementById("dockPitcherCard"),
+  dockBatterCard: document.getElementById("dockBatterCard"),
+  dockSeasonCard: document.getElementById("dockSeasonCard"),
   dockLastResultCard: document.getElementById("dockLastResultCard"),
   dockLastResultTitle: document.getElementById("dockLastResultTitle"),
   dockLastResultMeta: document.getElementById("dockLastResultMeta"),
@@ -3461,6 +3467,10 @@ function bindEvents() {
       const game = activeGame();
       const base = selectedFieldRunnerBase;
       if (!base || !isOccupied(game.bases?.[base])) return;
+      if (button.dataset.runnerAction === "non_runner") {
+        openNonRunnerSelect(base);
+        return;
+      }
       if (button.dataset.runnerAction === "pickoff") {
         applyEvent(game, { type: "special_action", action: "pickoff", target: base });
         return;
@@ -4577,6 +4587,7 @@ function clearPendingPlayState(game = activeGame(), clearAtBat = false) {
   pendingRunnerChoices = {};
   pendingOutType = "";
   pendingOutFielder = "";
+  pendingRunnerReplacementBase = "";
   bipOutcomeChosen = false;
   awaitingSprayLocation = false;
   awaitingRunnerDecision = false;
@@ -4926,6 +4937,87 @@ function runnerOptionsForBase(base) {
   if (base === "first") return ["hold", "second", "third", "home", "out"];
   if (base === "second") return ["hold", "third", "home", "out"];
   return ["hold", "home", "out"];
+}
+
+function eligibleNonRunnerPlayers(game = activeGame(), base = selectedFieldRunnerBase) {
+  if (!game || !isLionsAtBat(game) || !base || !isOccupied(game.bases?.[base])) return [];
+  const occupiedIds = new Set(
+    Object.entries(game.bases || emptyBases(false))
+      .filter(([occupiedBase, runnerId]) => occupiedBase !== base && typeof runnerId === "string")
+      .map(([, runnerId]) => runnerId)
+  );
+  const batterId = currentBatterId(game);
+  if (batterId) occupiedIds.add(batterId);
+  const currentRunnerId = game.bases[base];
+  return gameLineupEntries(game)
+    .map((entry) => state.roster.find((player) => player.id === entry.playerId))
+    .filter((player) => player?.id && player.id !== currentRunnerId && !occupiedIds.has(player.id));
+}
+
+function openNonRunnerSelect(base = selectedFieldRunnerBase) {
+  const game = activeGame();
+  if (!game || !isLionsAtBat(game) || !base || !isOccupied(game.bases?.[base])) return;
+  pendingRunnerReplacementBase = base;
+  scoringStep = "runner_replacement";
+  renderRunnerTracker();
+  renderScoringStepPanel();
+}
+
+function assignNonRunner(playerId, base = pendingRunnerReplacementBase || selectedFieldRunnerBase) {
+  const game = activeGame();
+  if (!game || gameIsScoreLocked(game) || !isLionsAtBat(game)) return null;
+  if (game.status !== "completed") game.status = "active";
+  syncGameCurrent(game);
+  if (!base || !isOccupied(game.bases?.[base])) return null;
+  const replacement = eligibleNonRunnerPlayers(game, base).find((player) => player.id === playerId);
+  if (!replacement) return null;
+  const originalRunnerId = game.bases[base];
+  const originalRunner = state.roster.find((player) => player.id === originalRunnerId);
+  const snapshotBefore = liveGameSnapshot(game);
+  const playHistoryEntry = pushPlayHistorySnapshot(game, { reason: "runnerReplacement", result: "NR" });
+  game.bases[base] = replacement.id;
+  if (!game.current) game.current = {};
+  if (!game.current.runners) game.current.runners = emptyBases(false);
+  game.current.runners[base] = replacement.id;
+  if (!game.events) game.events = [];
+  game.events.push({
+    id: createId("event"),
+    gameId: game.id,
+    playerId: replacement.id,
+    result: "NR",
+    runs: 0,
+    rbi: 0,
+    contact: "none",
+    launch: "none",
+    leverage: "neutral",
+    inning: game.current.inning,
+    half: game.current.half,
+    outsBefore: game.current.outs,
+    outsAfter: game.current.outs,
+    basesBefore: deepClone(snapshotBefore.bases),
+    basesAfter: deepClone(game.bases),
+    scope: "lineup",
+    playerName: `#${replacement.number || "--"} ${replacement.name}`,
+    note: `NR: #${replacement.number || "--"} ${replacement.name} running for #${originalRunner?.number || "--"} ${originalRunner?.name || "runner"} at ${baseLabel(base)}.`,
+    pitches: [],
+    count: `${game.current.balls || 0}-${game.current.strikes || 0}`,
+    spray: null,
+    runnerReplacement: {
+      base,
+      originalRunnerId,
+      replacementRunnerId: replacement.id
+    },
+    createdAt: new Date().toISOString(),
+    snapshotBefore,
+    playHistoryId: playHistoryEntry?.id || ""
+  });
+  pendingRunnerReplacementBase = "";
+  selectedFieldRunnerBase = "";
+  scoringStep = "pitch";
+  commitCurrentToLegacy(game);
+  saveState();
+  render();
+  return replacement;
 }
 
 function baseLabel(base) {
@@ -5446,12 +5538,13 @@ function recordSteal(target, outcome) {
 
   const snapshotBefore = liveGameSnapshot(game);
   const playHistoryEntry = pushPlayHistorySnapshot(game, { reason: "runnerAction", result: outcome === "safe" ? "SB" : "CS" });
-
-  const movement = applyRunnerAdvancements(game, [
+  const runnerAdvancements = [
     outcome === "safe"
       ? { runnerId: runner, from: steal.from, to: steal.to }
       : { runnerId: runner, from: steal.from, out: true }
-  ]);
+  ];
+
+  const movement = applyRunnerAdvancements(game, runnerAdvancements);
   if (outcome === "safe" && movement.runsScored) {
     addRunsForBattingTeam(game, movement.runsScored);
   }
@@ -5482,6 +5575,7 @@ function recordSteal(target, outcome) {
     pitches: [],
     count: game.atBat ? `${game.atBat.balls}-${game.atBat.strikes}` : "0-0",
     spray: null,
+    runnerAdvancements: deepClone(runnerAdvancements),
     createdAt: new Date().toISOString(),
     snapshotBefore,
     playHistoryId: playHistoryEntry?.id || ""
@@ -7049,19 +7143,21 @@ function renderRunnerTracker() {
   );
   els.runnerActionButtons.forEach((button) => {
     const action = button.dataset.runnerAction;
+    const canUseNonRunner = action === "non_runner" && isLionsAtBat(game) && eligibleNonRunnerPlayers(game, selectedBase).length > 0;
     const enabled = Boolean(
       selectedBase
       && selectedRunner
-      && (action === "steal" ? canSteal : true)
+      && (action === "steal" ? canSteal : action === "non_runner" ? canUseNonRunner : true)
     );
     button.disabled = !enabled;
     if (action === "steal") button.textContent = selectedBase ? `SB ${baseLabel(stealTarget)}` : "SB";
     if (action === "caught_stealing") button.textContent = stealTarget ? `CS ${baseLabel(stealTarget)}` : "CS";
     if (action === "pickoff") button.textContent = selectedLabel ? `PO ${selectedLabel}` : "PO";
+    if (action === "non_runner") button.textContent = "NR";
   });
   els.runnerHint.textContent = selectedBase
-    ? `${runnerName(selectedRunner) || "Runner"} selected on ${selectedLabel}. Choose SB, CS, or PO.`
-    : "Tap a runner badge to choose SB, CS, or PO.";
+    ? `${runnerName(selectedRunner) || "Runner"} selected on ${selectedLabel}. Choose SB, CS, PO, or NR.`
+    : "Tap a runner badge to choose SB, CS, PO, or NR.";
   const showRunnerOuts = (Boolean(game.atBat?.pendingInPlay) || awaitingSprayLocation || awaitingRunnerDecision) && isLionsAtBat(game);
   els.runnerPlayControls.classList.toggle("is-visible", showRunnerOuts);
   els.runnerOutButtons.forEach((button) => {
@@ -7146,6 +7242,8 @@ function handleFieldRunnerClick(event) {
 function clearSelectedRunnerAction() {
   if (!selectedFieldRunnerBase) return;
   selectedFieldRunnerBase = "";
+  pendingRunnerReplacementBase = "";
+  if (scoringStep === "runner_replacement") scoringStep = "pitch";
   renderRunnerTracker();
   renderScoringStepPanel();
 }
@@ -7275,11 +7373,19 @@ function handleScoringPanelClick(event) {
     return;
   }
   if (button.dataset.specialAction) {
+    if (button.dataset.specialAction === "non_runner") {
+      openNonRunnerSelect(button.dataset.specialTarget || selectedFieldRunnerBase);
+      return;
+    }
     applyEvent(activeGame(), {
       type: "special_action",
       action: button.dataset.specialAction,
       target: button.dataset.specialTarget
     });
+    return;
+  }
+  if (button.dataset.runnerReplacementId) {
+    assignNonRunner(button.dataset.runnerReplacementId);
     return;
   }
   if (button.dataset.clearRunnerSelection !== undefined) {
@@ -7353,7 +7459,10 @@ function handleScoringStepPointerUp(event) {
 
 function backScoringStep() {
   const game = activeGame();
-  if (scoringStep === "runners") {
+  if (scoringStep === "runner_replacement") {
+    pendingRunnerReplacementBase = "";
+    scoringStep = selectedFieldRunnerBase ? "pitch" : "more";
+  } else if (scoringStep === "runners") {
     pendingRunnerChoices = {};
     pendingRunnerOutBases = [];
     pendingSpray = null;
@@ -7596,6 +7705,17 @@ function renderScoringDockUtilities(game = activeGame()) {
   const canScore = Boolean(game && game.status === "active" && !gameIsFinal(game));
   els.scoringDockFooter.hidden = !game;
   if (!game) return;
+  const lionsBatting = isLionsAtBat(game);
+  const opponentBatting = !lionsBatting;
+  if (els.scoringDockSummary) {
+    els.scoringDockSummary.classList.toggle("is-lions-batting", lionsBatting);
+    els.scoringDockSummary.classList.toggle("is-opponent-batting", opponentBatting);
+  }
+  if (els.dockPitcherCard) els.dockPitcherCard.hidden = lionsBatting;
+  if (els.dockSeasonCard) els.dockSeasonCard.hidden = opponentBatting;
+  if (els.dockViewLineupBtn) els.dockViewLineupBtn.hidden = opponentBatting;
+  if (els.dockBatterNumber) els.dockBatterNumber.hidden = opponentBatting;
+  if (els.dockBatterPosition) els.dockBatterPosition.hidden = lionsBatting;
   const lastResult = latestScoringDockResult(game);
   if (els.dockLastResultTitle) els.dockLastResultTitle.textContent = lastResult.title;
   if (els.dockLastResultMeta) els.dockLastResultMeta.textContent = lastResult.meta;
@@ -7632,7 +7752,7 @@ function renderScoringDockUtilities(game = activeGame()) {
     els.dockPitcherBreakdown.innerHTML = `<span class="pitcher-balls">B: ${pitcherSummary.balls}</span><span class="pitcher-divider">|</span><span class="pitcher-strikes">S: ${pitcherSummary.strikes}</span><span class="pitcher-divider">|</span><span class="pitcher-total">T: ${pitcherSummary.pitches}</span>`;
   }
   if (els.dockChangePitcherBtn) {
-    els.dockChangePitcherBtn.disabled = !canScore;
+    els.dockChangePitcherBtn.disabled = !canScore || lionsBatting;
     els.dockChangePitcherBtn.setAttribute("aria-label", `Change pitcher. Current pitcher ${pitcherSummary.name}.`);
   }
   if (els.dockBatterName) {
@@ -7640,10 +7760,10 @@ function renderScoringDockUtilities(game = activeGame()) {
   }
   if (els.dockBatterGameLine) els.dockBatterGameLine.textContent = batterSummary.gameLine;
   if (els.dockBatterSeasonLine) els.dockBatterSeasonLine.textContent = batterSummary.seasonLine;
-  if (els.dockBatterNumber) els.dockBatterNumber.textContent = batterSummary.number;
+  if (els.dockBatterNumber) els.dockBatterNumber.textContent = batterSummary.number && batterSummary.number !== "--" ? batterSummary.number : "--";
   if (els.dockBatterPosition) els.dockBatterPosition.textContent = batterSummary.position || "AB";
   if (els.dockUndoLastPlayBtn) els.dockUndoLastPlayBtn.disabled = !canScore || !hasPlayHistory(game);
-  if (els.dockViewLineupBtn) els.dockViewLineupBtn.disabled = !game;
+  if (els.dockViewLineupBtn) els.dockViewLineupBtn.disabled = !game || opponentBatting;
   if (els.dockViewScorebookBtn) els.dockViewScorebookBtn.disabled = !game?.id;
   if (els.openGameActionsBtn) els.openGameActionsBtn.hidden = !game;
 }
@@ -7910,7 +8030,8 @@ function pendingScoringSnapshot() {
     awaitingSprayLocation,
     awaitingRunnerDecision,
     scoringStep,
-    selectedFieldRunnerBase
+    selectedFieldRunnerBase,
+    pendingRunnerReplacementBase
   };
 }
 
@@ -7925,6 +8046,7 @@ function restorePendingScoringSnapshot(snapshot = {}) {
   awaitingRunnerDecision = Boolean(snapshot.awaitingRunnerDecision);
   scoringStep = snapshot.scoringStep || "pitch";
   selectedFieldRunnerBase = snapshot.selectedFieldRunnerBase || "";
+  pendingRunnerReplacementBase = snapshot.pendingRunnerReplacementBase || "";
 }
 
 function gameSnapshotForPlayHistory(game = activeGame()) {
@@ -8171,17 +8293,19 @@ function selectedRunnerActionConfig(game) {
   const canSteal = Boolean(
     stealTarget && (stealTarget === "home" || !isOccupied(game.bases?.[stealTarget]))
   );
+  const canUseNonRunner = isLionsAtBat(game) && eligibleNonRunnerPlayers(game, base).length > 0;
   const runnerLabel = runnerName(runner) || `#${runnerNumber(runner) || ""}`.trim() || "Runner";
   return {
     eyebrow: "Runner Action",
     title: `${runnerLabel} on ${baseLabel(base)}`,
-    hint: "Choose SB, CS, or PO. Use Back if you selected the runner by mistake.",
+    hint: "Choose SB, CS, PO, or NR. Use Back if you selected the runner by mistake.",
     body: `<div class="special-action-group runner-action-group">
       <span>${escapeHtml(runnerLabel)} selected on ${escapeHtml(baseLabel(base))}</span>
       <div class="step-grid step-grid-special runner-action-grid">
         <button type="button" class="step-button step-safe" data-special-action="steal" data-special-target="${escapeHtml(stealTarget)}"${canSteal ? "" : " disabled"}>SB ${escapeHtml(baseLabel(stealTarget))}</button>
         <button type="button" class="step-button step-danger" data-special-action="caught_stealing" data-special-target="${escapeHtml(stealTarget)}">CS ${escapeHtml(baseLabel(stealTarget))}</button>
         <button type="button" class="step-button step-danger" data-special-action="pickoff" data-special-target="${escapeHtml(base)}">PO ${escapeHtml(baseLabel(base))}</button>
+        <button type="button" class="step-button step-neutral" data-special-action="non_runner" data-special-target="${escapeHtml(base)}"${canUseNonRunner ? "" : " disabled"}>NR</button>
       </div>
       <div class="confirm-play-row">
         <button type="button" class="secondary-action" data-clear-runner-selection>Back</button>
@@ -8191,6 +8315,25 @@ function selectedRunnerActionConfig(game) {
 }
 
 function scoringStepConfig(game) {
+  if (scoringStep === "runner_replacement") {
+    const base = pendingRunnerReplacementBase || selectedFieldRunnerBase;
+    const currentRunner = game.bases?.[base];
+    const options = eligibleNonRunnerPlayers(game, base);
+    const optionButtons = options.length
+      ? `<div class="step-grid step-grid-runner-replacement">
+          ${options.map((player) => `<button type="button" class="step-button step-neutral nr-runner-choice" data-runner-replacement-id="${escapeHtml(player.id)}">#${escapeHtml(player.number || "--")} ${escapeHtml(player.name)}</button>`).join("")}
+        </div>`
+      : `<div class="auto-score">No eligible lineup runners are available.</div>`;
+    return {
+      eyebrow: "Non Runner",
+      title: `Select NR for ${baseLabel(base)}`,
+      hint: `Choose who is running for ${playerDisplayName(currentRunner)}. Future steals and runs score to the NR.`,
+      body: `${optionButtons}
+      <div class="confirm-play-row">
+        <button type="button" class="secondary-action" data-score-step-back>Back</button>
+      </div>`
+    };
+  }
   if (scoringStep === "ball_menu") {
     return {
       eyebrow: "Ball",

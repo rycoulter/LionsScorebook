@@ -15156,7 +15156,7 @@ label {
 }
 
 #scoreView .runner-action-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 #scoreView .step-safe {
@@ -18066,6 +18066,10 @@ label {
   overflow: visible;
 }
 
+#scoreView .score-field-control-stack .scoring-dock-summary [hidden] {
+  display: none !important;
+}
+
 #scoreView .score-field-control-stack .scoring-dock-summary-card {
   min-height: 72px;
   padding: 4px 20px;
@@ -18181,6 +18185,17 @@ label {
   font-weight: 900;
 }
 
+#scoreView .score-field-control-stack .scoring-dock-summary.is-lions-batting .scoring-dock-pitcher-card,
+#scoreView .score-field-control-stack .scoring-dock-summary.is-lions-batting .scoring-dock-position-pill {
+  display: none;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-season-card,
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-lineup-card,
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-batter-number {
+  display: none;
+}
+
 @media (max-width: 780px) {
   #scoreView .pitch-choice-primary-row {
     gap: 10px;
@@ -18240,14 +18255,14 @@ label {
 }
 
 /* Compact opponent/status bar: Count, Pitcher, At Bat. */
-#scoreView .score-field-control-stack .scoring-dock-summary {
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting {
   grid-template-columns: minmax(124px, 0.72fr) minmax(300px, 1.75fr) minmax(220px, 1.08fr);
   grid-template-areas: "count pitcher batter";
   align-items: stretch;
   padding: 10px 14px;
 }
 
-#scoreView .score-field-control-stack .scoring-dock-summary-card {
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-summary-card {
   min-height: 74px;
   padding: 6px 18px;
   align-content: center;
@@ -18258,12 +18273,12 @@ label {
   padding-left: 4px;
 }
 
-#scoreView .score-field-control-stack .scoring-dock-pitcher-card {
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-pitcher-card {
   grid-area: pitcher;
   border-left: 1px solid rgba(255, 255, 255, 0.13);
 }
 
-#scoreView .score-field-control-stack .scoring-dock-pitcher-topline {
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-pitcher-topline {
   display: block;
   min-width: 0;
 }
@@ -18301,7 +18316,7 @@ label {
   transform: translateY(1px);
 }
 
-#scoreView .score-field-control-stack .scoring-dock-batter-card {
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-batter-card {
   grid-area: batter;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -18310,14 +18325,14 @@ label {
   border-left: 1px solid rgba(255, 255, 255, 0.13);
 }
 
-#scoreView .score-field-control-stack .scoring-dock-pitcher-main {
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-pitcher-main {
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
 }
 
-#scoreView .score-field-control-stack .scoring-dock-pitcher-avatar {
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-pitcher-avatar {
   display: inline-grid;
   place-items: center;
   width: 46px;
@@ -18332,20 +18347,20 @@ label {
   line-height: 1;
 }
 
-#scoreView .score-field-control-stack .scoring-dock-pitcher-copy {
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-pitcher-copy {
   flex: 1 1 auto;
   display: grid;
   gap: 3px;
   min-width: 0;
 }
 
-#scoreView .score-field-control-stack .scoring-dock-pitcher-main .scoring-dock-change-pitcher-btn {
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-pitcher-main .scoring-dock-change-pitcher-btn {
   flex: 0 0 auto;
   margin-left: auto;
 }
 
-#scoreView .score-field-control-stack .scoring-dock-pitcher-copy strong,
-#scoreView .score-field-control-stack .scoring-dock-batter-copy strong {
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-pitcher-copy strong,
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-batter-copy strong {
   overflow: hidden;
   color: rgba(255, 255, 255, 0.96);
   font-size: 1.08rem;
@@ -18355,7 +18370,7 @@ label {
   white-space: nowrap;
 }
 
-#scoreView .score-field-control-stack .scoring-dock-pitcher-breakdown {
+#scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-pitcher-breakdown {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -18396,7 +18411,7 @@ label {
 }
 
 @media (max-width: 780px) {
-  #scoreView .score-field-control-stack .scoring-dock-summary {
+  #scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting {
     grid-template-columns: 1fr;
     grid-template-areas:
       "count"
@@ -18405,8 +18420,8 @@ label {
     row-gap: 0;
   }
 
-  #scoreView .score-field-control-stack .scoring-dock-pitcher-card,
-  #scoreView .score-field-control-stack .scoring-dock-batter-card {
+  #scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-pitcher-card,
+  #scoreView .score-field-control-stack .scoring-dock-summary.is-opponent-batting .scoring-dock-batter-card {
     border-left: 0;
     border-top: 1px solid rgba(255, 255, 255, 0.13);
   }

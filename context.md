@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
 Last updated: 2026-04-27
-Current commit: `9ea7b7c`
+Current commit: `b6b7608`
 Current app version: `v.1.1.0`
-Current asset build markers: `2026.04.27-build-151`
+Current asset build markers: `2026.04.27-build-152`
 
 ## Project Overview
 
@@ -138,7 +138,9 @@ Current state:
 - now includes a Lions claw-slash win animation sequence for Lions wins
 - tracks RISP event context at plate-appearance start for hitter stats
 - top scoring header/status bar includes a selectable Pitcher section for eligible Lions pitching changes, preserving the current game situation and recording the substitution for undo/history
+- the live scoring dock is split by batting side: Lions batting shows COUNT / AT BAT / SEASON / View Lineup, while opponent batting shows COUNT / PITCHER / AT BAT
 - Pitch Mode has separate Undo Pitch and Undo Play controls; Undo Play restores completed plays from a pre-play full-game snapshot stack, including half-inning changes
+- selected base-runner actions include `NR` for assigning a non-runner from the Lions lineup; later steals, caught stealing, pickoffs, and runs score to the NR runner on base
 - Home next-game card gives admins a direct `Start Game` action for scheduled games and `Score Game` action for already-live games
 
 Important current note:
