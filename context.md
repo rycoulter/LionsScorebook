@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
 Last updated: 2026-04-27
-Current commit: v1.1.15 scoring, storage, lineup, and stat-edit release commit
-Current app version: `v.1.1.15`
-Current asset build markers: `2026.04.27-build-179`
+Current commit: post-v1.1.15 working tree with IndexedDB storage migration and stale-live-sync protection in progress
+Current app version: `v.1.1.17`
+Current asset build markers: `2026.04.27-build-181`
 
 ## Project Overview
 
@@ -99,6 +99,8 @@ Offline admin behavior:
 The app is still in a hybrid state:
 - shared reads/writes use Supabase-backed sync foundations
 - live scoring remains local-first on the device, with debounced Supabase resume checkpoints for active games when an admin is online
+- local persistence is moving from full-state `localStorage` writes to IndexedDB via the local Dexie-backed `db.js` layer
+- `localStorage` is reserved for tiny metadata such as `currentGameId` / `activeGameId`, with legacy full-state keys migrated into IndexedDB and removed after a successful load
 - roster now has a dedicated `public.roster_players` Supabase table
 - `app_state.roster` is still written as a compatibility fallback during the migration
 
@@ -150,6 +152,8 @@ Current state:
 - runner displays and SB/CS/PO actions reconcile stale base mirrors from the latest completed event's runner advancements before enabling or applying runner actions, which protects live games that already have a stale runner left on a base after a scoring play
 - Home next-game card gives admins a direct `Start Game` action for scheduled games and `Score Game` action for already-live games
 - active games are included in shared Supabase snapshots with `app_state.active_game_id`; `saveState()` stores pending scoring checkpoints and debounces live-game sync so reloads can resume the current inning/count/bases/batter/pending flow
+- local games and scoring events are now intended to persist in IndexedDB stores (`games`, `events`, and `meta`) instead of being written as one large `localStorage` JSON blob, reducing iPad/PWA quota failures during long games
+- shared sync now treats completed/final remote games as authoritative over stale local active-game checkpoints, and Supabase game upserts skip active snapshots when the existing remote row is already final
 
 Important current note:
 - the local working tree contains an in-progress score-game presentation redesign

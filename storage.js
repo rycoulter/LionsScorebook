@@ -1,71 +1,18 @@
 (function initScorebookStorage(global) {
-  const STORAGE_KEY = "oakmont-lions-scorebook-v1";
-  const GAME_LIBRARY_KEY = "oakmont-lions-game-library-v1";
-  const PLAY_HISTORY_STORAGE_LIMIT = 8;
+  const LEGACY_STORAGE_KEY = "oakmont-lions-scorebook-v1";
+  const LEGACY_GAME_LIBRARY_KEY = "oakmont-lions-game-library-v1";
+  const METADATA_KEY = "oakmont-lions-scorebook-meta-v1";
+  const db = global.ScorebookDB || null;
+
+  let appStateCache = null;
+  let libraryCache = emptyLibrary();
+  let persistenceQueue = Promise.resolve();
+  let indexedDbWarningShown = false;
 
   function deepClone(value) {
     if (value === undefined || value === null) return value;
     if (typeof structuredClone === "function") return structuredClone(value);
     return JSON.parse(JSON.stringify(value));
-  }
-
-  function isQuotaExceeded(error) {
-    return error?.name === "QuotaExceededError"
-      || error?.code === 22
-      || error?.code === 1014
-      || String(error?.message || "").toLowerCase().includes("quota");
-  }
-
-  function setJsonItem(key, value) {
-    const json = JSON.stringify(value);
-    try {
-      global.localStorage.setItem(key, json);
-    } catch (error) {
-      if (!isQuotaExceeded(error)) throw error;
-      global.localStorage.removeItem(key);
-      global.localStorage.setItem(key, json);
-    }
-  }
-
-  function compactPlayHistory(history = [], limit = PLAY_HISTORY_STORAGE_LIMIT) {
-    if (!Array.isArray(history)) return [];
-    return history.slice(-limit).map((entry) => {
-      const next = deepClone(entry);
-      if (next?.game) next.game.playHistory = [];
-      return next;
-    });
-  }
-
-  function compactGameForStorage(game, playHistoryLimit = PLAY_HISTORY_STORAGE_LIMIT) {
-    const next = deepClone(game);
-    if (next?.playHistory) next.playHistory = compactPlayHistory(next.playHistory, playHistoryLimit);
-    return next;
-  }
-
-  function compactLibraryForStorage(library, playHistoryLimit = PLAY_HISTORY_STORAGE_LIMIT) {
-    const normalized = normalizeLibrary(library);
-    const compacted = emptyLibrary();
-    normalized.gameOrder.forEach((gameId) => {
-      const game = normalized.gamesById[gameId];
-      if (!game?.id) return;
-      compacted.gamesById[game.id] = compactGameForStorage(game, playHistoryLimit);
-      compacted.gameOrder.push(game.id);
-    });
-    compacted.activeGameId = normalized.activeGameId;
-    return compacted;
-  }
-
-  function appStateForStorage(state) {
-    const next = deepClone(state || {});
-    next.games = [];
-    return next;
-  }
-
-  function releaseLegacyAppStateGames() {
-    const appState = loadAppState();
-    if (Array.isArray(appState?.games) && appState.games.length) {
-      saveAppState(appState);
-    }
   }
 
   function emptyLibrary() {
@@ -112,91 +59,181 @@
     return library;
   }
 
-  function loadAppState() {
+  function appStateForStorage(state) {
+    const next = deepClone(state || {});
+    next.games = [];
+    return next;
+  }
+
+  function readJsonItem(key) {
     try {
-      const raw = global.localStorage.getItem(STORAGE_KEY);
+      const raw = global.localStorage?.getItem(key);
       return raw ? JSON.parse(raw) : null;
     } catch (error) {
-      console.warn("Unable to load saved app state.", error);
+      console.warn(`Unable to read ${key} from localStorage.`, error);
       return null;
     }
   }
 
+  function writeMetadata(metadata) {
+    try {
+      const next = {
+        currentGameId: metadata?.currentGameId || "",
+        activeGameId: metadata?.activeGameId || metadata?.currentGameId || "",
+        updatedAt: new Date().toISOString()
+      };
+      global.localStorage?.setItem(METADATA_KEY, JSON.stringify(next));
+    } catch (error) {
+      console.warn("Unable to save scorebook metadata to localStorage.", error);
+    }
+  }
+
+  function readMetadata() {
+    return readJsonItem(METADATA_KEY) || {};
+  }
+
+  function removeLegacyLocalStorageCopies() {
+    try {
+      global.localStorage?.removeItem(LEGACY_STORAGE_KEY);
+      global.localStorage?.removeItem(LEGACY_GAME_LIBRARY_KEY);
+    } catch (error) {
+      console.warn("Unable to remove legacy localStorage scorebook copies.", error);
+    }
+  }
+
+  function warnIndexedDbFailure(action, error) {
+    console.warn(`Unable to ${action} in IndexedDB; continuing with in-memory scorebook state.`, error);
+    indexedDbWarningShown = true;
+  }
+
+  function queueIndexedDbWrite(action, writer) {
+    if (!db) return persistenceQueue;
+    persistenceQueue = persistenceQueue
+      .catch(() => undefined)
+      .then(() => writer())
+      .catch((error) => {
+        warnIndexedDbFailure(action, error);
+      });
+    return persistenceQueue;
+  }
+
+  function loadLegacyState() {
+    const legacyAppState = readJsonItem(LEGACY_STORAGE_KEY);
+    const legacyLibrary = readJsonItem(LEGACY_GAME_LIBRARY_KEY);
+
+    if (legacyAppState) {
+      appStateCache = appStateForStorage(legacyAppState);
+    }
+
+    if (legacyLibrary) {
+      libraryCache = normalizeLibrary(legacyLibrary);
+    } else if (Array.isArray(legacyAppState?.games)) {
+      libraryCache = buildLibraryFromGames(legacyAppState.games, legacyAppState.activeGameId);
+    }
+
+    const metadata = readMetadata();
+    if (!libraryCache.activeGameId && metadata.currentGameId && libraryCache.gamesById[metadata.currentGameId]) {
+      libraryCache.activeGameId = metadata.currentGameId;
+    }
+  }
+
+  async function hydrateFromIndexedDb() {
+    if (!db) return;
+    try {
+      await db.ready;
+      const [dbAppState, dbLibrary] = await Promise.all([
+        db.loadAppState(),
+        db.loadLibrary()
+      ]);
+      if (dbAppState) appStateCache = appStateForStorage(dbAppState);
+      const normalizedDbLibrary = normalizeLibrary(dbLibrary);
+      if (normalizedDbLibrary.gameOrder.length) {
+        libraryCache = normalizedDbLibrary;
+      } else if (libraryCache.gameOrder.length) {
+        await db.saveLibrary(libraryCache);
+      }
+      if (appStateCache) await db.saveAppState(appStateCache);
+      if (libraryCache.activeGameId) {
+        writeMetadata({ currentGameId: libraryCache.activeGameId });
+      }
+      if (appStateCache || libraryCache.gameOrder.length) {
+        removeLegacyLocalStorageCopies();
+      }
+    } catch (error) {
+      warnIndexedDbFailure("load scorebook data", error);
+    }
+  }
+
+  loadLegacyState();
+  const ready = hydrateFromIndexedDb();
+
+  function loadAppState() {
+    return appStateCache ? deepClone(appStateCache) : null;
+  }
+
   function saveAppState(state) {
-    setJsonItem(STORAGE_KEY, appStateForStorage(state));
+    appStateCache = appStateForStorage(state);
+    const activeGameId = state?.activeGameId || libraryCache.activeGameId || "";
+    writeMetadata({ currentGameId: activeGameId });
+    queueIndexedDbWrite("save app state", () => db.saveAppState(appStateCache));
     return deepClone(state);
   }
 
   function loadLibrary() {
-    try {
-      const raw = global.localStorage.getItem(GAME_LIBRARY_KEY);
-      if (raw) return normalizeLibrary(JSON.parse(raw));
-
-      const legacy = loadAppState();
-      if (!Array.isArray(legacy?.games)) return emptyLibrary();
-
-      const library = buildLibraryFromGames(legacy.games, legacy.activeGameId);
-      saveLibrary(library);
-      return library;
-    } catch (error) {
-      console.warn("Unable to load saved game library.", error);
-      return emptyLibrary();
-    }
+    return normalizeLibrary(libraryCache);
   }
 
   function saveLibrary(library) {
-    const compacted = compactLibraryForStorage(library);
-    releaseLegacyAppStateGames();
-    try {
-      setJsonItem(GAME_LIBRARY_KEY, compacted);
-      return compacted;
-    } catch (error) {
-      if (!isQuotaExceeded(error)) throw error;
-      const emergency = compactLibraryForStorage(library, 2);
-      setJsonItem(GAME_LIBRARY_KEY, emergency);
-      return emergency;
-    }
+    libraryCache = normalizeLibrary(library);
+    writeMetadata({ currentGameId: libraryCache.activeGameId });
+    queueIndexedDbWrite("save game library", () => db.saveLibrary(libraryCache));
+    return normalizeLibrary(libraryCache);
   }
 
   function saveGame(game, setActive = true) {
     if (!game?.id) return loadLibrary();
-    const library = loadLibrary();
-    library.gamesById[game.id] = deepClone(game);
-    if (!library.gameOrder.includes(game.id)) library.gameOrder.push(game.id);
-    if (setActive) library.activeGameId = game.id;
-    return saveLibrary(library);
+    libraryCache.gamesById[game.id] = deepClone(game);
+    if (!libraryCache.gameOrder.includes(game.id)) libraryCache.gameOrder.push(game.id);
+    if (setActive) libraryCache.activeGameId = game.id;
+    writeMetadata({ currentGameId: libraryCache.activeGameId });
+    queueIndexedDbWrite("save game", async () => {
+      await db.saveGame(game);
+      await db.saveLibrary(libraryCache);
+    });
+    return loadLibrary();
   }
 
   function loadGameById(gameId) {
-    const library = loadLibrary();
-    return library.gamesById[gameId] ? deepClone(library.gamesById[gameId]) : null;
+    return libraryCache.gamesById[gameId] ? deepClone(libraryCache.gamesById[gameId]) : null;
   }
 
   function getActiveGame() {
-    const library = loadLibrary();
-    return library.activeGameId ? loadGameById(library.activeGameId) : null;
+    return libraryCache.activeGameId ? loadGameById(libraryCache.activeGameId) : null;
   }
 
   function setActiveGame(gameId) {
-    const library = loadLibrary();
-    if (!library.gamesById[gameId]) return null;
-    library.activeGameId = gameId;
-    saveLibrary(library);
-    return deepClone(library.gamesById[gameId]);
+    if (!libraryCache.gamesById[gameId]) return null;
+    libraryCache.activeGameId = gameId;
+    writeMetadata({ currentGameId: gameId });
+    queueIndexedDbWrite("set active game", () => db.saveLibrary(libraryCache));
+    return deepClone(libraryCache.gamesById[gameId]);
   }
 
   function listGames() {
-    const library = loadLibrary();
-    return library.gameOrder.map((gameId) => deepClone(library.gamesById[gameId])).filter(Boolean);
+    return libraryCache.gameOrder.map((gameId) => deepClone(libraryCache.gamesById[gameId])).filter(Boolean);
   }
 
   function deleteGame(gameId) {
-    const library = loadLibrary();
-    if (!library.gamesById[gameId]) return library;
-    delete library.gamesById[gameId];
-    library.gameOrder = library.gameOrder.filter((id) => id !== gameId);
-    if (library.activeGameId === gameId) library.activeGameId = "";
-    return saveLibrary(library);
+    if (!libraryCache.gamesById[gameId]) return loadLibrary();
+    delete libraryCache.gamesById[gameId];
+    libraryCache.gameOrder = libraryCache.gameOrder.filter((id) => id !== gameId);
+    if (libraryCache.activeGameId === gameId) libraryCache.activeGameId = "";
+    writeMetadata({ currentGameId: libraryCache.activeGameId });
+    queueIndexedDbWrite("delete game", async () => {
+      await db.deleteGame(gameId);
+      await db.saveLibrary(libraryCache);
+    });
+    return loadLibrary();
   }
 
   function exportGame(gameId) {
@@ -209,15 +246,14 @@
     const payload = JSON.parse(String(jsonText || ""));
     if (payload.gamesById && payload.gameOrder) {
       const incomingLibrary = normalizeLibrary(payload);
-      const currentLibrary = loadLibrary();
       incomingLibrary.gameOrder.forEach((gameId) => {
-        currentLibrary.gamesById[gameId] = deepClone(incomingLibrary.gamesById[gameId]);
-        if (!currentLibrary.gameOrder.includes(gameId)) currentLibrary.gameOrder.push(gameId);
+        libraryCache.gamesById[gameId] = deepClone(incomingLibrary.gamesById[gameId]);
+        if (!libraryCache.gameOrder.includes(gameId)) libraryCache.gameOrder.push(gameId);
       });
       if (setActive && incomingLibrary.activeGameId) {
-        currentLibrary.activeGameId = incomingLibrary.activeGameId;
+        libraryCache.activeGameId = incomingLibrary.activeGameId;
       }
-      return saveLibrary(currentLibrary);
+      return saveLibrary(libraryCache);
     }
 
     if (!payload.id) throw new Error("Imported JSON does not contain a game id.");
@@ -225,7 +261,27 @@
     return deepClone(payload);
   }
 
+  function addGameEvent(gameId, event) {
+    const game = libraryCache.gamesById[gameId];
+    if (!game) return null;
+    const nextEvent = deepClone({
+      ...event,
+      gameId: event?.gameId || gameId
+    });
+    game.events = Array.isArray(game.events) ? game.events : [];
+    game.events.push(nextEvent);
+    queueIndexedDbWrite("add game event", () => db.addGameEvent(gameId, nextEvent));
+    return deepClone(nextEvent);
+  }
+
+  function getGameEvents(gameId) {
+    return deepClone(libraryCache.gamesById[gameId]?.events || []);
+  }
+
   global.ScorebookStorage = {
+    ready,
+    flush: () => persistenceQueue,
+    hasIndexedDbWarning: () => indexedDbWarningShown,
     loadLibrary,
     saveLibrary,
     saveGame,
@@ -236,6 +292,8 @@
     deleteGame,
     exportGame,
     importGameFromText,
+    addGameEvent,
+    getGameEvents,
     loadAppState,
     saveAppState,
     normalizeLibrary,

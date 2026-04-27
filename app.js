@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.15";
+const APP_VERSION = "v.1.1.17";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -611,7 +611,7 @@ const FIELD_LOCATION_COORDINATES = {
   "graham park": { latitude: 40.692, longitude: -80.111 }
 };
 
-let state = loadState();
+let state = seedState();
 let accessMode = loadAccessMode();
 let optimizedIds = [];
 let pendingSpray = null;
@@ -1233,15 +1233,25 @@ function populateOpponentSelect() {
   }
 }
 
-populateFieldLocationSelects();
-populateOpponentSelect();
-configureGameDateInputs();
-bindEvents();
-initializeScoutingReport();
-restoreActiveGamePendingScoringState();
-render();
-bootstrapSupabaseState();
-initializeSupabaseAuth();
+initializeScorebookApp();
+
+async function initializeScorebookApp() {
+  try {
+    if (storage.ready) await storage.ready;
+  } catch (error) {
+    console.warn("Unable to finish IndexedDB startup before app boot; continuing with available local state.", error);
+  }
+  state = loadState();
+  populateFieldLocationSelects();
+  populateOpponentSelect();
+  configureGameDateInputs();
+  bindEvents();
+  initializeScoutingReport();
+  restoreActiveGamePendingScoringState();
+  render();
+  bootstrapSupabaseState();
+  initializeSupabaseAuth();
+}
 
 function makePlayer(id, name, number, positions, bats = "R", grades = defaultPlayerGrades(), details = {}) {
   const normalizedPositions = normalizePositions(positions);
@@ -2379,11 +2389,11 @@ function scheduleScoreGameRenderFlush(reason = "score-update") {
 }
 
 function handleLocalStorageSaveError(error) {
-  console.warn("Unable to save scorebook state locally; continuing with in-memory scoring state.", error);
+  console.warn("Unable to save scorebook state to local device storage; continuing with in-memory scoring state.", error);
   if (!localStorageSaveWarningShown) {
     localStorageSaveWarningShown = true;
     window.setTimeout(() => {
-      window.alert("This device is low on local scorebook storage. The app will keep scoring in memory and continue trying to save a compact copy. Sync or export the game when you can.");
+      window.alert("This device could not save to local scorebook storage. The app will keep scoring in memory and continue trying to save to IndexedDB. Sync or export the game when you can.");
     }, 0);
   }
 }
@@ -2464,6 +2474,10 @@ function markSharedGamesDeleted(gameIds = []) {
   });
 }
 
+function remoteFinalGameBlocksLocalSync(remoteGame, localGame) {
+  return Boolean(remoteGame && localGame && gameIsFinal(remoteGame) && !gameIsFinal(localGame));
+}
+
 function clearSharedSessionPending(options = {}) {
   const {
     clearAppState = false,
@@ -2509,6 +2523,11 @@ function overlaySessionSharedChanges(baseState, localState = state) {
   pendingSharedGameIds.forEach((gameId) => {
     const localGame = localGamesById.get(gameId);
     if (!localGame) return;
+    const remoteGame = mergedGamesById.get(gameId);
+    if (remoteFinalGameBlocksLocalSync(remoteGame, localGame)) {
+      pendingSharedGameIds.delete(gameId);
+      return;
+    }
     mergedGamesById.set(gameId, deepClone(localGame));
     pushOrderedId(gameId);
   });

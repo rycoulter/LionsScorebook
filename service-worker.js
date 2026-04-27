@@ -1,8 +1,10 @@
-const CACHE_NAME = "baseball-scorebook-v1-1-15-build-179";
+const CACHE_NAME = "baseball-scorebook-v1-1-17-build-181";
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
   "./styles.css",
+  "./dexie.min.js",
+  "./db.js",
   "./storage.js",
   "./supabase-config.js",
   "./supabase-storage.js",

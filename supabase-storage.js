@@ -83,6 +83,18 @@
       || (table && text.includes(table) && (text.includes("could not find") || text.includes("does not exist")));
   }
 
+  function isFinalGameStatus(status) {
+    return status === "completed" || status === "final";
+  }
+
+  function isFinalGameData(game) {
+    return Boolean(game && isFinalGameStatus(game.status));
+  }
+
+  function rowRepresentsFinalGame(row) {
+    return Boolean(row?.is_final || isFinalGameStatus(row?.status) || isFinalGameData(row?.game_data));
+  }
+
   function buildAppStateRow(state) {
     const deletedGameTombstones = deepClone(state?.deletedGameTombstones || {});
     const currentGameIds = Array.isArray(state?.games)
@@ -111,7 +123,7 @@
       game_time: game.time || "",
       status: game.status || "scheduled",
       lions_side: game.lionsSide || "away",
-      is_final: game.status === "final",
+      is_final: isFinalGameData(game),
       game_data: deepClone(game)
     };
   }
@@ -162,6 +174,18 @@
         const remoteGame = remoteGamesById.get(gameId);
         if (!remoteGame && nextState.deletedGameTombstones?.[gameId]) {
           seenIds.add(gameId);
+          return;
+        }
+        if (remoteGame && isFinalGameData(remoteGame) && !isFinalGameData(game)) {
+          mergedGames.push(remoteGame);
+          seenIds.add(gameId);
+          remoteGamesById.delete(gameId);
+          return;
+        }
+        if (remoteGame && isFinalGameData(game) && !isFinalGameData(remoteGame)) {
+          mergedGames.push(game);
+          seenIds.add(gameId);
+          remoteGamesById.delete(gameId);
           return;
         }
         if (game.status === "active") {
@@ -293,10 +317,37 @@
     if (!client) return { data: [], error: new Error("Supabase client not ready.") };
     const rows = games.filter((game) => game?.id).map(buildGameRow);
     if (!rows.length) return { data: [], error: null };
-    return client
+    const ids = rows.map((row) => row.id).filter(Boolean);
+    const existingResponse = await client
       .from("games")
-      .upsert(rows, { onConflict: "id" })
+      .select("id,status,is_final,game_data")
+      .in("id", ids);
+    if (existingResponse.error) {
+      return { data: [], error: existingResponse.error };
+    }
+    const finalRemoteIds = new Set(
+      (existingResponse.data || [])
+        .filter(rowRepresentsFinalGame)
+        .map((row) => row.id)
+        .filter(Boolean)
+    );
+    const skippedFinalGameIds = [];
+    const safeRows = rows.filter((row) => {
+      const blocked = finalRemoteIds.has(row.id) && !isFinalGameData(row.game_data);
+      if (blocked) skippedFinalGameIds.push(row.id);
+      return !blocked;
+    });
+    if (!safeRows.length) {
+      return { data: [], error: null, skippedFinalGameIds };
+    }
+    const response = await client
+      .from("games")
+      .upsert(safeRows, { onConflict: "id" })
       .select("id, updated_at");
+    return {
+      ...response,
+      skippedFinalGameIds
+    };
   }
 
   async function pushSnapshot(state) {
