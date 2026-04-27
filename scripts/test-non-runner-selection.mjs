@@ -33,8 +33,11 @@ mustMatch(scoringStepConfig, /scoringStep === "runner_replacement"/, "Scoring pa
 mustMatch(scoringStepConfig, /data-runner-replacement-id/, "NR selection should offer replacement runner buttons");
 mustMatch(scoringStepConfig, /Future steals and runs score to the NR/, "NR panel should explain stat attribution");
 
+const handleSpecialActionButton = functionBody(appJs, "handleSpecialActionButton");
+mustMatch(handleSpecialActionButton, /button\.dataset\.specialAction === "non_runner"[\s\S]*openNonRunnerSelect/, "NR action should open the replacement selector");
+
 const handleScoringPanelClick = functionBody(appJs, "handleScoringPanelClick");
-mustMatch(handleScoringPanelClick, /button\.dataset\.specialAction === "non_runner"[\s\S]*openNonRunnerSelect/, "NR action should open the replacement selector");
+mustMatch(handleScoringPanelClick, /handleSpecialActionButton\(button\)/, "Click handling should route NR actions through the shared special-action helper");
 mustMatch(handleScoringPanelClick, /button\.dataset\.runnerReplacementId[\s\S]*assignNonRunner/, "Replacement selection should assign the NR");
 
 const assignNonRunner = functionBody(appJs, "assignNonRunner");

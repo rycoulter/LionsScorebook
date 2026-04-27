@@ -510,7 +510,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.0";
+const APP_VERSION = "v.1.1.1";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -639,6 +639,8 @@ let scoringStepHoldTimer = null;
 let scoringStepHoldButton = null;
 let scoringStepHoldConsumedButton = null;
 let scoringStepHoldConsumedAt = 0;
+let scoringStepPointerActionButton = null;
+let scoringStepPointerActionAt = 0;
 let lastPitchFeedback = null;
 let pitchFeedbackTimer = null;
 let pitchFeedbackSequence = 0;
@@ -3324,6 +3326,7 @@ function bindEvents() {
   els.scoringStepPanel.addEventListener("click", handleScoringPanelClick);
   els.scoringStepPanel.addEventListener("pointerdown", handleActionFeedbackPointerDown);
   els.scoringStepPanel.addEventListener("pointerdown", handleScoringStepPointerDown);
+  els.scoringStepPanel.addEventListener("pointerup", handleScoringPanelPointerUpAction);
   els.scoringStepPanel.addEventListener("pointerup", handleScoringStepPointerUp);
   els.scoringStepPanel.addEventListener("pointercancel", clearScoringStepHold);
   els.scoringStepPanel.addEventListener("pointerleave", clearScoringStepHold);
@@ -5815,8 +5818,8 @@ function recordSteal(target, outcome, sourceBase = "") {
   }
   if (outcome === "out") {
     game.current.outs += movement.outsRecorded;
-    commitCurrentToLegacy(game);
   }
+  commitCurrentToLegacy(game);
 
   const event = {
     id: uuid(),
@@ -5829,10 +5832,10 @@ function recordSteal(target, outcome, sourceBase = "") {
     contact: "none",
     launch: "none",
     leverage: "neutral",
-    inning: game.inning,
-    half: game.half,
+    inning: game.current?.inning ?? game.inning,
+    half: game.current?.half ?? game.half,
     outsBefore: snapshotBefore.outs,
-    outsAfter: game.outs,
+    outsAfter: game.current?.outs ?? game.outs,
     basesBefore: { ...snapshotBefore.bases },
     basesAfter: { ...game.bases },
     scope: isLionsAtBat(game) ? "offense" : "defense",
@@ -5881,10 +5884,10 @@ function recordPickoff(base) {
     contact: "none",
     launch: "none",
     leverage: "neutral",
-    inning: game.inning,
-    half: game.half,
+    inning: game.current?.inning ?? game.inning,
+    half: game.current?.half ?? game.half,
     outsBefore: snapshotBefore.outs,
-    outsAfter: game.outs,
+    outsAfter: game.current?.outs ?? game.outs,
     basesBefore: { ...snapshotBefore.bases },
     basesAfter: { ...game.bases },
     scope: isLionsAtBat(game) ? "offense" : "defense",
@@ -7847,9 +7850,39 @@ function handleActionFeedbackPointerDown(event) {
   syncActionFeedbackButtonState(button, feedback);
 }
 
+function handleSpecialActionButton(button) {
+  if (!button || button.disabled || !button.dataset.specialAction) return false;
+  if (button.dataset.specialAction === "non_runner") {
+    triggerActionFeedback(actionFeedbackForButton(button), button);
+    openNonRunnerSelect(button.dataset.specialTarget || selectedFieldRunnerBase);
+    return true;
+  }
+  triggerActionFeedback(actionFeedbackForButton(button), button);
+  applyEvent(activeGame(), {
+    type: "special_action",
+    action: button.dataset.specialAction,
+    source: button.dataset.specialSource || selectedFieldRunnerBase,
+    target: button.dataset.specialTarget
+  });
+  return true;
+}
+
+function handleScoringPanelPointerUpAction(event) {
+  const button = event.target.closest("button[data-special-action]");
+  if (!button || button.disabled) return;
+  event.preventDefault();
+  scoringStepPointerActionButton = button;
+  scoringStepPointerActionAt = Date.now();
+  handleSpecialActionButton(button);
+}
+
 function handleScoringPanelClick(event) {
   const button = event.target.closest("button");
   if (!button) return;
+  if (button === scoringStepPointerActionButton && Date.now() - scoringStepPointerActionAt < 700) {
+    scoringStepPointerActionButton = null;
+    return;
+  }
   if (button === scoringStepHoldConsumedButton && Date.now() - scoringStepHoldConsumedAt < 700) {
     scoringStepHoldConsumedButton = null;
     return;
@@ -7887,18 +7920,7 @@ function handleScoringPanelClick(event) {
     return;
   }
   if (button.dataset.specialAction) {
-    if (button.dataset.specialAction === "non_runner") {
-      triggerActionFeedback(actionFeedbackForButton(button), button);
-      openNonRunnerSelect(button.dataset.specialTarget || selectedFieldRunnerBase);
-      return;
-    }
-    triggerActionFeedback(actionFeedbackForButton(button), button);
-    applyEvent(activeGame(), {
-      type: "special_action",
-      action: button.dataset.specialAction,
-      source: button.dataset.specialSource || selectedFieldRunnerBase,
-      target: button.dataset.specialTarget
-    });
+    handleSpecialActionButton(button);
     return;
   }
   if (button.dataset.runnerReplacementId) {

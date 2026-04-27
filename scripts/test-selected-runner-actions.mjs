@@ -33,8 +33,30 @@ assert.match(
 const scoringClickBody = functionBody(appJs, "handleScoringPanelClick");
 assert.match(
   scoringClickBody,
-  /source: button\.dataset\.specialSource \|\| selectedFieldRunnerBase/,
+  /handleSpecialActionButton\(button\)/,
   "Selected runner actions should pass the selected source base into applyEvent"
+);
+
+const specialActionBody = functionBody(appJs, "handleSpecialActionButton");
+assert.match(
+  specialActionBody,
+  /source: button\.dataset\.specialSource \|\| selectedFieldRunnerBase/,
+  "Special action helper should preserve the selected source base"
+);
+assert.match(
+  functionBody(appJs, "handleScoringPanelPointerUpAction"),
+  /button\[data-special-action\]/,
+  "Special action buttons should also execute from pointerup for iPad/Safari reliability"
+);
+assert.match(
+  appJs,
+  /scoringStepPanel\.addEventListener\("pointerup", handleScoringPanelPointerUpAction\)/,
+  "Scoring panel should bind the pointerup special-action fallback"
+);
+assert.match(
+  scoringClickBody,
+  /button === scoringStepPointerActionButton/,
+  "Click handling should ignore the synthetic click after a pointerup special action"
 );
 
 const applyEventBody = functionBody(appJs, "applyEvent");
@@ -54,6 +76,7 @@ assert.match(recordStealBody, /function recordSteal\(target, outcome, sourceBase
 assert.match(recordStealBody, /const steal = baseKeyForSteal\(target, sourceBase\)/, "recordSteal should use the explicit source base");
 assert.match(recordStealBody, /sameRunnerValue\(targetRunner, runner\)/, "recordSteal should tolerate duplicate same-runner target state");
 assert.match(recordStealBody, /const runnerId = runnerIdentity\(runner\) \|\| runner/, "recordSteal should normalize object-shaped runner values");
+assert.match(recordStealBody, /commitCurrentToLegacy\(game\)/, "Safe runner actions should commit current base movement back to legacy game state");
 
 const applyRunnerBody = functionBody(appJs, "applyRunnerAdvancements");
 assert.match(
