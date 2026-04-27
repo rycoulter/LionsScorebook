@@ -510,7 +510,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.7";
+const APP_VERSION = "v.1.1.8";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -554,6 +554,7 @@ let statEditPlayerId = "";
 let statEditGameId = "";
 let statEditSprays = [];
 let statEditSprayMode = "hit";
+let quickScoreGameId = "";
 let rosterFilter = "active";
 let rosterSearchQuery = "";
 let rosterSortKey = "number";
@@ -1069,6 +1070,16 @@ const els = {
   statEditSprayMarkers: document.getElementById("statEditSprayMarkers"),
   statEditSprayList: document.getElementById("statEditSprayList"),
   statEditSprayModeButtons: [...document.querySelectorAll("[data-stat-edit-spray-mode]")],
+  quickScoreModal: document.getElementById("quickScoreModal"),
+  quickScoreTitle: document.getElementById("quickScoreTitle"),
+  quickScoreMeta: document.getElementById("quickScoreMeta"),
+  quickScoreForm: document.getElementById("quickScoreForm"),
+  quickScoreLionsLabel: document.getElementById("quickScoreLionsLabel"),
+  quickScoreOpponentLabel: document.getElementById("quickScoreOpponentLabel"),
+  quickScoreLionsInput: document.getElementById("quickScoreLionsInput"),
+  quickScoreOpponentInput: document.getElementById("quickScoreOpponentInput"),
+  quickScoreCancelBtn: document.getElementById("quickScoreCancelBtn"),
+  quickScoreCloseBtn: document.getElementById("quickScoreCloseBtn"),
   statEditInputs: {
     ab: document.getElementById("statEditAb"),
     h: document.getElementById("statEditH"),
@@ -1528,18 +1539,13 @@ function populateFieldLocationSelects() {
 }
 
 function configureGameDateInputs() {
-  const today = todayValue();
   [els.gameDateInput, els.editDateInput].filter(Boolean).forEach((input) => {
-    input.min = today;
+    input.removeAttribute("min");
   });
 }
 
 function selectedGameDate(input) {
   return input?.value || todayValue();
-}
-
-function isPastGameDate(value) {
-  return Boolean(value) && value < todayValue();
 }
 
 function createGame(options = {}) {
@@ -3436,6 +3442,16 @@ function bindEvents() {
     if (!button) return;
     handleGameActionClick(event);
   });
+  els.scheduleFeaturedBody?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-game-action]");
+    if (!button) return;
+    handleGameActionClick(event);
+  });
+  els.scheduleUpcomingBody?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-game-action]");
+    if (!button) return;
+    handleGameActionClick(event);
+  });
   els.scheduleCalendarGrid?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-game-action]");
     if (!button) return;
@@ -3445,7 +3461,7 @@ function bindEvents() {
     const button = event.target.closest("[data-game-action]");
     if (!button) return;
     const action = button.dataset.gameAction;
-    if (["summary", "scorebook", "stats", "boxscore", "sync"].includes(action)) {
+    if (["summary", "scorebook", "stats", "boxscore", "sync", "quick-score"].includes(action)) {
       handleGameActionClick(event);
       return;
     }
@@ -3914,6 +3930,12 @@ window.addEventListener("resize", () => {
     if (event.target === els.statEditGameModal) closeStatEditGameModal();
   });
   els.statEditGameForm?.addEventListener("submit", saveStatEditGameStats);
+  els.quickScoreForm?.addEventListener("submit", saveQuickScoreResult);
+  els.quickScoreCancelBtn?.addEventListener("click", closeQuickScoreModal);
+  els.quickScoreCloseBtn?.addEventListener("click", closeQuickScoreModal);
+  els.quickScoreModal?.addEventListener("click", (event) => {
+    if (event.target === els.quickScoreModal) closeQuickScoreModal();
+  });
   els.statEditSprayModeButtons?.forEach((button) => {
     button.addEventListener("click", () => setStatEditSprayMode(button.dataset.statEditSprayMode));
   });
@@ -3983,6 +4005,10 @@ window.addEventListener("resize", () => {
   });
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
+    if (els.quickScoreModal && !els.quickScoreModal.hidden) {
+      closeQuickScoreModal();
+      return;
+    }
     if (els.statEditGameModal && !els.statEditGameModal.hidden) {
       closeStatEditGameModal();
       return;
@@ -6050,12 +6076,6 @@ async function scheduleGame() {
   }
   const opponent = els.opponentInput.value.trim() || "Opponent";
   const date = selectedGameDate(els.gameDateInput);
-  if (isPastGameDate(date)) {
-    window.alert("Choose today or a future date for new games.");
-    els.gameDateInput.value = todayValue();
-    els.gameDateInput.focus();
-    return;
-  }
   const game = makeUniqueGame({ opponent, lionsSide: els.gameLionsSideInput.value || "home" });
   const location = selectedFieldLocation(els.gameLocationInput);
   game.date = date;
@@ -6083,7 +6103,6 @@ function showGameCreateForm() {
   els.scheduleGameBtn.hidden = true;
   configureGameDateInputs();
   if (!els.gameDateInput.value) els.gameDateInput.value = todayValue();
-  if (isPastGameDate(els.gameDateInput.value)) els.gameDateInput.value = todayValue();
   renderGameSetupPreview();
   els.opponentInput?.focus();
 }
@@ -6199,6 +6218,67 @@ function handleHomeNextGameScoreAction() {
   openLineupBuilder(game.id, "home");
 }
 
+function quickScoreGame() {
+  return state.games.find((game) => game.id === quickScoreGameId) || null;
+}
+
+function quickScoreInputValue(input) {
+  const score = Number.parseInt(input?.value || "0", 10);
+  if (Number.isNaN(score)) return 0;
+  return Math.min(99, Math.max(0, score));
+}
+
+function openQuickScoreModal(gameId) {
+  if (!requireAdminAccess("Admin sign-in required to enter final scores.")) return;
+  const game = state.games.find((item) => item.id === gameId);
+  if (!game || gameIsFinal(game) || !els.quickScoreModal) return;
+  quickScoreGameId = game.id;
+  if (els.quickScoreTitle) els.quickScoreTitle.textContent = "Quick Score";
+  if (els.quickScoreMeta) {
+    els.quickScoreMeta.textContent = `${gameMatchupLabel(game)} | ${formatGameDateWithYear(game.date || todayValue())}`;
+  }
+  if (els.quickScoreLionsLabel) els.quickScoreLionsLabel.textContent = "Lions";
+  if (els.quickScoreOpponentLabel) els.quickScoreOpponentLabel.textContent = homeOpponentName(game);
+  if (els.quickScoreLionsInput) els.quickScoreLionsInput.value = String(Number(game.score?.lions || 0));
+  if (els.quickScoreOpponentInput) els.quickScoreOpponentInput.value = String(Number(game.score?.opponent || 0));
+  els.quickScoreModal.hidden = false;
+  window.setTimeout(() => els.quickScoreLionsInput?.focus(), 0);
+}
+
+function closeQuickScoreModal() {
+  quickScoreGameId = "";
+  if (els.quickScoreModal) els.quickScoreModal.hidden = true;
+}
+
+async function saveQuickScoreResult(event) {
+  event?.preventDefault?.();
+  if (!requireAdminAccess("Admin sign-in required to enter final scores.")) return;
+  if (!(await ensureFreshSharedBaseline("quick-score"))) {
+    window.alert("We couldn't refresh the latest shared schedule yet. Try again in a moment.");
+    return;
+  }
+  const game = quickScoreGame();
+  if (!game || gameIsFinal(game)) return;
+  game.score = {
+    ...(game.score || {}),
+    lions: quickScoreInputValue(els.quickScoreLionsInput),
+    opponent: quickScoreInputValue(els.quickScoreOpponentInput)
+  };
+  syncScoreBySide(game);
+  game.status = "completed";
+  game.currentPlateAppearanceId = "";
+  game.atBat = makeAtBat();
+  game.pendingScoring = null;
+  clearPendingPlayState(game, true);
+  markSharedGamesDirty(game.id);
+  markGameSyncPending(game);
+  moveActiveGameOffFinal(game.id);
+  closeQuickScoreModal();
+  saveStateWithOptions({ markLiveGamesDirty: false });
+  render();
+  requestSharedSnapshotSync("quick-score");
+}
+
 function handleGameActionClick(event) {
   const button = event.target.closest("[data-game-action]");
   if (!button) return;
@@ -6207,6 +6287,7 @@ function handleGameActionClick(event) {
   if (button.dataset.gameAction === "scorebook") openGameScorebook(gameId);
   if (button.dataset.gameAction === "stats") openGameStats(gameId);
   if (button.dataset.gameAction === "boxscore") openBoxScore(gameId);
+  if (button.dataset.gameAction === "quick-score") openQuickScoreModal(gameId);
   if (button.dataset.gameAction === "sync") {
     syncCompletedGame(gameId).catch((error) => {
       const game = state.games.find((item) => item.id === gameId);
@@ -10858,6 +10939,7 @@ function renderScheduleFeaturedGameCard(game) {
   const location = gameLocationLabel(game);
   const dateLabel = formatGameDateDisplay(game?.date);
   const timeLabel = formatGameTimeDisplay(game?.time);
+  const quickScoreAction = renderQuickScoreAction(game, "schedule-quick-score-feature");
   const heroMeta = [
     renderScheduleMetaItem("calendar", `${dateLabel}${timeLabel ? ` | ${timeLabel}` : ""}`),
     renderScheduleMetaItem("location", location || "Location TBD"),
@@ -10877,6 +10959,7 @@ function renderScheduleFeaturedGameCard(game) {
         </span>
         <span>${escapeHtml(status.text)}</span>
       </p>
+      ${quickScoreAction}
     </div>
   </article>`;
 }
@@ -11442,6 +11525,7 @@ function scheduleCompletedMatchupLabel(game) {
 function renderScheduleUpcomingRow(game) {
   const dateLabel = formatGameDateDisplay(game?.date);
   const timeLabel = formatGameTimeDisplay(game?.time);
+  const quickScoreAction = renderQuickScoreAction(game, "schedule-quick-score-row");
   return `<article class="schedule-upcoming-row">
     <img class="schedule-upcoming-row-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.(game?.opponent, "opponent") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
     <div class="schedule-upcoming-row-copy">
@@ -11452,6 +11536,7 @@ function renderScheduleUpcomingRow(game) {
         ${renderScheduleWeatherInlineItem(game)}
       </div>
     </div>
+    ${quickScoreAction}
   </article>`;
 }
 
@@ -11492,6 +11577,11 @@ function renderScheduleMetaItem(type, text) {
     <span class="schedule-meta-item-icon" aria-hidden="true">${icon}</span>
     <span>${escapeHtml(text)}</span>
   </span>`;
+}
+
+function renderQuickScoreAction(game, className = "schedule-quick-score-action") {
+  if (!isAdminMode() || !game?.id || gameIsFinal(game)) return "";
+  return `<button type="button" class="secondary-action ${escapeHtml(className)}" data-game-action="quick-score" data-game-id="${escapeHtml(game.id)}">Quick Score</button>`;
 }
 
 function renderScheduleWeatherItem(game) {
@@ -11577,6 +11667,7 @@ function renderScheduleGameCard(game, activeId = "") {
   const completedSyncButton = admin && completed
     ? `<button type="button" class="secondary-action" data-game-action="sync" data-game-id="${game.id}" ${!canSyncGame(game) ? "disabled" : ""}>${escapeHtml(completedGameSyncButtonLabel(syncState))}</button>`
     : "";
+  const quickScoreAction = renderQuickScoreAction(game, "schedule-quick-score-card");
   const primaryAction = admin
     ? (lifecycle === "active"
       ? `<button type="button" class="primary-action" data-game-action="score" data-game-id="${game.id}">${actualActive ? (game.id === activeId ? "Continue Scoring" : "Open In Progress") : "Start Live Game"}</button>`
@@ -11607,7 +11698,8 @@ function renderScheduleGameCard(game, activeId = "") {
     <div class="game-actions">
       ${primaryAction}
       ${admin
-        ? `${completed ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${game.id}">View Summary</button>` : ""}
+        ? `${quickScoreAction}
+           ${completed ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${game.id}">View Summary</button>` : ""}
            ${completedSyncButton}
            <button type="button" class="secondary-action" data-game-action="edit" data-game-id="${game.id}" ${locked ? "disabled" : ""}>Edit</button>
            <button type="button" class="secondary-action" data-game-action="complete" data-game-id="${game.id}" ${canComplete ? "" : "disabled"}>Mark Final</button>
@@ -11696,12 +11788,6 @@ async function saveGameEdits() {
   if (!game) return;
   if (gameIsFinal(game)) return;
   const date = selectedGameDate(els.editDateInput);
-  if (isPastGameDate(date)) {
-    window.alert("Choose today or a future date for games that are not final.");
-    els.editDateInput.value = todayValue();
-    els.editDateInput.focus();
-    return;
-  }
   const location = selectedFieldLocation(els.editLocationInput);
   game.opponent = els.editOpponentInput.value.trim() || "Opponent";
   syncGameTeams(game, els.editLionsSideInput.value || lionsSide(game));
