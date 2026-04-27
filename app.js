@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.17";
+const APP_VERSION = "v.1.1.20";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -716,6 +716,19 @@ let scoringStepHoldConsumedAt = 0;
 let scoringStepPointerActionButton = null;
 let scoringStepPointerActionAt = 0;
 const POINTER_ACTION_CLICK_SUPPRESS_MS = 2500;
+const SCORING_PANEL_POINTERUP_ACTION_SELECTOR = [
+  "button[data-step-pitch]",
+  "button[data-step-auto-result]",
+  "button[data-special-action]",
+  "button[data-runner-replacement-id]",
+  "button[data-clear-runner-selection]",
+  "button[data-step-outcome]",
+  "button[data-out-type]",
+  "button[data-out-fielder]",
+  "button[data-runner-choice-base]",
+  "button[data-confirm-play]",
+  "button[data-opponent-result]"
+].join(", ");
 let scoreGameRenderFlushTimer = null;
 let scoreGamePaintFlushFrame = 0;
 let localStorageSaveWarningShown = false;
@@ -8286,19 +8299,13 @@ function handleSpecialActionButton(button) {
 }
 
 function handleScoringPanelPointerUpAction(event) {
-  const button = closestFromEventTarget(event.target, "button[data-special-action], button[data-confirm-play]");
+  const button = closestFromEventTarget(event.target, SCORING_PANEL_POINTERUP_ACTION_SELECTOR);
   if (!button || button.disabled) return;
+  if (button === scoringStepHoldConsumedButton && Date.now() - scoringStepHoldConsumedAt < 700) return;
   event.preventDefault();
+  handleScoringPanelClick({ target: button });
   scoringStepPointerActionButton = button;
   scoringStepPointerActionAt = Date.now();
-  if (button.dataset.specialAction) {
-    handleSpecialActionButton(button);
-    return;
-  }
-  if (button.dataset.confirmPlay !== undefined) {
-    triggerActionFeedback(actionFeedbackForButton(button), button);
-    applyEvent(activeGame(), { type: "resolve_play" });
-  }
 }
 
 function handleScoringPanelClick(event) {
@@ -10241,13 +10248,19 @@ function sprayEvents() {
   const game = activeGame();
   if (!game) return [];
   const filter = els.sprayFilter.value;
+  const currentScope = isLionsAtBat(game) ? "offense" : "defense";
   const currentHitterId = currentBatterId(game);
-  return sprayEventsForGame(game)
+  const currentOpponentHitter = currentOpponentBatter(game);
+  const sourceEvents = currentScope === "offense"
+    ? sprayEventsForGame(game)
+    : (Array.isArray(game.events) ? game.events : []).map((event) => ({ event, game }));
+  return sourceEvents
     .filter(({ event, game: item }) => {
       if (!event.spray) return false;
-      if (event.scope && event.scope !== "offense") return false;
+      if ((event.scope || "offense") !== currentScope) return false;
       const rule = eventRules[event.result] || {};
-      if (filter === "hitter" && event.playerId !== currentHitterId) return false;
+      if (filter === "hitter" && currentScope === "offense" && event.playerId !== currentHitterId) return false;
+      if (filter === "hitter" && currentScope === "defense" && event.opponentBatter !== currentOpponentHitter) return false;
       if (filter === "hits" && !rule.hit) return false;
       if (filter === "outs" && !rule.out) return false;
       return true;
@@ -10255,10 +10268,11 @@ function sprayEvents() {
 }
 
 function renderSprayDot({ event, game }, options = {}) {
-  const rule = eventRules[event.result];
+  const rule = eventRules[event.result] || {};
   const player = state.roster.find((item) => item.id === event.playerId);
   const kind = rule.hit ? "hit" : "out";
-  const title = `${player?.name || "Unknown"} ${rule.label} vs ${game.opponent} (${event.spray.zone})`;
+  const name = event.scope === "defense" ? event.opponentBatter || "Opponent batter" : player?.name || "Unknown";
+  const title = `${name} ${rule.label || event.result || "Batted ball"} vs ${game.opponent} (${event.spray.zone})`;
   const label = options.outlineOnly
     ? ""
     : options.resultLabel

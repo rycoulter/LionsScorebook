@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
 Last updated: 2026-04-27
-Current commit: post-v1.1.15 working tree with IndexedDB storage migration and stale-live-sync protection in progress
-Current app version: `v.1.1.17`
-Current asset build markers: `2026.04.27-build-181`
+Current commit: post-v1.1.17 working tree with iPad scoring tap reliability and spray chart geometry fixes in progress
+Current app version: `v.1.1.20`
+Current asset build markers: `2026.04.27-build-184`
 
 ## Project Overview
 
@@ -150,6 +150,8 @@ Current state:
 - selected base-runner actions include `NR` for assigning a non-runner from the Lions lineup; later steals, caught stealing, pickoffs, and runs score to the NR runner on base
 - selected base-runner SB/CS/PO actions carry the selected source base and use stable runner identity matching so scored, stolen, caught, or picked-off runners clear from the correct base even after cloned/object-shaped runner state
 - runner displays and SB/CS/PO actions reconcile stale base mirrors from the latest completed event's runner advancements before enabling or applying runner actions, which protects live games that already have a stale runner left on a base after a scoring play
+- scoring action buttons commit from `pointerup` through the same handler used by `click`, with synthetic click suppression, so iPad/Safari taps do not animate without applying the first action
+- the live Score Game spray chart is side-aware: Lions at-bats show Lions offense spray markers, while opponent at-bats show only opponent/defense markers for the current batting side
 - Home next-game card gives admins a direct `Start Game` action for scheduled games and `Score Game` action for already-live games
 - active games are included in shared Supabase snapshots with `app_state.active_game_id`; `saveState()` stores pending scoring checkpoints and debounces live-game sync so reloads can resume the current inning/count/bases/batter/pending flow
 - local games and scoring events are now intended to persist in IndexedDB stores (`games`, `events`, and `meta`) instead of being written as one large `localStorage` JSON blob, reducing iPad/PWA quota failures during long games
@@ -191,6 +193,7 @@ Recent stat logic:
 - the game-level stat editor accepts optional non-derived count inputs for the trackable hitting/running line, including ROE, E, FC, SAC, DP, GO, LO, FO, SB, CS, and PO
 - completed games are available for game-level stat editing even when a player was not in the scored lineup; saving a manual game line counts that game as a GP for that player
 - the game-level stat editor also stores manual spray dots per player/game with edit-only result choices (`1B`, `2B`, `3B`, `HR`, `GO`, `LO`, `FO`) so the season spray chart is derived from edited spray locations when present
+- the player stats spray chart uses the same 4:3 field geometry and contained `assets/updated-field.png` coordinate space as Score Game, so historical hit markers align with where they were recorded
 - Pitching Stats rows now expose a game-level stat editor for admins; saved edits live on `game.pitchingStatEdits`, replace that pitcher's scored defensive events for the selected game, and feed season ERA/WHIP/rate recalculation from IP, pitch count, BF, runs, ER, and decision inputs
 
 ### Schedule & Scores / Game Archive / Box Score

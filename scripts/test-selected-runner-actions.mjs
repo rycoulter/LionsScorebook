@@ -57,18 +57,33 @@ assert.match(
 );
 assert.match(
   functionBody(appJs, "handleScoringPanelPointerUpAction"),
-  /closestFromEventTarget\(event\.target, "button\[data-special-action\], button\[data-confirm-play\]"\)/,
-  "Special action buttons should also execute from pointerup for iPad/Safari reliability"
+  /closestFromEventTarget\(event\.target, SCORING_PANEL_POINTERUP_ACTION_SELECTOR\)/,
+  "Scoring action buttons should execute from pointerup for iPad/Safari reliability"
+);
+assert.match(
+  appJs,
+  /SCORING_PANEL_POINTERUP_ACTION_SELECTOR = \[[\s\S]*button\[data-step-pitch\]/,
+  "Pitch buttons should be covered by the pointerup action path"
+);
+assert.match(
+  appJs,
+  /SCORING_PANEL_POINTERUP_ACTION_SELECTOR = \[[\s\S]*button\[data-step-outcome\]/,
+  "Outcome buttons should be covered by the pointerup action path"
+);
+assert.match(
+  appJs,
+  /SCORING_PANEL_POINTERUP_ACTION_SELECTOR = \[[\s\S]*button\[data-special-action\]/,
+  "Runner action buttons should be covered by the pointerup action path"
+);
+assert.match(
+  appJs,
+  /SCORING_PANEL_POINTERUP_ACTION_SELECTOR = \[[\s\S]*button\[data-confirm-play\]/,
+  "Confirm Play should be covered by the pointerup action path"
 );
 assert.match(
   functionBody(appJs, "handleScoringPanelPointerUpAction"),
-  /button\[data-special-action\], button\[data-confirm-play\]/,
-  "Confirm Play should also execute from pointerup for iPad/Safari reliability"
-);
-assert.match(
-  functionBody(appJs, "handleScoringPanelPointerUpAction"),
-  /applyEvent\(activeGame\(\), \{ type: "resolve_play" \}\)/,
-  "Confirm Play pointerup fallback should resolve the completed play"
+  /handleScoringPanelClick\(\{ target: button \}\)/,
+  "Pointerup should commit through the same scoring action handler used by click"
 );
 assert.match(
   appJs,

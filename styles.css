@@ -15788,7 +15788,7 @@ label {
 }
 
 .stats-spray-chart {
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 3;
   background: #1b4b22;
 }
 
@@ -15803,10 +15803,10 @@ label {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: center center;
 }
 
 #scoreView .field-background-art {
-  object-position: center center;
   filter: saturate(1.04) contrast(1.02) brightness(1.02);
 }
 
@@ -15837,7 +15837,7 @@ label {
 
 @media (max-width: 760px) {
   #statsSprayModal .stats-spray-chart {
-    aspect-ratio: 1 / 1;
+    aspect-ratio: 4 / 3;
   }
 }
 
