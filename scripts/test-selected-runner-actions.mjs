@@ -36,6 +36,18 @@ assert.match(
   /handleSpecialActionButton\(button\)/,
   "Selected runner actions should pass the selected source base into applyEvent"
 );
+assert.match(
+  scoringClickBody,
+  /closestFromEventTarget\(event\.target, "button"\)/,
+  "Scoring panel clicks should resolve buttons safely from text-node tap targets"
+);
+
+const closestTargetBody = functionBody(appJs, "closestFromEventTarget");
+assert.match(
+  closestTargetBody,
+  /target\.parentElement \|\| target\.parentNode/,
+  "Tap target helper should fall back from text nodes to their parent element"
+);
 
 const specialActionBody = functionBody(appJs, "handleSpecialActionButton");
 assert.match(
@@ -45,7 +57,7 @@ assert.match(
 );
 assert.match(
   functionBody(appJs, "handleScoringPanelPointerUpAction"),
-  /button\[data-special-action\]/,
+  /closestFromEventTarget\(event\.target, "button\[data-special-action\]"\)/,
   "Special action buttons should also execute from pointerup for iPad/Safari reliability"
 );
 assert.match(

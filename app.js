@@ -510,7 +510,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.1";
+const APP_VERSION = "v.1.1.2";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -7541,7 +7541,7 @@ function renderFieldRunnerMarkers(game = activeGame()) {
 }
 
 function handleFieldRunnerClick(event) {
-  const button = event.target.closest("[data-field-runner-base]");
+  const button = closestFromEventTarget(event.target, "[data-field-runner-base]");
   if (!button) return;
   event.preventDefault();
   event.stopPropagation();
@@ -7842,8 +7842,15 @@ function triggerRunScoreFeedback(feedback) {
   runScoreFeedbackTimer = setTimeout(() => clearRunScoreFeedback(feedbackId), RUN_SCORE_FEEDBACK_DURATION_MS);
 }
 
+function closestFromEventTarget(target, selector) {
+  if (!target) return null;
+  if (typeof target.closest === "function") return target.closest(selector);
+  const parent = target.parentElement || target.parentNode;
+  return typeof parent?.closest === "function" ? parent.closest(selector) : null;
+}
+
 function handleActionFeedbackPointerDown(event) {
-  const button = event.target.closest("button");
+  const button = closestFromEventTarget(event.target, "button");
   if (!button || button.disabled) return;
   const feedback = actionFeedbackForButton(button);
   if (!feedback) return;
@@ -7868,7 +7875,7 @@ function handleSpecialActionButton(button) {
 }
 
 function handleScoringPanelPointerUpAction(event) {
-  const button = event.target.closest("button[data-special-action]");
+  const button = closestFromEventTarget(event.target, "button[data-special-action]");
   if (!button || button.disabled) return;
   event.preventDefault();
   scoringStepPointerActionButton = button;
@@ -7877,7 +7884,7 @@ function handleScoringPanelPointerUpAction(event) {
 }
 
 function handleScoringPanelClick(event) {
-  const button = event.target.closest("button");
+  const button = closestFromEventTarget(event.target, "button");
   if (!button) return;
   if (button === scoringStepPointerActionButton && Date.now() - scoringStepPointerActionAt < 700) {
     scoringStepPointerActionButton = null;
@@ -7981,7 +7988,7 @@ function clearScoringStepHold() {
 }
 
 function handleScoringStepPointerDown(event) {
-  const button = event.target.closest("button[data-hold-open]");
+  const button = closestFromEventTarget(event.target, "button[data-hold-open]");
   if (!button) return;
   clearScoringStepHold();
   scoringStepHoldButton = button;
@@ -7995,7 +8002,7 @@ function handleScoringStepPointerDown(event) {
 }
 
 function handleScoringStepPointerUp(event) {
-  const button = event.target.closest("button[data-hold-open]");
+  const button = closestFromEventTarget(event.target, "button[data-hold-open]");
   if (!button || button !== scoringStepHoldButton) {
     clearScoringStepHold();
     return;
