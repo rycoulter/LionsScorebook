@@ -24,6 +24,21 @@ mustMatch(indexHtml, /id="dockPitcherCard"/, "Opponent batting dock should keep 
 mustMatch(indexHtml, /id="dockBatterNumber"/, "Lions batting dock should show the batter number badge");
 mustMatch(indexHtml, /id="dockSeasonCard"[\s\S]*id="dockBatterSeasonLine"/, "Lions batting dock should include season stats");
 mustMatch(indexHtml, /id="dockViewLineupBtn"[\s\S]*View Lineup/, "Lions batting dock should include View Lineup");
+mustMatch(indexHtml, /id="dockOpponentLineupBtn"[\s\S]*<strong>Lineup<\/strong>/, "Opponent At Bat section should include a compact Lineup button");
+const opponentLineupButtonMarkup = indexHtml.slice(
+  indexHtml.indexOf('id="dockOpponentLineupBtn"'),
+  indexHtml.indexOf("</button>", indexHtml.indexOf('id="dockOpponentLineupBtn"')) + "</button>".length
+);
+assert.equal(opponentLineupButtonMarkup.includes("<svg"), false, "Opponent Lineup button should be text-only");
+const pitchModeStart = indexHtml.indexOf('id="scoringStepPanel"');
+const dockFooterStart = indexHtml.indexOf('id="scoringDockFooter"');
+const opponentLineupButton = indexHtml.indexOf('id="dockOpponentLineupBtn"');
+assert.ok(opponentLineupButton > dockFooterStart, "Opponent Lineup button should live in the scoring dock");
+assert.equal(
+  indexHtml.slice(pitchModeStart, dockFooterStart).includes('id="dockOpponentLineupBtn"'),
+  false,
+  "Opponent Lineup button should not be inside Pitch Mode controls"
+);
 
 const renderDockBody = functionBody(appJs, "renderScoringDockUtilities");
 mustMatch(renderDockBody, /const lionsBatting = isLionsAtBat\(game\)/, "Dock render should detect Lions batting state");
@@ -33,14 +48,22 @@ mustMatch(renderDockBody, /dockPitcherCard\) els\.dockPitcherCard\.hidden = lion
 mustMatch(renderDockBody, /dockSeasonCard\) els\.dockSeasonCard\.hidden = opponentBatting/, "Season card should hide when opponent is batting");
 mustMatch(renderDockBody, /dockViewLineupBtn\) els\.dockViewLineupBtn\.hidden = opponentBatting/, "Lineup button should hide when opponent is batting");
 mustMatch(renderDockBody, /dockBatterNumber\) els\.dockBatterNumber\.hidden = opponentBatting/, "Batter number badge should hide when opponent is batting");
-mustMatch(renderDockBody, /dockBatterPosition\) els\.dockBatterPosition\.hidden = lionsBatting/, "Opponent position pill should hide when Lions are batting");
+mustMatch(renderDockBody, /dockOpponentLineupBtn\) els\.dockOpponentLineupBtn\.hidden = lionsBatting/, "Opponent Lineup button should hide when Lions are batting");
+mustMatch(renderDockBody, /dockOpponentLineupBtn\.disabled = !canScore \|\| lionsBatting/, "Opponent Lineup button should only be active during opponent scoring");
+mustMatch(renderDockBody, /setAttribute\("aria-label", `Edit \$\{game\.opponent \|\| "opponent"\} lineup`\)/, "Opponent Lineup button should expose an accessible edit label");
 mustMatch(renderDockBody, /dockChangePitcherBtn\.disabled = !canScore \|\| lionsBatting/, "Pitcher Change button should be disabled outside opponent scoring");
 mustMatch(renderDockBody, /dockViewLineupBtn\.disabled = !game \|\| opponentBatting/, "View Lineup should be disabled outside Lions batting");
+
+mustMatch(appJs, /dockOpponentLineupBtn\?\.addEventListener\("click", openOpponentLineupFocusModal\)/, "Opponent Lineup button should open the lineup editor modal");
+const openOpponentBody = functionBody(appJs, "openOpponentLineupFocusModal");
+mustMatch(openOpponentBody, /if \(!game \|\| !isOpponentAtBat\(game\)\) return/, "Opponent lineup editor should only open while opponent is batting");
+mustMatch(openOpponentBody, /openLineupFocusModal\(\)/, "Opponent lineup editor should reuse the lineup modal");
 
 mustMatch(stylesCss, /scoring-dock-summary\.is-lions-batting \.scoring-dock-pitcher-card/, "Lions layout should suppress the pitcher section");
 mustMatch(stylesCss, /scoring-dock-summary\.is-opponent-batting[\s\S]*grid-template-areas: "count pitcher batter"/, "Opponent layout should use Count/Pitcher/At Bat grid");
 mustMatch(stylesCss, /scoring-dock-summary\.is-opponent-batting \.scoring-dock-season-card/, "Opponent layout should suppress Lions season stats");
 mustMatch(stylesCss, /scoring-dock-summary\.is-opponent-batting \.scoring-dock-lineup-card/, "Opponent layout should suppress Lions lineup button");
+mustMatch(stylesCss, /scoring-dock-opponent-lineup-btn[\s\S]*cursor: pointer/, "Opponent Lineup button should feel clickable");
 assert.equal(
   /score-field-control-stack \.scoring-dock-summary\s*\{[\s\S]{0,220}grid-template-areas: "count pitcher batter"/.test(stylesCss),
   false,

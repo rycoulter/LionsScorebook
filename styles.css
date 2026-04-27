@@ -18626,8 +18626,8 @@ label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 38px;
-  min-height: 30px;
+  min-width: 64px;
+  min-height: 28px;
   padding: 5px 9px;
   border: 1px solid rgba(245, 189, 33, 0.42);
   border-radius: 999px;
@@ -18637,6 +18637,40 @@ label {
   font-weight: 1000;
   line-height: 1;
   text-transform: uppercase;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-opponent-lineup-btn {
+  border-color: rgba(245, 189, 33, 0.38);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-opponent-lineup-btn strong {
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-opponent-lineup-btn:hover:not(:disabled),
+#scoreView .score-field-control-stack .scoring-dock-opponent-lineup-btn:focus-visible {
+  border-color: rgba(245, 189, 33, 0.72);
+  background: rgba(245, 189, 33, 0.18);
+  color: #ffe08a;
+  outline: none;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-opponent-lineup-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+#scoreView .score-field-control-stack .scoring-dock-opponent-lineup-btn:disabled {
+  cursor: default;
+  opacity: 0.58;
 }
 
 @media (max-width: 780px) {

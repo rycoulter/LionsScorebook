@@ -813,7 +813,7 @@ const els = {
   dockBatterGameLine: document.getElementById("dockBatterGameLine"),
   dockBatterSeasonLine: document.getElementById("dockBatterSeasonLine"),
   dockBatterNumber: document.getElementById("dockBatterNumber"),
-  dockBatterPosition: document.getElementById("dockBatterPosition"),
+  dockOpponentLineupBtn: document.getElementById("dockOpponentLineupBtn"),
   dockViewLineupBtn: document.getElementById("dockViewLineupBtn"),
   dockViewScorebookBtn: document.getElementById("dockViewScorebookBtn"),
   scoreForm: document.getElementById("scoreForm"),
@@ -892,6 +892,7 @@ const els = {
   endHalfBtn: document.getElementById("endHalfBtn"),
   finishGameBtn: document.getElementById("finishGameBtn"),
   lineupFocusModal: document.getElementById("lineupFocusModal"),
+  lineupFocusEyebrow: document.getElementById("lineupFocusEyebrow"),
   lineupFocusTitle: document.getElementById("lineupFocusTitle"),
   lineupFocusBody: document.getElementById("lineupFocusBody"),
   lineupFocusHint: document.getElementById("lineupFocusHint"),
@@ -3303,6 +3304,7 @@ function bindEvents() {
     undoLastPlay();
   });
   els.dockChangePitcherBtn?.addEventListener("click", openPitcherSelectModal);
+  els.dockOpponentLineupBtn?.addEventListener("click", openOpponentLineupFocusModal);
   els.dockViewScorebookBtn?.addEventListener("click", () => {
     const game = activeGame();
     if (!game?.id) return;
@@ -8067,7 +8069,7 @@ function renderScoringDockUtilities(game = activeGame()) {
   if (els.dockSeasonCard) els.dockSeasonCard.hidden = opponentBatting;
   if (els.dockViewLineupBtn) els.dockViewLineupBtn.hidden = opponentBatting;
   if (els.dockBatterNumber) els.dockBatterNumber.hidden = opponentBatting;
-  if (els.dockBatterPosition) els.dockBatterPosition.hidden = lionsBatting;
+  if (els.dockOpponentLineupBtn) els.dockOpponentLineupBtn.hidden = lionsBatting;
   const lastResult = latestScoringDockResult(game);
   if (els.dockLastResultTitle) els.dockLastResultTitle.textContent = lastResult.title;
   if (els.dockLastResultMeta) els.dockLastResultMeta.textContent = lastResult.meta;
@@ -8113,7 +8115,10 @@ function renderScoringDockUtilities(game = activeGame()) {
   if (els.dockBatterGameLine) els.dockBatterGameLine.textContent = batterSummary.gameLine;
   if (els.dockBatterSeasonLine) els.dockBatterSeasonLine.textContent = batterSummary.seasonLine;
   if (els.dockBatterNumber) els.dockBatterNumber.textContent = batterSummary.number && batterSummary.number !== "--" ? batterSummary.number : "--";
-  if (els.dockBatterPosition) els.dockBatterPosition.textContent = batterSummary.position || "AB";
+  if (els.dockOpponentLineupBtn) {
+    els.dockOpponentLineupBtn.disabled = !canScore || lionsBatting;
+    els.dockOpponentLineupBtn.setAttribute("aria-label", `Edit ${game.opponent || "opponent"} lineup`);
+  }
   if (els.dockUndoLastPlayBtn) els.dockUndoLastPlayBtn.disabled = !canScore || !hasPlayHistory(game);
   if (els.dockViewLineupBtn) els.dockViewLineupBtn.disabled = !game || opponentBatting;
   if (els.dockViewScorebookBtn) els.dockViewScorebookBtn.disabled = !game?.id;
@@ -8191,6 +8196,7 @@ function lineupFocusHint(game = activeGame()) {
 function renderLineupFocusModal(game = activeGame()) {
   if (!els.lineupFocusBody || !els.lineupFocusHint || !els.lineupFocusTitle) return;
   if (!game) {
+    if (els.lineupFocusEyebrow) els.lineupFocusEyebrow.textContent = "Lineup";
     els.lineupFocusTitle.textContent = "Lineup";
     els.lineupFocusHint.textContent = "No active game is loaded.";
     els.lineupFocusBody.innerHTML = `<p class="player-meta">Start or resume a game to view the live lineup.</p>`;
@@ -8199,6 +8205,9 @@ function renderLineupFocusModal(game = activeGame()) {
   renderLiveLineup();
   renderSubControls();
   const lineupLabel = lineupFocusTitle(game);
+  if (els.lineupFocusEyebrow) {
+    els.lineupFocusEyebrow.textContent = isOpponentAtBat(game) ? "Edit Lineup" : "View Lineup";
+  }
   els.lineupFocusTitle.textContent = lineupLabel;
   els.lineupFocusHint.textContent = lineupFocusHint(game);
   const countLabel = els.lineupCount?.textContent || "";
@@ -8239,6 +8248,18 @@ function openLineupFocusModal() {
   if (!game || !els.lineupFocusModal) return;
   renderLineupFocusModal(game);
   els.lineupFocusModal.hidden = false;
+  window.setTimeout(() => {
+    const focusTarget = isOpponentAtBat(game)
+      ? els.lineupFocusBody?.querySelector("[data-opponent-lineup-index]")
+      : els.closeLineupFocusBtn;
+    focusTarget?.focus();
+  }, 0);
+}
+
+function openOpponentLineupFocusModal() {
+  const game = activeGame();
+  if (!game || !isOpponentAtBat(game)) return;
+  openLineupFocusModal();
 }
 
 function closeLineupFocusModal() {
