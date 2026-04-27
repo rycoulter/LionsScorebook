@@ -671,6 +671,7 @@ const els = {
   homeNextGameStatus: document.getElementById("homeNextGameStatus"),
   homeNextGameStatusText: document.getElementById("homeNextGameStatusText"),
   homeNextGameWeather: document.getElementById("homeNextGameWeather"),
+  homeNextGameScoreBtn: document.getElementById("homeNextGameScoreBtn"),
   homeNextGameScheduleLink: document.getElementById("homeNextGameScheduleLink"),
   homeScoutingBtn: document.getElementById("homeScoutingBtn"),
   homeGamesBtn: document.getElementById("homeGamesBtn"),
@@ -2481,6 +2482,7 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
         data: {
           appState: appStateResponse.data || null,
           rosterPlayers: rosterPlayersResponse.data || [],
+          rosterPlayersMissingTable: Boolean(rosterPlayersResponse.missingTable),
           games: gamesResponse.data || []
         },
         error: null
@@ -2509,6 +2511,48 @@ function requestSharedSnapshotSync(reason, options = {}) {
       console.warn(`Shared scorebook sync failed (${reason}).`, error);
     });
   }, 0);
+}
+
+function sharedRosterSyncUnavailableError() {
+  if (!supabaseStorage?.isReady?.()) {
+    return new Error("Supabase is not ready on this device, so the shared roster table was not updated.");
+  }
+  if (!supabaseAdminEmail) {
+    return new Error("Admin sign-in is not active, so the shared roster table was not updated. Sign out and sign back in as an approved admin.");
+  }
+  return null;
+}
+
+async function syncSharedRosterChange(reason = "roster-change") {
+  const unavailableError = sharedRosterSyncUnavailableError();
+  if (unavailableError) return { data: null, error: unavailableError };
+  const response = await syncSharedSnapshot(reason, { skipFreshBaselineCheck: true });
+  if (!response) {
+    return {
+      data: null,
+      error: new Error("The shared roster sync did not start. Refresh the page and sign in again before editing the roster.")
+    };
+  }
+  if (response?.data?.rosterPlayersMissingTable) {
+    return {
+      data: response.data,
+      error: new Error("The roster_players table is not available to the app yet. Run supabase-schema.sql in QA or refresh the Supabase API schema cache.")
+    };
+  }
+  return response;
+}
+
+async function syncSharedRosterChangeOrAlert(reason = "roster-change") {
+  const response = await syncSharedRosterChange(reason);
+  if (response?.error) {
+    console.warn(`Shared roster sync failed (${reason}).`, response.error);
+    window.alert([
+      response.error.message || "The shared roster table could not be updated.",
+      "",
+      "This roster change was saved locally on this device, but it did not reach Supabase. Refresh, sign in again as admin, and try the edit again before relying on QA."
+    ].join("\n"));
+  }
+  return response;
 }
 
 async function seedSupabaseFromLocalIfEmpty() {
@@ -3117,6 +3161,7 @@ function bindEvents() {
   });
   els.homeScoreGameBtn?.addEventListener("click", openCurrentGameForScoring);
   els.homeStartGameBtn?.addEventListener("click", startNextGameFromHome);
+  els.homeNextGameScoreBtn?.addEventListener("click", handleHomeNextGameScoreAction);
   els.homeGamesBtn?.addEventListener("click", () => switchView("games"));
   els.homeNextGameScheduleLink?.addEventListener("click", () => switchView("games"));
   els.homeScoutingBtn?.addEventListener("click", openNextGameScouting);
@@ -5691,11 +5736,7 @@ function scoreScheduledGame(gameId) {
   if (!game) return;
   if (gameIsFinal(game)) return;
   if (game.status === "active") {
-    setActiveGame(game.id);
-    clearPendingPlayState(game, true);
-    saveState();
-    render();
-    switchView("score");
+    openActiveGameForScoring(game);
     return;
   }
   openLineupBuilder(game.id, "games");
@@ -5740,6 +5781,32 @@ function startNextGameFromHome() {
   const next = nextScheduledGame();
   if (!next) return;
   openLineupBuilder(next.id, "home");
+}
+
+function homeNextGameScoreButtonLabel(game) {
+  return game?.status === "active" && !gameIsFinal(game) ? "Score Game" : "Start Game";
+}
+
+function openActiveGameForScoring(game) {
+  if (!game || gameIsFinal(game) || game.status !== "active") return false;
+  setActiveGame(game.id);
+  syncGameCurrent(game);
+  saveState();
+  render();
+  switchView("score");
+  return true;
+}
+
+function handleHomeNextGameScoreAction() {
+  if (!requireAdminAccess("Admin sign-in required to score games.")) return;
+  const gameId = els.homeNextGameScoreBtn?.dataset.gameId || "";
+  const game = state.games.find((item) => item.id === gameId) || inProgressGames()[0] || nextScheduledGame();
+  if (!game || gameIsFinal(game)) return;
+  if (game.status === "active") {
+    openActiveGameForScoring(game);
+    return;
+  }
+  openLineupBuilder(game.id, "home");
 }
 
 function handleGameActionClick(event) {
@@ -6132,15 +6199,15 @@ async function addPlayer() {
         height: els.playerHeight?.value.trim() || "",
         weight: els.playerWeight?.value.trim() || ""
       }
-      );
-      state.roster.push(player);
-      state.lineup.push(player.id);
-    }
-    markSharedAppStateDirty();
-    resetPlayerForm();
+    );
+    state.roster.push(player);
+    state.lineup.push(player.id);
+  }
+  markSharedAppStateDirty();
+  resetPlayerForm();
   saveState();
   render();
-  requestSharedSnapshotSync(existingPlayer ? "edit-player" : "add-player");
+  await syncSharedRosterChangeOrAlert(existingPlayer ? "edit-player" : "add-player");
 }
 
 function updatePlayerFormUi() {
@@ -6208,7 +6275,7 @@ async function removeRosterPlayer(playerId) {
   saveState();
   optimizedIds = buildOptimizedLineup();
   render();
-  requestSharedSnapshotSync("remove-roster-player");
+  await syncSharedRosterChangeOrAlert("remove-roster-player");
 }
 
 function render() {
@@ -6295,6 +6362,13 @@ function renderHome() {
       els.homeNextGameWeather.dataset.weatherGameId = next.id;
       els.homeNextGameWeather.innerHTML = renderWeatherChip(next);
     }
+    if (els.homeNextGameScoreBtn) {
+      const showScoreAction = isAdminMode() && !gameIsFinal(next);
+      els.homeNextGameScoreBtn.hidden = !showScoreAction;
+      els.homeNextGameScoreBtn.dataset.gameId = next.id;
+      els.homeNextGameScoreBtn.innerHTML = `<span>${homeNextGameScoreButtonLabel(next)}</span><span aria-hidden="true">></span>`;
+      els.homeNextGameScoreBtn.setAttribute("aria-label", `${homeNextGameScoreButtonLabel(next)}: ${gameMatchupLabel(next)}`);
+    }
     setHomeMatchupImage(next);
   } else {
     if (els.homeNextGame) {
@@ -6312,6 +6386,11 @@ function renderHome() {
     if (els.homeNextGameWeather) {
       delete els.homeNextGameWeather.dataset.weatherGameId;
       els.homeNextGameWeather.textContent = "Add date and field location for weather.";
+    }
+    if (els.homeNextGameScoreBtn) {
+      els.homeNextGameScoreBtn.hidden = true;
+      delete els.homeNextGameScoreBtn.dataset.gameId;
+      els.homeNextGameScoreBtn.removeAttribute("aria-label");
     }
     setHomeMatchupImage(null);
   }
@@ -6752,10 +6831,7 @@ function openCurrentGameForScoring() {
     scoreScheduledGame(current.id);
     return;
   }
-  setActiveGame(current.id);
-  clearPendingPlayState(current, true);
-  saveState();
-  switchView("score");
+  openActiveGameForScoring(current);
 }
 
 function openNextGameScouting() {
@@ -9682,7 +9758,7 @@ async function togglePlayerActive(playerId, isActive) {
   saveState();
   optimizedIds = buildOptimizedLineup();
   render();
-  requestSharedSnapshotSync("toggle-player-active");
+  await syncSharedRosterChangeOrAlert("toggle-player-active");
 }
 
 function statCell(label, value) {

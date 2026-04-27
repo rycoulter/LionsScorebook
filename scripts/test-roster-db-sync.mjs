@@ -34,6 +34,8 @@ mustMatch(supabaseStorageJs, /function fetchRosterPlayers/, "Storage should fetc
 mustMatch(supabaseStorageJs, /\.from\("roster_players"\)[\s\S]*\.eq\("team_id", "lions"\)/, "Roster fetch should target Lions rows");
 mustMatch(supabaseStorageJs, /function upsertRosterPlayers/, "Storage should upsert roster_players");
 mustMatch(supabaseStorageJs, /\.upsert\(rows, \{ onConflict: "id" \}\)/, "Roster upsert should be keyed by player id");
+mustMatch(supabaseStorageJs, /Supabase roster_players table is not available to the app/, "Roster upsert should surface missing-table errors");
+mustMatch(supabaseStorageJs, /rosterPlayersMissingTable: Boolean\(rosterPlayersResponse\.missingTable\)/, "Storage responses should expose roster missing-table status");
 mustMatch(functionBody(supabaseStorageJs, "fetchBootstrap"), /rosterPlayers: rosterPlayersResponse\.data \|\| \[\]/, "Bootstrap should include roster table rows");
 
 const mergeBody = functionBody(supabaseStorageJs, "mergeRemoteSnapshot");
@@ -47,5 +49,11 @@ mustMatch(appJs, /rosterRowsMissing[\s\S]*appStateRosterMissing[\s\S]*rosterMiss
 mustMatch(appJs, /mergeRemoteSnapshot\(state, data\.appState, data\.games, data\.rosterPlayers\)/, "Refresh should merge roster rows");
 mustMatch(appJs, /remoteBootstrap\.data\.rosterPlayers/, "Sync baseline merge should include roster rows");
 mustMatch(appJs, /supabaseStorage\.upsertRosterPlayers\(snapshot\.roster, snapshot\.rosterVersion\)/, "Shared sync should write roster_players");
+mustMatch(appJs, /function sharedRosterSyncUnavailableError/, "Roster writes should check Supabase/admin readiness before claiming sync");
+mustMatch(appJs, /async function syncSharedRosterChange/, "Roster edits should have an awaited shared sync path");
+mustMatch(appJs, /rosterPlayersMissingTable: Boolean\(rosterPlayersResponse\.missingTable\)/, "Shared sync should expose roster missing-table status");
+mustMatch(appJs, /await syncSharedRosterChangeOrAlert\(existingPlayer \? "edit-player" : "add-player"\)/, "Add/edit player should await roster sync and surface failures");
+mustMatch(appJs, /await syncSharedRosterChangeOrAlert\("remove-roster-player"\)/, "Remove player should await roster sync and surface failures");
+mustMatch(appJs, /await syncSharedRosterChangeOrAlert\("toggle-player-active"\)/, "Roster active toggle should await roster sync and surface failures");
 
 console.log("Roster DB sync regression checks passed.");

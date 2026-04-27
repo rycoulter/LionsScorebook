@@ -236,6 +236,7 @@
       data: {
         appState: appStateResponse.data || null,
         rosterPlayers: rosterPlayersResponse.data || [],
+        rosterPlayersMissingTable: Boolean(rosterPlayersResponse.missingTable),
         games: gamesResponse.data || []
       },
       error
@@ -278,7 +279,11 @@
       .upsert(rows, { onConflict: "id" })
       .select("id, updated_at");
     if (isMissingTableError(response.error, "roster_players")) {
-      return { data: [], error: null, missingTable: true };
+      return {
+        data: [],
+        error: new Error("Supabase roster_players table is not available to the app. Run supabase-schema.sql in this environment or refresh the Supabase API schema cache."),
+        missingTable: true
+      };
     }
     return response;
   }
@@ -304,6 +309,7 @@
       data: {
         appState: appStateResponse.data || null,
         rosterPlayers: rosterPlayersResponse.data || [],
+        rosterPlayersMissingTable: Boolean(rosterPlayersResponse.missingTable),
         games: gamesResponse.data || []
       },
       error: appStateResponse.error || rosterPlayersResponse.error || gamesResponse.error || null

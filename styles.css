@@ -1054,6 +1054,8 @@ main {
 
 .home-next-game-footer {
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   justify-content: center;
 }
 
@@ -1141,6 +1143,23 @@ main {
   font-weight: 700;
 }
 
+.home-next-game-link[hidden] {
+  display: none !important;
+}
+
+.home-next-game-score-link {
+  border-color: rgba(245, 189, 33, 0.48);
+  background: linear-gradient(180deg, #f4c425, #eab308);
+  color: #10172a;
+  font-weight: 900;
+  box-shadow: 0 10px 22px rgba(245, 189, 33, 0.2);
+}
+
+.home-next-game-score-link:hover {
+  color: #10172a;
+  background: linear-gradient(180deg, #ffd75c, #f0bd19);
+}
+
 @media (min-width: 761px) {
   .home-next-game-link,
   .home-box-score-link {
@@ -1162,6 +1181,20 @@ main {
     border-color: rgba(245, 189, 33, 0.38);
     background: rgba(245, 189, 33, 0.1);
     color: var(--lion-gold);
+  }
+
+  .home-next-game-score-link,
+  .home-next-game-score-link:hover {
+    border-color: rgba(245, 189, 33, 0.58);
+    color: #10172a;
+  }
+
+  .home-next-game-score-link {
+    background: linear-gradient(180deg, #f4c425, #eab308);
+  }
+
+  .home-next-game-score-link:hover {
+    background: linear-gradient(180deg, #ffd75c, #f0bd19);
   }
 }
 
@@ -14462,6 +14495,9 @@ label {
   }
 
   .home-next-game-footer {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
     margin-top: 2px;
   }
 
@@ -14478,6 +14514,13 @@ label {
     font-size: 1rem;
     font-weight: 800;
     box-shadow: 0 10px 22px rgba(245, 189, 33, 0.22);
+  }
+
+  .home-next-game-link:not(.home-next-game-score-link) {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.88);
+    box-shadow: none;
   }
 
   .home-batting-leaders-panel,

@@ -3,7 +3,7 @@
 Last updated: 2026-04-27
 Current commit: `9ea7b7c`
 Current app version: `v.1.1.0`
-Current asset build markers: `2026.04.27-build-150`
+Current asset build markers: `2026.04.27-build-151`
 
 ## Project Overview
 
@@ -106,6 +106,7 @@ Important current note:
 - `supabase-schema.sql` creates and backfills `public.roster_players` from the existing `app_state.roster` JSON
 - the app prefers `roster_players` during Supabase bootstrap when rows exist
 - roster add/edit/remove/toggle flows still mutate local `state.roster`, then shared sync writes both `roster_players` and the fallback `app_state` row
+- roster add/edit/remove/toggle flows now await the shared roster sync and alert admins if Supabase/table/auth rejects the write instead of failing silently
 - run the updated schema in each Supabase environment before expecting table writes to persist there
 
 ### Live game workflow
@@ -138,6 +139,7 @@ Current state:
 - tracks RISP event context at plate-appearance start for hitter stats
 - top scoring header/status bar includes a selectable Pitcher section for eligible Lions pitching changes, preserving the current game situation and recording the substitution for undo/history
 - Pitch Mode has separate Undo Pitch and Undo Play controls; Undo Play restores completed plays from a pre-play full-game snapshot stack, including half-inning changes
+- Home next-game card gives admins a direct `Start Game` action for scheduled games and `Score Game` action for already-live games
 
 Important current note:
 - the local working tree contains an in-progress score-game presentation redesign
