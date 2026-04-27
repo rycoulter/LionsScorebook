@@ -66,4 +66,64 @@ assert.equal(runtimeResult.pendingInPlay, false, "Healing should leave the compl
 assert.equal(runtimeResult.awaitingSprayLocation, false, "Healing should clear stale spray state");
 assert.equal(runtimeResult.awaitingRunnerDecision, false, "Healing should clear stale runner decision state");
 
+const staleRunnersResult = JSON.parse(runInNewContext(`
+  let pendingSpray = { x: 35, y: 42, zone: "Left field" };
+  let pendingRunnerOutBases = [];
+  let pendingRunnerChoices = { first: { runnerId: "runner-1", from: "first", to: "second" } };
+  let pendingOutType = "";
+  let pendingOutFielder = "";
+  let pendingRunnerReplacementBase = "";
+  let selectedFieldRunnerBase = "";
+  let bipOutcomeChosen = true;
+  let awaitingSprayLocation = false;
+  let awaitingRunnerDecision = true;
+  let scoringStep = "runners";
+
+  ${runtimeSource}
+
+  const completedGame = {
+    currentPlateAppearanceId: "",
+    atBat: { pendingInPlay: false, pitches: [] }
+  };
+  const healedCompleted = healOrphanedScoringStep(completedGame);
+  const completedStep = scoringStep;
+  const completedAwaitingRunnerDecision = awaitingRunnerDecision;
+
+  let activePendingRunnerChoices = { first: { runnerId: "runner-1", from: "first", to: "second" } };
+  pendingRunnerChoices = activePendingRunnerChoices;
+  pendingSpray = { x: 35, y: 42, zone: "Left field" };
+  bipOutcomeChosen = true;
+  awaitingRunnerDecision = true;
+  scoringStep = "runners";
+  const activeGame = {
+    currentPlateAppearanceId: "pa-live",
+    atBat: { pendingInPlay: false, pitches: [{ type: "in_play", inPlay: true }] }
+  };
+  const healedActive = healOrphanedScoringStep(activeGame);
+
+  JSON.stringify({
+    healedCompleted,
+    completedStep,
+    completedAwaitingRunnerDecision,
+    healedActive,
+    activeStep: scoringStep,
+    activeAwaitingRunnerDecision: awaitingRunnerDecision,
+    activeRunnerChoices: Object.keys(pendingRunnerChoices).length
+  });
+`, {}));
+
+assert.equal(staleRunnersResult.healedCompleted, true, "Completed at-bat shell should heal stale Set Advancements state");
+assert.equal(staleRunnersResult.completedStep, "pitch", "Completed at-bat shell should return to Pitch Mode");
+assert.equal(staleRunnersResult.completedAwaitingRunnerDecision, false, "Completed at-bat shell should clear runner decision mode");
+assert.equal(staleRunnersResult.healedActive, false, "Active in-play at-bat should not be healed away");
+assert.equal(staleRunnersResult.activeStep, "runners", "Active in-play runner decisions should remain visible");
+assert.equal(staleRunnersResult.activeAwaitingRunnerDecision, true, "Active in-play runner decisions should remain pending");
+assert.equal(staleRunnersResult.activeRunnerChoices, 1, "Active runner choices should be preserved");
+
+assert.match(
+  functionBody(appJs, "finalizePlateAppearance"),
+  /clearPendingPlayState\(game, true\)/,
+  "Completed plate appearances should centrally clear pending scoring UI state"
+);
+
 console.log("Scoring step healing checks passed.");

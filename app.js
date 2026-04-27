@@ -510,7 +510,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.4";
+const APP_VERSION = "v.1.1.5";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -4592,6 +4592,7 @@ function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
   game.current.strikes = 0;
   game.atBat = makeAtBat();
   game.currentPlateAppearanceId = "";
+  clearPendingPlayState(game, true);
   if (game.current.outs >= 3) advanceHalfInning(game);
   else syncGameCurrent(game);
   return plateAppearance;
@@ -4840,7 +4841,13 @@ function clearPendingPlayState(game = activeGame(), clearAtBat = false) {
 function healOrphanedScoringStep(game = activeGame()) {
   if (!game?.atBat) return false;
   const hasRunnerChoices = Object.keys(pendingRunnerChoices || {}).length > 0;
+  const hasInPlayPitch = Boolean(
+    game.atBat.pendingInPlay ||
+      (game.atBat.pitches || []).some((pitch) => pitch?.inPlay || pitch?.type === "in_play")
+  );
+  const hasCompletedAtBatShell = !hasInPlayPitch && !(game.currentPlateAppearanceId || "");
   const stepIsOrphaned =
+    (hasCompletedAtBatShell && ["outcome", "out_fielder", "spray", "runners"].includes(scoringStep)) ||
     (scoringStep === "outcome" && !game.atBat.pendingInPlay) ||
     (scoringStep === "out_fielder" && !pendingOutType) ||
     (scoringStep === "spray" && !awaitingSprayLocation && !pendingSpray) ||

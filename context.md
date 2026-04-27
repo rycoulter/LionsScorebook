@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-27
 Current commit: `57be293`
-Current app version: `v.1.1.4`
-Current asset build markers: `2026.04.27-build-168`
+Current app version: `v.1.1.5`
+Current asset build markers: `2026.04.27-build-169`
 
 ## Project Overview
 
