@@ -57,8 +57,18 @@ assert.match(
 );
 assert.match(
   functionBody(appJs, "handleScoringPanelPointerUpAction"),
-  /closestFromEventTarget\(event\.target, "button\[data-special-action\]"\)/,
+  /closestFromEventTarget\(event\.target, "button\[data-special-action\], button\[data-confirm-play\]"\)/,
   "Special action buttons should also execute from pointerup for iPad/Safari reliability"
+);
+assert.match(
+  functionBody(appJs, "handleScoringPanelPointerUpAction"),
+  /button\[data-special-action\], button\[data-confirm-play\]/,
+  "Confirm Play should also execute from pointerup for iPad/Safari reliability"
+);
+assert.match(
+  functionBody(appJs, "handleScoringPanelPointerUpAction"),
+  /applyEvent\(activeGame\(\), \{ type: "resolve_play" \}\)/,
+  "Confirm Play pointerup fallback should resolve the completed play"
 );
 assert.match(
   appJs,
@@ -69,6 +79,12 @@ assert.match(
   scoringClickBody,
   /button === scoringStepPointerActionButton/,
   "Click handling should ignore the synthetic click after a pointerup special action"
+);
+
+assert.match(
+  functionBody(appJs, "clearPendingPlayState"),
+  /selectedFieldRunnerBase = ""/,
+  "Completed play cleanup should clear any selected runner action state"
 );
 
 const applyEventBody = functionBody(appJs, "applyEvent");

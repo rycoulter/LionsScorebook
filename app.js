@@ -510,7 +510,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.2";
+const APP_VERSION = "v.1.1.3";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -4829,6 +4829,7 @@ function clearPendingPlayState(game = activeGame(), clearAtBat = false) {
   pendingOutType = "";
   pendingOutFielder = "";
   pendingRunnerReplacementBase = "";
+  selectedFieldRunnerBase = "";
   bipOutcomeChosen = false;
   awaitingSprayLocation = false;
   awaitingRunnerDecision = false;
@@ -7875,12 +7876,19 @@ function handleSpecialActionButton(button) {
 }
 
 function handleScoringPanelPointerUpAction(event) {
-  const button = closestFromEventTarget(event.target, "button[data-special-action]");
+  const button = closestFromEventTarget(event.target, "button[data-special-action], button[data-confirm-play]");
   if (!button || button.disabled) return;
   event.preventDefault();
   scoringStepPointerActionButton = button;
   scoringStepPointerActionAt = Date.now();
-  handleSpecialActionButton(button);
+  if (button.dataset.specialAction) {
+    handleSpecialActionButton(button);
+    return;
+  }
+  if (button.dataset.confirmPlay !== undefined) {
+    triggerActionFeedback(actionFeedbackForButton(button), button);
+    applyEvent(activeGame(), { type: "resolve_play" });
+  }
 }
 
 function handleScoringPanelClick(event) {
