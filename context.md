@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
 Last updated: 2026-04-27
-Current commit: `cb692c1`
+Current commit: `9b3acca`
 Current app version: `v.1.1.0`
-Current asset build markers: `2026.04.27-build-155`
+Current asset build markers: `2026.04.27-build-157`
 
 ## Project Overview
 
@@ -143,6 +143,7 @@ Current state:
 - Pitch Mode has separate Undo Pitch and Undo Play controls; Undo Play restores completed plays from a pre-play full-game snapshot stack, including half-inning changes
 - Score Game action buttons outside BALL/STRIKE use a shared `actionFeedback` animation layer for quick press/glow/floating-label confirmation
 - Score Game feedback now includes optional `navigator.vibrate` haptics as progressive enhancement only; CSS/JS visual feedback remains the primary confirmation and unsupported devices behave normally
+- Scoring runs triggers a team-branded `runScoreFeedback` field overlay with the scoring team logo and combined run count; it is visual-only and uses the already-calculated runs from the scoring path, and the next-batter intro waits until the overlay clears
 - selected base-runner actions include `NR` for assigning a non-runner from the Lions lineup; later steals, caught stealing, pickoffs, and runs score to the NR runner on base
 - Home next-game card gives admins a direct `Start Game` action for scheduled games and `Score Game` action for already-live games
 - active games are included in shared Supabase snapshots with `app_state.active_game_id`; `saveState()` stores pending scoring checkpoints and debounces live-game sync so reloads can resume the current inning/count/bases/batter/pending flow
