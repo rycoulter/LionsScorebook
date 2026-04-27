@@ -68,13 +68,16 @@ In the Supabase dashboard:
 This creates:
 
 - `public.app_state`
+- `public.roster_players`
 - `public.games`
 - `public.app_admins`
 - `public.league_standings`
 
-`app_state` and `games` allow public read access.
+`app_state`, `roster_players`, and `games` allow public read access.
 
 Writes are restricted to authenticated users whose email appears in `public.app_admins`.
+
+`roster_players` is backfilled from the existing `app_state.roster` JSON payload the first time the updated schema runs. The app still writes the JSON roster fallback in `app_state`, but reads and writes `roster_players` as the preferred roster data source once the table exists.
 
 If you already ran the earlier first-pass schema before the admin-auth update, run [`supabase-admin-auth.sql`](C:\Users\vikin\OneDrive\Desktop\Scorebook\ScorebookGit\supabase-admin-auth.sql) as a follow-up migration.
 
@@ -170,12 +173,9 @@ That is intentional. We want to keep:
 
 ## 6. Recommended next implementation steps
 
-1. Add Supabase-backed read bootstrap for roster and games
-2. Push non-live data first:
-   - roster
-   - scheduled games
-   - completed/archive games
-3. Add an offline sync queue for live Score Game work
+1. Run the updated schema in QA and Production so `public.roster_players` exists in both environments
+2. Confirm roster edits upsert rows into `roster_players` while preserving `app_state.lineup`
+3. Continue hardening scheduled/completed game sync and live offline queue behavior
 
 ## 7. Notes on offline scoring
 

@@ -202,15 +202,193 @@ textarea:disabled {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.78);
+  display: grid;
+  place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  background: rgba(1, 5, 16, 0.84);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
 }
 
 .lions-win-overlay[hidden] {
   display: none;
+}
+
+.lions-win-scene {
+  position: relative;
+  width: min(90vw, 980px);
+  min-height: min(82vh, 920px);
+  display: grid;
+  place-items: center;
+  padding: clamp(28px, 5vw, 56px);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.lions-win-backdrop,
+.lions-win-burst,
+.lions-win-sparks,
+.lions-win-slashes,
+.lions-win-logo-shell,
+.lions-win-copy {
+  position: absolute;
+  inset: 0;
+}
+
+.lions-win-backdrop {
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(21, 56, 108, 0.48), transparent 34%),
+    radial-gradient(circle at 50% 62%, rgba(245, 189, 33, 0.12), transparent 54%),
+    linear-gradient(180deg, rgba(6, 13, 32, 0.96) 0%, rgba(2, 7, 19, 0.98) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 28px 80px rgba(0, 0, 0, 0.48);
+}
+
+.lions-win-burst {
+  inset: 50%;
+  width: min(56vw, 520px);
+  height: min(56vw, 520px);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(255, 221, 118, 0.88) 0%, rgba(245, 189, 33, 0.44) 24%, rgba(57, 132, 255, 0.22) 42%, rgba(0, 0, 0, 0) 72%);
+  filter: blur(38px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lions-win-sparks {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.lions-win-slashes {
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.lions-win-claw {
+  position: absolute;
+  width: min(84vw, 980px);
+  opacity: 0;
+  mix-blend-mode: screen;
+  filter:
+    drop-shadow(0 0 12px rgba(245, 189, 33, 0.95))
+    drop-shadow(0 0 28px rgba(245, 189, 33, 0.48));
+  will-change: transform, opacity;
+}
+
+.lions-win-claw-1 { transform: rotate(-22deg) translate(-24vw, 16vh) scale(0.84); }
+.lions-win-claw-2 { transform: rotate(-21deg) translate(-18vw, 2vh) scale(0.9); }
+.lions-win-claw-3 { transform: rotate(-20deg) translate(-10vw, -14vh) scale(0.96); }
+
+.lions-win-logo-shell {
+  display: grid;
+  place-items: center;
+  inset: 50% 0 auto;
+  transform: translateY(-58%);
+  pointer-events: none;
+}
+
+.lions-win-logo-glow {
+  position: absolute;
+  width: min(44vw, 360px);
+  height: min(44vw, 360px);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(46, 180, 255, 0.72) 0%, rgba(46, 180, 255, 0.22) 26%, rgba(245, 189, 33, 0.16) 46%, rgba(0, 0, 0, 0) 76%);
+  filter: blur(24px);
+  opacity: 0;
+}
+
+.lions-win-logo {
+  position: relative;
+  width: min(42vw, 360px);
+  max-width: 100%;
+  opacity: 0;
+  filter:
+    drop-shadow(0 0 22px rgba(68, 167, 255, 0.8))
+    drop-shadow(0 0 42px rgba(245, 189, 33, 0.44));
+  will-change: transform, opacity;
+}
+
+.lions-win-copy {
+  inset: auto 0 clamp(8%, 9vh, 80px);
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.lions-win-title {
+  font-family: Anton, "Bebas Neue", Impact, sans-serif;
+  font-size: clamp(44px, 8.5vw, 96px);
+  line-height: 0.95;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffd14e;
+  text-shadow:
+    0 0 20px rgba(245, 189, 33, 0.78),
+    0 0 40px rgba(41, 132, 255, 0.34),
+    0 8px 18px rgba(0, 0, 0, 0.48);
+  opacity: 0;
+}
+
+.lions-win-detail {
+  font-size: clamp(16px, 2.4vw, 26px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.86);
+  text-align: center;
+  opacity: 0;
+}
+
+.lions-win-overlay.is-static .lions-win-burst,
+.lions-win-overlay.is-static .lions-win-sparks,
+.lions-win-overlay.is-static .lions-win-logo,
+.lions-win-overlay.is-static .lions-win-logo-glow,
+.lions-win-overlay.is-static .lions-win-title,
+.lions-win-overlay.is-static .lions-win-detail {
+  opacity: 1;
+  transform: none !important;
+}
+
+.lions-win-overlay.is-static .lions-win-claw {
+  opacity: 0.84;
+  transform: rotate(-20deg) scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lions-win-overlay.is-static {
+    backdrop-filter: none;
+  }
+}
+
+@media (min-width: 744px) and (max-width: 1180px) {
+  .lions-win-scene {
+    width: min(92vw, 900px);
+    min-height: min(76vh, 820px);
+    padding: clamp(24px, 4vw, 44px);
+  }
+
+  .lions-win-logo {
+    width: min(44vw, 330px);
+  }
+
+  .lions-win-claw {
+    width: min(88vw, 880px);
+  }
+
+  .lions-win-copy {
+    inset: auto 0 clamp(7%, 7vh, 64px);
+  }
 }
 
 .half-inning-overlay {
@@ -322,143 +500,6 @@ textarea:disabled {
 
 .half-inning-overlay.is-active .half-inning-flash {
   animation: halfInningFlash 3.375s linear both;
-}
-
-.lions-win-frame {
-  position: relative;
-  width: min(100%, 768px);
-  aspect-ratio: 3 / 4;
-  overflow: hidden;
-  background: linear-gradient(180deg, #020617 0%, #000000 45%, #020617 100%);
-}
-
-.lions-win-glow {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at center, rgba(255, 194, 59, 0.18), transparent 28%),
-    radial-gradient(circle at center, rgba(82, 146, 255, 0.08), transparent 52%);
-  pointer-events: none;
-}
-
-.lions-win-text-wrap {
-  position: absolute;
-  inset-inline: 0;
-  top: 10%;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.lions-win-text {
-  transform: translateY(-140px) scale(0.96);
-  opacity: 0;
-  text-transform: uppercase;
-  line-height: 0.9;
-  font-family: Anton, "Bebas Neue", Impact, sans-serif;
-  font-size: clamp(110px, 18vw, 190px);
-  letter-spacing: 0.06em;
-  background: linear-gradient(180deg, #ffe27a 0%, #f5c84c 34%, #e3a92f 63%, #c98b1e 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-stroke: 2px #0a1f44;
-  text-shadow:
-    0 2px 0 rgba(10, 31, 68, 0.95),
-    0 8px 18px rgba(0, 0, 0, 0.55),
-    0 0 10px rgba(87, 145, 255, 0.35);
-  filter: drop-shadow(0 0 8px rgba(87, 145, 255, 0.25));
-  user-select: none;
-}
-
-.lions-win-logo-wrap {
-  position: absolute;
-  inset-inline: 0;
-  bottom: 10%;
-  display: flex;
-  justify-content: center;
-}
-
-.lions-win-logo-stage {
-  position: relative;
-  width: min(72vw, 500px);
-  max-width: 78%;
-  aspect-ratio: 2587 / 3247;
-  --lions-win-left-width: 48.706997%;
-  --lions-win-right-width: 51.293003%;
-}
-
-.lions-win-half {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  object-fit: fill;
-  pointer-events: none;
-  opacity: 1;
-  will-change: transform;
-}
-
-.lions-win-half-left {
-  left: 0;
-  width: var(--lions-win-left-width);
-  transform: translateX(-112%);
-}
-
-.lions-win-half-right {
-  right: 0;
-  width: var(--lions-win-right-width);
-  transform: translateX(112%);
-}
-
-.lions-win-overlay.is-active .lions-win-half-left {
-  animation: lionsWinHalfLeft 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.lions-win-overlay.is-active .lions-win-half-right {
-  animation: lionsWinHalfRight 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.lions-win-overlay.is-active .lions-win-logo-stage {
-  animation: lionsWinPulse 0.16s ease-in-out 0.53s 1 both;
-}
-
-.lions-win-overlay.is-active .lions-win-text {
-  animation: lionsWinText 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.66s forwards;
-}
-
-@keyframes lionsWinHalfLeft {
-  from { transform: translateX(-112%); }
-  to { transform: translateX(0); }
-}
-
-@keyframes lionsWinHalfRight {
-  from { transform: translateX(112%); }
-  to { transform: translateX(0); }
-}
-
-@keyframes lionsWinPulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.03); }
-  100% { transform: scale(1); }
-}
-
-@keyframes lionsWinText {
-  0% {
-    transform: translateY(-140px) scale(0.96);
-    opacity: 0;
-  }
-  60% {
-    transform: translateY(6px) scale(1.01);
-    opacity: 1;
-  }
-  78% {
-    transform: translateY(-4px) scale(0.995);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
 }
 
 @keyframes halfInningOverlayFade {
@@ -10636,10 +10677,10 @@ label {
 
 #scoreView .scoring-dock-summary {
   display: grid;
-  grid-template-columns: 1fr 0.78fr 1.2fr;
+  grid-template-columns: 0.86fr 1.14fr;
   grid-template-areas:
-    "count outs result"
-    "batter batter batter";
+    "count result"
+    "batter batter";
   gap: 0;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
@@ -10670,10 +10711,6 @@ label {
 
 #scoreView .scoring-dock-count-card {
   grid-area: count;
-}
-
-#scoreView .scoring-dock-outs-card {
-  grid-area: outs;
 }
 
 #scoreView .scoring-dock-result-card {
@@ -10712,62 +10749,6 @@ label {
   color: rgba(255, 255, 255, 0.76);
   font-size: 0.8rem;
   line-height: 1.25;
-}
-
-#scoreView .scoring-dock-bases {
-  display: grid;
-  grid-template-columns: repeat(3, 22px);
-  grid-template-areas:
-    ". second ."
-    "third . first";
-  gap: 8px 14px;
-  align-self: center;
-  justify-content: center;
-}
-
-#scoreView .scoring-dock-base {
-  width: 22px;
-  height: 22px;
-  border: 2px solid rgba(255, 255, 255, 0.18);
-  border-radius: 4px;
-  transform: rotate(45deg);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 4px 10px rgba(0, 0, 0, 0.14);
-}
-
-#scoreView .scoring-dock-base.is-second { grid-area: second; }
-#scoreView .scoring-dock-base.is-third { grid-area: third; }
-#scoreView .scoring-dock-base.is-first { grid-area: first; }
-
-#scoreView .scoring-dock-base.is-filled {
-  border-color: rgba(245, 189, 33, 0.9);
-  background: rgba(245, 189, 33, 0.95);
-  box-shadow: 0 0 16px rgba(245, 189, 33, 0.24);
-}
-
-#scoreView .scoring-dock-outs-card {
-  align-content: start;
-  justify-items: center;
-  gap: 10px;
-}
-
-#scoreView .scoring-dock-outs-row {
-  display: inline-flex;
-  gap: 12px;
-  align-items: center;
-}
-
-#scoreView .scoring-dock-outs-group {
-  display: grid;
-  justify-items: center;
-  gap: 6px;
-}
-
-#scoreView .scoring-dock-out-dot {
-  width: 18px;
-  height: 18px;
 }
 
 #scoreView .scoring-dock-result-card {
@@ -10850,7 +10831,7 @@ label {
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2);
 }
 
-#scoreView #dockUndoLastPlayBtn {
+#scoreView .current-batter-actions #dockUndoLastPlayBtn {
   display: none;
 }
 
@@ -11315,8 +11296,7 @@ label {
   #scoreView .scoring-dock-summary {
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
-      "count outs"
-      "result result"
+      "count result"
       "batter batter";
   }
 
@@ -11339,7 +11319,6 @@ label {
     grid-template-columns: 1fr;
     grid-template-areas:
       "count"
-      "outs"
       "result"
       "batter";
   }
@@ -11418,7 +11397,7 @@ label {
     grid-template-areas:
       "main"
       "sidebar";
-    gap: 12px;
+    gap: 8px;
     height: auto;
     min-height: 0;
     overflow: visible;
@@ -11431,8 +11410,8 @@ label {
       "field"
       "panel"
       "form";
-    grid-template-rows: minmax(0, 1fr) auto auto;
-    gap: 12px;
+    grid-template-rows: auto auto auto;
+    gap: 4px;
     min-width: 0;
     min-height: 0;
     height: auto;
@@ -11454,10 +11433,10 @@ label {
   }
 
   #scoreView .scoring-dock-summary {
-    grid-template-columns: 1fr 0.9fr 1.08fr;
+    grid-template-columns: 0.9fr 1.1fr;
     grid-template-areas:
-      "count outs result"
-      "batter batter batter";
+      "count result"
+      "batter batter";
   }
 
   #scoreView .scoring-dock-summary-card {
@@ -12728,7 +12707,6 @@ label {
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
   transform: translate(-50%, -50%);
 }
-
 #scoreView .field-runner-marker::after {
   position: absolute;
   left: 50%;
@@ -14827,6 +14805,9 @@ label {
 
 /* Layered live-field visual shell for the Score Game spray chart. */
 #scoreView .spray-panel {
+  position: relative;
+  align-self: start;
+  height: auto;
   border: 1px solid rgba(255, 236, 176, 0.18);
   border-radius: 8px;
   padding: 10px;
@@ -14982,23 +14963,25 @@ label {
   position: absolute;
   display: inline-grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  border: 2px solid rgba(255, 220, 132, 0.98);
+  width: 46px;
+  height: 46px;
+  border: 3px solid rgba(255, 220, 132, 0.98);
   border-radius: 50%;
-  background: #0d1524;
-  color: #ffe8ae;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(18, 31, 52, 0.98), rgba(8, 15, 29, 0.98));
+  color: #fff0be;
   cursor: pointer;
-  font-size: 0.96rem;
+  font-size: 1rem;
   font-weight: 950;
   line-height: 1;
   pointer-events: auto;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   box-shadow:
-    0 0 0 4px rgba(255, 206, 97, 0.22),
-    0 10px 18px rgba(0, 0, 0, 0.38),
-    0 0 22px rgba(255, 197, 79, 0.42),
+    0 0 0 5px rgba(255, 206, 97, 0.2),
+    0 12px 22px rgba(0, 0, 0, 0.42),
+    0 0 24px rgba(255, 197, 79, 0.46),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
   transform: translate(-50%, -50%);
   transition:
@@ -15016,8 +14999,8 @@ label {
   transform: translate(-50%, -50%) scale(1.06);
   box-shadow:
     0 0 0 6px rgba(255, 206, 97, 0.28),
-    0 12px 22px rgba(0, 0, 0, 0.36),
-    0 0 26px rgba(255, 197, 79, 0.5),
+    0 14px 24px rgba(0, 0, 0, 0.38),
+    0 0 28px rgba(255, 197, 79, 0.54),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
   outline: none;
 }
@@ -15193,6 +15176,88 @@ label {
   color: #bbf7d0;
 }
 
+#scoreView .score-field-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 21;
+  min-height: 0;
+  margin: 0;
+  border: 1px solid rgba(255, 236, 176, 0.18);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: rgba(7, 15, 34, 0.9);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+}
+
+#scoreView .score-field-toolbar.mini-head {
+  border-color: rgba(255, 236, 176, 0.18);
+  background: rgba(7, 15, 34, 0.9);
+  color: var(--white);
+}
+
+#scoreView .score-field-chip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+  color: rgba(255, 244, 204, 0.96);
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#scoreView .score-field-chip-label::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lion-gold);
+  box-shadow: 0 0 12px rgba(245, 189, 33, 0.5);
+}
+
+#scoreView #sprayFilter {
+  min-width: 168px;
+  min-height: 38px;
+  padding-block: 8px;
+  padding-inline: 12px 34px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+#scoreView .score-field-hint {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  z-index: 19;
+  max-width: min(340px, calc(100% - 36px));
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 236, 176, 0.14);
+  border-radius: 12px;
+  background: rgba(7, 15, 34, 0.82);
+  color: rgba(255, 248, 224, 0.92);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.3;
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
 @media (max-width: 760px) {
   #statsSprayModal .stats-spray-modal-card {
     width: min(392px, calc(100% - 16px));
@@ -15245,7 +15310,13 @@ label {
 }
 
 /* Updated top-down spray field: keep coordinate math intact, swap only the field art + shell geometry. */
-#scoreView .spray-chart,
+#scoreView .spray-chart {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #1b4b22;
+}
+
 .stats-spray-chart {
   aspect-ratio: 1 / 1;
   background: #1b4b22;
@@ -15261,31 +15332,32 @@ label {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 #scoreView .field-background-art {
+  object-position: center center;
   filter: saturate(1.04) contrast(1.02) brightness(1.02);
 }
 
 #scoreView .field-runner-second {
   left: 50%;
-  top: 56.5%;
+  top: 41.2%;
 }
 
 #scoreView .field-runner-third {
-  left: 31.5%;
-  top: 72%;
+  left: 32.4%;
+  top: 57.2%;
 }
 
 #scoreView .field-runner-first {
-  left: 68.5%;
-  top: 72%;
+  left: 67.6%;
+  top: 57.2%;
 }
 
 #scoreView .field-batter-marker {
   left: 50%;
-  top: 92.8%;
+  top: 89.8%;
 }
 
 #statsSprayModal .stats-spray-chart {
@@ -15296,6 +15368,1003 @@ label {
 @media (max-width: 760px) {
   #statsSprayModal .stats-spray-chart {
     aspect-ratio: 1 / 1;
+  }
+}
+
+/* Score Game Step 1 shell rebuild: elevate the scoreboard and field, keep the scoring engine intact. */
+#scoreView .score-bottom-strip {
+  display: grid;
+  gap: 12px;
+}
+
+#scoreView .score-banner-shell {
+  padding: 14px;
+}
+
+#scoreView .score-banner-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.52fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+#scoreView .score-banner-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 14px;
+}
+
+#scoreView .score-banner-side-away {
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#scoreView .score-banner-side-home {
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#scoreView .score-banner-side-away .score-banner-team {
+  grid-column: 1;
+  justify-self: start;
+}
+
+#scoreView .score-banner-side-away .score-banner-score {
+  grid-column: 2;
+}
+
+#scoreView .score-banner-side-home .score-banner-team {
+  grid-column: 2;
+  justify-self: end;
+}
+
+#scoreView .score-banner-side-home .score-banner-score {
+  grid-column: 1;
+  justify-self: start;
+}
+
+#scoreView .score-banner-team-name {
+  display: none;
+}
+
+#scoreView .score-banner-team {
+  gap: 0;
+}
+
+#scoreView .score-banner-logo {
+  width: 64px;
+  height: 64px;
+}
+
+#scoreView .score-banner-side {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+#scoreView .score-banner-side-away .score-banner-score,
+#scoreView .score-banner-side-home .score-banner-score {
+  justify-self: center;
+}
+
+#scoreView .score-banner-team {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  align-self: center;
+}
+
+#scoreView .score-banner-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+#scoreView .score-banner-team-name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.96);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(1rem, 1.4vw, 1.25rem);
+  font-weight: 900;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+#scoreView .score-banner-score {
+  align-self: center;
+  justify-self: end;
+  color: rgba(255, 255, 255, 0.98);
+  font-size: clamp(2.8rem, 6vw, 4rem);
+  line-height: 0.92;
+  font-weight: 1000;
+}
+
+#scoreView .score-banner-submeta {
+  display: inline-grid;
+  gap: 4px;
+  align-content: start;
+  justify-items: start;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#scoreView .score-banner-submeta strong {
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 1.05rem;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+#scoreView .score-banner-submeta-empty {
+  display: none;
+}
+
+#scoreView .score-banner-center {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 10px;
+}
+
+#scoreView .score-banner-inning-block {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--lion-gold);
+  font-size: 0.95rem;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#scoreView .score-banner-bases-visual {
+  position: relative;
+  width: 88px;
+  height: 54px;
+}
+
+#scoreView .score-banner-base {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-radius: 4px;
+  transform: rotate(45deg);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+#scoreView .score-banner-base.is-filled {
+  border-color: var(--lion-gold);
+  background: var(--lion-gold);
+  box-shadow:
+    0 0 0 4px rgba(245, 189, 33, 0.16),
+    0 0 16px rgba(245, 189, 33, 0.42);
+}
+
+#scoreView .score-banner-base-second {
+  left: calc(50% - 8px);
+  top: 0;
+}
+
+#scoreView .score-banner-base-third {
+  left: 14px;
+  top: 20px;
+}
+
+#scoreView .score-banner-base-first {
+  right: 14px;
+  top: 20px;
+}
+
+#scoreView .score-banner-arrow {
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 12px solid currentColor;
+}
+
+#scoreView .score-banner-arrow.is-bottom {
+  border-bottom: 0;
+  border-top: 12px solid currentColor;
+}
+
+#scoreView .score-banner-outs-block {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  color: rgba(255, 255, 255, 0.86);
+  text-align: center;
+}
+
+#scoreView .score-banner-outs-block strong {
+  color: rgba(255, 255, 255, 0.98);
+  font-size: 0.92rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+#scoreView .score-banner-outs-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#scoreView .score-banner-out-dot {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  border-radius: 50%;
+  background: transparent;
+}
+
+#scoreView .score-banner-out-dot.is-filled {
+  border-color: var(--lion-gold);
+  background: var(--lion-gold);
+  box-shadow: 0 0 0 4px rgba(245, 189, 33, 0.16);
+}
+
+@media (max-width: 700px) {
+  #scoreView .score-banner-board {
+    grid-template-columns: 1fr;
+  }
+
+  #scoreView .score-banner-side-away,
+  #scoreView .score-banner-side-home {
+    border-right: 0;
+    border-left: 0;
+  }
+
+  #scoreView .score-banner-side-away {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  #scoreView .score-banner-side-home {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  #scoreView .score-banner-side,
+  #scoreView .score-banner-center {
+    padding: 14px;
+  }
+
+  #scoreView .score-banner-side {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  #scoreView .score-banner-score {
+    justify-self: center;
+  }
+
+  #scoreView .score-banner-submeta {
+    justify-items: center;
+  }
+}
+
+@media (min-width: 700px) {
+  #scoreView .pitch-choice-stack {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  #scoreView .pitch-choice-card {
+    min-height: 124px;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 10px 14px;
+    padding: 18px 20px;
+  }
+
+  #scoreView .pitch-choice-icon {
+    grid-row: 1 / span 2;
+    width: 54px;
+    height: 54px;
+  }
+
+  #scoreView .pitch-choice-icon svg {
+    width: 54px;
+    height: 54px;
+  }
+
+  #scoreView .pitch-choice-copy {
+    gap: 4px;
+    align-content: center;
+  }
+
+  #scoreView .pitch-choice-copy strong {
+    font-size: clamp(1.35rem, 1vw + 0.95rem, 1.85rem);
+  }
+
+  #scoreView .pitch-choice-copy span {
+    font-size: 0.9rem;
+  }
+
+  #scoreView .pitch-choice-copy small {
+    font-size: 0.76rem;
+  }
+
+  #scoreView .pitch-choice-arrow {
+    display: none;
+  }
+
+  #scoreView .panel-secondary-row .step-button,
+  #scoreView .panel-secondary-row #panelUndoPitchBtn {
+    min-height: 72px;
+    border-radius: 12px;
+    font-size: 1.02rem;
+    font-weight: 900;
+  }
+}
+
+@media (min-width: 900px) {
+  #scoreView.is-visible {
+    display: grid;
+    grid-template-rows: auto auto auto auto;
+    gap: 14px;
+    width: min(calc(100% - 24px), 1120px);
+    height: auto;
+    margin: 0 auto 20px;
+    overflow: visible;
+  }
+
+  #scoreView > .section-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0;
+    padding-top: 10px;
+  }
+
+  #scoreView > .section-head .eyebrow {
+    margin-bottom: 6px;
+    color: var(--lion-gold);
+  }
+
+  #scoreView > .section-head h2 {
+    margin: 0;
+    color: var(--white);
+    font-size: clamp(2rem, 2vw, 2.5rem);
+    line-height: 1.05;
+  }
+
+  #scoreView #openGameActionsBtn {
+    min-height: 54px;
+    min-width: 188px;
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--white);
+    font-weight: 900;
+  }
+
+  #scoreView .score-status-card {
+    margin: 0;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    background:
+      linear-gradient(180deg, rgba(10, 18, 39, 0.96), rgba(6, 12, 30, 0.98));
+    box-shadow: 0 22px 44px rgba(0, 0, 0, 0.26);
+    overflow: hidden;
+  }
+
+  #scoreView .score-banner-shell {
+    padding: 20px 22px;
+  }
+
+  #scoreView .score-banner-board {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 0.54fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    overflow: hidden;
+  }
+
+  #scoreView .score-banner-side {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    padding: 20px 22px;
+  }
+
+  #scoreView .score-banner-side-away {
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  #scoreView .score-banner-side-home {
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  #scoreView .score-banner-team {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    align-self: center;
+  }
+
+  #scoreView .score-banner-logo {
+    width: 68px;
+    height: 68px;
+    object-fit: contain;
+    flex: 0 0 auto;
+  }
+
+  #scoreView .score-banner-team-name {
+    color: rgba(255, 255, 255, 0.96);
+    font-size: clamp(1.25rem, 1vw + 0.8rem, 1.8rem);
+    font-weight: 900;
+    line-height: 1.05;
+    text-transform: uppercase;
+  }
+
+  #scoreView .score-banner-score {
+    align-self: center;
+    justify-self: end;
+    color: rgba(255, 255, 255, 0.98);
+    font-size: clamp(4rem, 6vw, 5.8rem);
+    line-height: 0.9;
+    font-weight: 1000;
+  }
+
+  #scoreView .score-banner-submeta {
+    display: inline-grid;
+    gap: 4px;
+    align-content: start;
+    justify-items: start;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 0.9rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  #scoreView .score-banner-submeta strong {
+    color: rgba(255, 255, 255, 0.96);
+    font-size: 1.55rem;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+
+  #scoreView .score-banner-center {
+    padding: 20px 18px;
+  }
+
+  #scoreView .score-banner-inning-block {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--lion-gold);
+    font-size: 1rem;
+    font-weight: 950;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  #scoreView .score-banner-arrow {
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 16px solid currentColor;
+  }
+
+  #scoreView .score-banner-arrow.is-bottom {
+    border-bottom: 0;
+    border-top: 16px solid currentColor;
+  }
+
+  #scoreView .score-banner-outs-block {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.86);
+    text-align: center;
+  }
+
+  #scoreView .score-banner-outs-block strong {
+    color: rgba(255, 255, 255, 0.98);
+    font-size: 1rem;
+    line-height: 1;
+    letter-spacing: 0.04em;
+  }
+
+  #scoreView .score-banner-outs-dots {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  #scoreView .score-banner-out-dot {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.38);
+    border-radius: 50%;
+    background: transparent;
+  }
+
+  #scoreView .score-banner-out-dot.is-filled {
+    border-color: var(--lion-gold);
+    background: var(--lion-gold);
+    box-shadow: 0 0 0 4px rgba(245, 189, 33, 0.16);
+  }
+
+  #scoreView .score-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    height: auto;
+    overflow: visible;
+  }
+
+  #scoreView .scorer-stack {
+    display: grid;
+    gap: 14px;
+    height: auto;
+    overflow: visible;
+  }
+
+  #scoreView .pitch-panel,
+  #scoreView .runner-panel {
+    display: none;
+  }
+
+  #scoreView .spray-panel {
+    order: 1;
+    padding: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    background:
+      linear-gradient(180deg, rgba(8, 18, 38, 0.96), rgba(4, 11, 26, 0.98));
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.24);
+  }
+
+  #scoreView .spray-chart {
+    max-width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: 14px;
+  }
+
+  #scoreView .scoring-step-panel {
+    order: 2;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    background:
+      linear-gradient(180deg, rgba(8, 18, 38, 0.96), rgba(4, 11, 26, 0.98));
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.24);
+  }
+
+  #scoreView .scoring-step-head {
+    align-items: start;
+    margin-bottom: 12px;
+  }
+
+  #scoreView .scoring-step-head h3 {
+    color: rgba(255, 255, 255, 0.98);
+    font-size: 1.1rem;
+  }
+
+  #scoreView .scoring-step-head span {
+    color: rgba(255, 255, 255, 0.74);
+    font-size: 0.84rem;
+  }
+
+  #scoreView .scoring-step-body {
+    gap: 12px;
+  }
+
+  #scoreView .pitch-choice-stack {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  #scoreView .pitch-choice-card {
+    min-height: 132px;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 10px 14px;
+    padding: 18px 20px;
+  }
+
+  #scoreView .pitch-choice-icon {
+    grid-row: 1 / span 2;
+    width: 56px;
+    height: 56px;
+  }
+
+  #scoreView .pitch-choice-icon svg {
+    width: 56px;
+    height: 56px;
+  }
+
+  #scoreView .pitch-choice-copy {
+    gap: 4px;
+    align-content: center;
+  }
+
+  #scoreView .pitch-choice-copy strong {
+    font-size: clamp(1.45rem, 1.1vw + 1rem, 1.95rem);
+  }
+
+  #scoreView .pitch-choice-copy span {
+    font-size: 0.92rem;
+  }
+
+  #scoreView .pitch-choice-copy small {
+    font-size: 0.78rem;
+  }
+
+  #scoreView .pitch-choice-arrow {
+    display: none;
+  }
+
+  #scoreView .step-grid-pitches,
+  #scoreView .step-grid-outcomes,
+  #scoreView .step-grid-opponent,
+  #scoreView .step-grid-special {
+    gap: 12px;
+  }
+
+  #scoreView .step-button {
+    min-height: 82px;
+    border-radius: 12px;
+    font-size: 1.02rem;
+    font-weight: 950;
+  }
+
+  #scoreView .panel-secondary-row .step-button,
+  #scoreView .panel-secondary-row #panelUndoPitchBtn {
+    min-height: 72px;
+    border-radius: 12px;
+    font-size: 1.02rem;
+    font-weight: 900;
+  }
+
+  #scoreView .scoring-dock-footer {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+  }
+
+  #scoreView .scoring-dock-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+    gap: 12px;
+  }
+
+  #scoreView .scoring-dock-summary-card {
+    min-height: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  #scoreView .scoring-dock-big {
+    font-size: 2.3rem;
+  }
+
+  #scoreView .scoring-dock-action-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  #scoreView .scoring-dock-action {
+    min-height: 78px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  #scoreView .score-bottom-strip {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.5fr);
+    align-items: stretch;
+  }
+
+  #scoreView .current-batter-card,
+  #scoreView .game-pitcher-card {
+    margin: 0;
+    min-height: 0;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    padding: 16px 18px;
+    background:
+      linear-gradient(180deg, rgba(8, 18, 38, 0.96), rgba(4, 11, 26, 0.98));
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.24);
+  }
+
+  #scoreView .current-batter-card {
+    grid-template-columns: 1fr;
+  }
+
+  #scoreView .current-batter-primary > span:first-child {
+    color: var(--lion-gold);
+    font-size: 0.8rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  #scoreView #headerBatterDisplay {
+    color: rgba(255, 255, 255, 0.98);
+    font-size: clamp(1.55rem, 1.2vw + 1rem, 2.15rem);
+    line-height: 1.02;
+  }
+
+  #scoreView .current-batter-outcomes,
+  #scoreView .current-batter-status span,
+  #scoreView .game-state-context,
+  #scoreView .player-meta {
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  #scoreView .current-batter-actions {
+    display: none;
+  }
+
+  #scoreView .game-pitcher-card label {
+    color: rgba(255, 255, 255, 0.74);
+  }
+
+  #scoreView .game-pitcher-card select {
+    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--white);
+  }
+
+  #scoreView .pitcher-stat-strip {
+    margin-top: 10px;
+  }
+
+  #scoreView .play-panel {
+    position: relative;
+    top: auto;
+    display: grid;
+    grid-template-columns: minmax(300px, 0.92fr) minmax(0, 1.08fr);
+    gap: 16px 18px;
+    max-height: none;
+    overflow: visible;
+    padding: 16px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    background:
+      linear-gradient(180deg, rgba(8, 18, 38, 0.94), rgba(4, 11, 26, 0.96));
+    box-shadow: 0 18px 36px rgba(0, 0, 0, 0.22);
+  }
+
+  #scoreView .play-panel > .mini-head:first-of-type,
+  #scoreView .play-panel > .lineup-list,
+  #scoreView .play-panel > .sub-panel,
+  #scoreView .play-panel > .opponent-lineup-editor,
+  #scoreView .play-panel > .opponent-sub-panel {
+    grid-column: 1;
+  }
+
+  #scoreView .play-panel > .mini-head:last-of-type,
+  #scoreView .play-panel > .play-feed {
+    grid-column: 2;
+  }
+
+  #scoreView .play-feed {
+    max-height: 100%;
+    min-height: 280px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+}
+
+@media (max-width: 700px) {
+  #scoreView .score-field-toolbar {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  #scoreView .score-field-chip-label {
+    font-size: 0.74rem;
+  }
+
+  #scoreView #sprayFilter {
+    min-width: 0;
+    width: auto;
+    flex: 1 1 auto;
+    font-size: 0.84rem;
+  }
+
+  #scoreView .score-field-hint {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    max-width: none;
+    font-size: 0.8rem;
+    line-height: 1.25;
+  }
+
+  #scoreView .field-runner-marker {
+    width: 42px;
+    height: 42px;
+    font-size: 0.94rem;
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1199px) {
+  #scoreView.is-visible {
+    width: min(calc(100% - 20px), 1024px);
+    gap: 12px;
+  }
+
+  #scoreView .score-banner-board {
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 0.52fr) minmax(0, 1fr);
+  }
+
+  #scoreView .score-banner-side {
+    padding: 18px 16px;
+  }
+
+  #scoreView .score-banner-logo {
+    width: 72px;
+    height: 72px;
+  }
+
+  #scoreView .score-banner-score {
+    font-size: clamp(3.6rem, 5vw, 4.8rem);
+  }
+
+  #scoreView .spray-chart {
+    aspect-ratio: 4 / 3;
+  }
+
+  #scoreView .scoring-dock-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #scoreView .score-bottom-strip,
+  #scoreView .play-panel {
+    grid-template-columns: 1fr;
+  }
+
+  #scoreView .play-panel > .mini-head:last-of-type,
+  #scoreView .play-panel > .play-feed {
+    grid-column: 1;
+  }
+}
+
+@media (min-width: 700px) and (max-width: 1100px) {
+  #scoreView .spray-chart {
+    width: 100%;
+    max-width: 100%;
+    margin-inline: auto;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
+  #scoreView .spray-panel {
+    padding: 2px;
+  }
+
+  #scoreView .spray-chart {
+    width: min(100%, calc(460px * 4 / 3));
+    max-width: 100%;
+  }
+}
+
+/* Final scoreboard cleanup override: logo-first board, no visible team names. */
+#scoreView .score-status-card .score-banner-team-name {
+  display: none !important;
+}
+
+#scoreView .score-status-card .score-banner-team {
+  gap: 0 !important;
+}
+
+#scoreView .score-status-card .score-banner-logo {
+  width: 104px !important;
+  height: 104px !important;
+  object-fit: contain !important;
+}
+
+#scoreView .score-status-card .score-banner-side {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+}
+
+#scoreView .score-status-card .score-banner-side-away {
+  flex-direction: row !important;
+}
+
+#scoreView .score-status-card .score-banner-side-home {
+  flex-direction: row-reverse !important;
+}
+
+/* Final score-game field sizing override: let the field card hug the chart instead of stretching to fill old grid tracks. */
+#scoreView .scorer-stack {
+  height: auto !important;
+  overflow: visible !important;
+  gap: 4px !important;
+}
+
+#scoreView .spray-panel {
+  align-self: start !important;
+  min-height: 0 !important;
+  height: auto !important;
+  margin-bottom: 0 !important;
+}
+
+#scoreView .spray-chart {
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+#scoreView .scoring-step-panel {
+  margin-top: 0 !important;
+}
+
+#scoreView .score-field-hint {
+  display: none !important;
+}
+
+#scoreView .runner-panel {
+  display: none !important;
+}
+
+#scoreView .score-status-card .score-banner-side-away .score-banner-team,
+#scoreView .score-status-card .score-banner-side-home .score-banner-team {
+  justify-self: auto !important;
+  flex: 1 1 auto !important;
+}
+
+#scoreView .score-status-card .score-banner-side-away .score-banner-score,
+#scoreView .score-status-card .score-banner-side-home .score-banner-score {
+  justify-self: auto !important;
+  flex: 0 0 auto !important;
+  min-width: 56px !important;
+  text-align: center !important;
+  font-size: clamp(3.4rem, 5vw, 4.6rem) !important;
+}
+
+#scoreView .score-status-card .score-banner-side-away .score-banner-team {
+  justify-content: flex-start !important;
+}
+
+#scoreView .score-status-card .score-banner-side-home .score-banner-team {
+  justify-content: flex-end !important;
+}
+
+@media (max-width: 700px) {
+  #scoreView .score-status-card .score-banner-logo {
+    width: 56px !important;
+    height: 56px !important;
   }
 }
 
@@ -16414,5 +17483,1004 @@ label {
 
   .roster-list-table td strong {
     font-size: 0.98rem;
+  }
+}
+
+/* Final score-game scoring dock refinement */
+#scoreView .pitch-choice-stack {
+  gap: 12px;
+}
+
+#scoreView .pitch-choice-card {
+  min-height: 118px;
+  padding: 16px 18px;
+  border-radius: 14px;
+}
+
+#scoreView .panel-secondary-row .step-button,
+#scoreView .panel-secondary-row #panelUndoPitchBtn {
+  min-height: 68px;
+}
+
+#scoreView .scoring-dock-footer {
+  gap: 0;
+  margin-top: 12px;
+}
+
+#scoreView .scoring-dock-summary {
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.12fr) minmax(0, 1.2fr) minmax(180px, 0.9fr);
+  grid-template-areas: "count batter season lineup";
+  align-items: stretch;
+}
+
+#scoreView .scoring-dock-count-card {
+  grid-area: count;
+}
+
+#scoreView .scoring-dock-batter-card {
+  grid-area: batter;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+#scoreView .scoring-dock-batter-card::before {
+  display: none;
+}
+
+#scoreView .scoring-dock-season-card {
+  grid-area: season;
+  align-content: center;
+}
+
+#scoreView .scoring-dock-lineup-card {
+  grid-area: lineup;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  text-align: left;
+  color: var(--white);
+  border: 0;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+#scoreView .scoring-dock-lineup-card:hover,
+#scoreView .scoring-dock-lineup-card:focus-visible {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+#scoreView .scoring-dock-lineup-card:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+#scoreView .scoring-dock-lineup-card strong {
+  font-size: 1.08rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+#scoreView .scoring-dock-summary-card,
+#scoreView .scoring-dock-lineup-card {
+  min-height: 96px;
+  padding: 14px 18px;
+}
+
+#scoreView .scoring-dock-batter-number {
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  font-size: 1.75rem;
+}
+
+#scoreView .scoring-dock-batter-copy {
+  gap: 4px;
+}
+
+#scoreView .scoring-dock-batter-copy strong {
+  font-size: 1.24rem;
+  line-height: 1.05;
+  font-weight: 850;
+}
+
+#scoreView .scoring-dock-batter-game-line {
+  font-size: 0.86rem;
+}
+
+#scoreView .scoring-dock-season-line {
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 0.94rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+#scoreView .scoring-dock-count-split {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+#scoreView .scoring-dock-count-split .count-balls {
+  color: #54d070;
+}
+
+#scoreView .scoring-dock-count-split .count-strikes {
+  color: #f55353;
+}
+
+#scoreView .scoring-dock-count-split .count-separator {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+#scoreView .scoring-dock-action-row {
+  display: none !important;
+}
+
+@media (max-width: 980px) {
+  #scoreView .scoring-dock-footer {
+    gap: 10px;
+  }
+
+  #scoreView .scoring-dock-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "count batter"
+      "season lineup";
+    gap: 10px;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  #scoreView .scoring-dock-summary-card,
+  #scoreView .scoring-dock-lineup-card {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  #scoreView .scoring-dock-summary-card + .scoring-dock-summary-card::before {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  #scoreView .scoring-dock-summary {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "count"
+      "batter"
+      "season"
+      "lineup";
+  }
+
+  #scoreView .scoring-dock-lineup-card {
+    justify-content: flex-start;
+  }
+}
+
+/* Keep the live field and pitch controls as one centered vertical unit. */
+#scoreView .scorer-stack {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px !important;
+  width: 100%;
+  min-width: 0;
+}
+
+#scoreView .scorer-stack > .pitch-panel {
+  display: none !important;
+}
+
+#scoreView .score-field-control-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 980px;
+  min-width: 0;
+}
+
+#scoreView .score-field-control-stack > .spray-panel,
+#scoreView .score-field-control-stack > .scoring-step-panel {
+  width: 100%;
+  max-width: 100%;
+}
+
+#scoreView .score-field-control-stack > .spray-panel {
+  flex: 0 0 auto;
+}
+
+#scoreView .score-field-control-stack > .scoring-step-panel {
+  position: relative !important;
+  inset: auto !important;
+  align-self: stretch;
+  margin: 0 !important;
+}
+
+#scoreView .score-field-control-stack .scoring-step-body,
+#scoreView .score-field-control-stack .pitch-choice-stack {
+  width: 100%;
+}
+
+#scoreView .score-field-control-stack .pitch-choice-card {
+  width: 100%;
+}
+
+#scoreView .scorer-stack > .score-form {
+  align-self: stretch;
+  width: 100%;
+}
+
+/* Pitch Mode mock layout: field, controls, and dock stay in normal document flow. */
+#scoreView .score-field-control-stack > .scoring-step-panel {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(106, 134, 178, 0.34);
+  border-radius: 12px;
+  padding: 12px 14px 14px;
+  background:
+    linear-gradient(180deg, rgba(8, 18, 38, 0.98), rgba(3, 10, 28, 0.99));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 18px 34px rgba(0, 0, 0, 0.22);
+  overflow: visible;
+}
+
+#scoreView .scoring-step-panel[data-step="pitch"] .scoring-step-head {
+  display: block;
+}
+
+#scoreView .scoring-step-panel[data-step="pitch"] .scoring-step-copy {
+  display: block;
+}
+
+#scoreView .scoring-step-panel[data-step="pitch"] .scoring-step-head .eyebrow {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.82rem;
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+#scoreView .scoring-step-panel[data-step="pitch"] .scoring-step-head h3,
+#scoreView .scoring-step-panel[data-step="pitch"] #scoringStepHint {
+  display: none;
+}
+
+#scoreView .score-field-control-stack .scoring-step-body {
+  display: grid;
+  gap: 14px;
+}
+
+#scoreView .pitch-choice-primary-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+#scoreView .pitch-choice-secondary-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+#scoreView .pitch-choice-card,
+#scoreView .pitch-secondary-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  justify-content: start;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  color: var(--white);
+  text-align: left;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 12px 26px rgba(0, 0, 0, 0.24);
+}
+
+#scoreView .pitch-choice-card {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 94px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  gap: 0;
+}
+
+#scoreView .pitch-choice-content {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+#scoreView .pitch-secondary-card {
+  min-height: 58px;
+  padding: 12px 18px;
+  background:
+    linear-gradient(180deg, rgba(11, 24, 48, 0.98), rgba(5, 14, 32, 0.99));
+}
+
+#scoreView .pitch-choice-ball {
+  background: linear-gradient(135deg, #128037, #075f29);
+}
+
+#scoreView .pitch-choice-strike {
+  background: linear-gradient(135deg, #c92722, #951916);
+}
+
+#scoreView .pitch-choice-inplay {
+  border-color: rgba(245, 189, 33, 0.62);
+  background: linear-gradient(135deg, #d49b08, #a97802);
+}
+
+#scoreView .pitch-feedback-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: none;
+}
+
+#scoreView .pitch-feedback {
+  margin-top: 26px;
+  font-size: 1.75rem;
+  font-weight: 1000;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px currentColor;
+  animation: pitchFeedbackPop 700ms ease-out forwards;
+}
+
+#scoreView .pitch-feedback--ball {
+  color: #22c55e;
+}
+
+#scoreView .pitch-feedback--strike {
+  color: #ef4444;
+}
+
+#scoreView .pitch-choice-card.pitch-button--feedback,
+#scoreView .step-button.pitch-button--feedback {
+  animation: pitchButtonConfirm 260ms ease-out;
+}
+
+#scoreView .pitch-choice-ball.pitch-button--feedback,
+#scoreView .step-ball.pitch-button--feedback {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 0 3px rgba(34, 197, 94, 0.28),
+    0 0 24px rgba(34, 197, 94, 0.5);
+}
+
+#scoreView .pitch-choice-strike.pitch-button--feedback,
+#scoreView .step-strike.pitch-button--feedback {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 0 3px rgba(239, 68, 68, 0.3),
+    0 0 24px rgba(239, 68, 68, 0.5);
+}
+
+@keyframes pitchFeedbackPop {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.92);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1.08);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-34px) scale(1);
+  }
+}
+
+@keyframes pitchButtonConfirm {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+
+  45% {
+    transform: scale(0.96);
+    filter: brightness(1.18);
+  }
+
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #scoreView .pitch-feedback,
+  #scoreView .pitch-choice-card.pitch-button--feedback,
+  #scoreView .step-button.pitch-button--feedback {
+    animation: none;
+  }
+
+  #scoreView .pitch-feedback {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+#scoreView .pitch-choice-icon,
+#scoreView .pitch-secondary-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+#scoreView .pitch-choice-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--white);
+}
+
+#scoreView .pitch-choice-icon svg {
+  width: 48px;
+  height: 48px;
+}
+
+#scoreView .pitch-secondary-icon {
+  width: 36px;
+  height: 36px;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+#scoreView .pitch-secondary-icon svg {
+  width: 36px;
+  height: 36px;
+}
+
+#scoreView .pitch-choice-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+#scoreView .pitch-choice-card.has-hold .pitch-choice-copy small {
+  white-space: nowrap;
+}
+
+#scoreView .pitch-choice-copy strong {
+  color: var(--white);
+  font-size: 1.32rem;
+  font-weight: 1000;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+#scoreView .pitch-choice-copy span,
+#scoreView .pitch-choice-copy small {
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+#scoreView .pitch-secondary-card .pitch-choice-copy strong {
+  font-size: 0.98rem;
+}
+
+#scoreView .pitch-secondary-card .pitch-choice-copy span {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+#scoreView .pitch-choice-arrow {
+  display: none;
+}
+
+#scoreView .score-field-control-stack > .scoring-dock-footer {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 !important;
+  padding: 0;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-summary {
+  display: grid;
+  grid-template-columns: minmax(116px, 0.7fr) minmax(190px, 1.15fr) minmax(260px, 1.55fr) auto;
+  grid-template-areas: "count batter season lineup";
+  align-items: center;
+  gap: 0;
+  border: 1px solid rgba(106, 134, 178, 0.34);
+  border-radius: 12px;
+  padding: 12px 10px 12px 14px;
+  background:
+    linear-gradient(180deg, rgba(8, 18, 38, 0.98), rgba(3, 10, 28, 0.99));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 18px 34px rgba(0, 0, 0, 0.22);
+  overflow: visible;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-summary-card {
+  min-height: 72px;
+  padding: 4px 20px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-summary-card + .scoring-dock-summary-card::before,
+#scoreView .score-field-control-stack .scoring-dock-batter-card::before {
+  display: none;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-batter-card,
+#scoreView .score-field-control-stack .scoring-dock-season-card {
+  border-left: 1px solid rgba(255, 255, 255, 0.13);
+}
+
+#scoreView .score-field-control-stack .scoring-dock-kicker {
+  color: var(--lion-gold);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-big {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--white);
+  font-size: 2.35rem;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+#scoreView .score-field-control-stack .count-balls {
+  color: #33c767;
+}
+
+#scoreView .score-field-control-stack .count-strikes {
+  color: #e13434;
+}
+
+#scoreView .score-field-control-stack .count-separator,
+#scoreView .score-field-control-stack .count-dot {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+#scoreView .score-field-control-stack .scoring-dock-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-batter-card {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-batter-number {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  border: 2px solid var(--lion-gold);
+  border-radius: 50%;
+  color: var(--lion-gold);
+  font-size: 1.32rem;
+  font-weight: 1000;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-batter-copy strong {
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 1.18rem;
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-season-line {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.82rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-lineup-card {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 118px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: var(--white);
+  background:
+    linear-gradient(180deg, rgba(16, 31, 59, 0.98), rgba(8, 19, 42, 0.99));
+}
+
+#scoreView .score-field-control-stack .scoring-dock-lineup-card .scoring-dock-icon {
+  color: var(--lion-gold);
+}
+
+#scoreView .score-field-control-stack .scoring-dock-lineup-card strong {
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+@media (max-width: 780px) {
+  #scoreView .pitch-choice-primary-row {
+    gap: 10px;
+  }
+
+  #scoreView .pitch-choice-secondary-row {
+    gap: 10px;
+  }
+
+  #scoreView .pitch-choice-card {
+    min-height: 62px;
+    padding: 7px 9px;
+  }
+
+  #scoreView .pitch-choice-content {
+    gap: 8px;
+  }
+
+  #scoreView .pitch-choice-card.has-hold .pitch-choice-copy small {
+    white-space: normal;
+  }
+
+  #scoreView .pitch-choice-copy {
+    gap: 2px;
+  }
+
+  #scoreView .pitch-choice-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  #scoreView .pitch-choice-icon svg {
+    width: 36px;
+    height: 36px;
+  }
+
+  #scoreView .pitch-choice-copy strong {
+    font-size: 0.92rem;
+  }
+
+  #scoreView .pitch-choice-copy span,
+  #scoreView .pitch-choice-copy small {
+    font-size: 0.66rem;
+  }
+
+  #scoreView .score-field-control-stack .scoring-dock-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "count batter"
+      "season lineup";
+    row-gap: 12px;
+  }
+
+  #scoreView .score-field-control-stack .scoring-dock-season-card {
+    border-left: 0;
+  }
+}
+
+/* Compact opponent/status bar: Count, Pitcher, At Bat. */
+#scoreView .score-field-control-stack .scoring-dock-summary {
+  grid-template-columns: minmax(124px, 0.72fr) minmax(300px, 1.75fr) minmax(220px, 1.08fr);
+  grid-template-areas: "count pitcher batter";
+  align-items: stretch;
+  padding: 10px 14px;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-summary-card {
+  min-height: 74px;
+  padding: 6px 18px;
+  align-content: center;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-count-card {
+  grid-area: count;
+  padding-left: 4px;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-pitcher-card {
+  grid-area: pitcher;
+  border-left: 1px solid rgba(255, 255, 255, 0.13);
+}
+
+#scoreView .score-field-control-stack .scoring-dock-pitcher-topline {
+  display: block;
+  min-width: 0;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-change-pitcher-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 1px solid rgba(245, 189, 33, 0.38);
+  border-radius: 999px;
+  background: rgba(245, 189, 33, 0.1);
+  color: var(--lion-gold);
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  text-transform: uppercase;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-change-pitcher-btn:hover:not(:disabled),
+#scoreView .score-field-control-stack .scoring-dock-change-pitcher-btn:focus-visible {
+  border-color: rgba(245, 189, 33, 0.72);
+  background: rgba(245, 189, 33, 0.18);
+  color: #ffe08a;
+  outline: none;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-change-pitcher-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+#scoreView .score-field-control-stack .scoring-dock-batter-card {
+  grid-area: batter;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border-left: 1px solid rgba(255, 255, 255, 0.13);
+}
+
+#scoreView .score-field-control-stack .scoring-dock-pitcher-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-pitcher-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  border: 2px solid rgba(245, 189, 33, 0.62);
+  border-radius: 50%;
+  color: var(--lion-gold);
+  background: rgba(245, 189, 33, 0.1);
+  font-size: 0.96rem;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-pitcher-copy {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-pitcher-main .scoring-dock-change-pitcher-btn {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-pitcher-copy strong,
+#scoreView .score-field-control-stack .scoring-dock-batter-copy strong {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 1.08rem;
+  font-weight: 900;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#scoreView .score-field-control-stack .scoring-dock-pitcher-breakdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+#scoreView .score-field-control-stack .pitcher-balls {
+  color: #33c767;
+}
+
+#scoreView .score-field-control-stack .pitcher-strikes {
+  color: #e13434;
+}
+
+#scoreView .score-field-control-stack .pitcher-divider,
+#scoreView .score-field-control-stack .pitcher-total {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+#scoreView .score-field-control-stack .scoring-dock-position-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid rgba(245, 189, 33, 0.42);
+  border-radius: 999px;
+  color: var(--lion-gold);
+  background: rgba(245, 189, 33, 0.1);
+  font-size: 0.8rem;
+  font-weight: 1000;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+@media (max-width: 780px) {
+  #scoreView .score-field-control-stack .scoring-dock-summary {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "count"
+      "pitcher"
+      "batter";
+    row-gap: 0;
+  }
+
+  #scoreView .score-field-control-stack .scoring-dock-pitcher-card,
+  #scoreView .score-field-control-stack .scoring-dock-batter-card {
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.13);
+  }
+}
+
+.pitcher-select-modal {
+  width: min(100%, 560px);
+  display: grid;
+  gap: 14px;
+}
+
+.pitcher-select-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(52vh, 440px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.pitcher-select-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 68px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(16, 31, 59, 0.98), rgba(8, 19, 42, 0.99));
+  color: var(--white);
+  text-align: left;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.pitcher-select-option:hover:not(:disabled),
+.pitcher-select-option:focus-visible {
+  border-color: rgba(245, 189, 33, 0.44);
+  background:
+    linear-gradient(180deg, rgba(30, 47, 80, 0.98), rgba(11, 26, 54, 0.99));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(245, 189, 33, 0.16);
+  outline: none;
+}
+
+.pitcher-select-option.is-current,
+.pitcher-select-option:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.pitcher-select-option.is-current {
+  border-color: rgba(245, 189, 33, 0.34);
+  background:
+    linear-gradient(180deg, rgba(245, 189, 33, 0.12), rgba(10, 21, 44, 0.98));
+}
+
+.pitcher-select-number {
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 2px solid rgba(245, 189, 33, 0.62);
+  border-radius: 50%;
+  color: var(--lion-gold);
+  background: rgba(245, 189, 33, 0.1);
+  font-size: 0.92rem;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.pitcher-select-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pitcher-select-copy strong {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 1.02rem;
+  font-weight: 900;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pitcher-select-copy span,
+.pitcher-select-status {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.pitcher-select-status {
+  color: var(--lion-gold);
+  text-transform: uppercase;
+}
+
+@media (max-width: 560px) {
+  .pitcher-select-modal {
+    width: min(100%, 420px);
+  }
+
+  .pitcher-select-option {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .pitcher-select-status {
+    grid-column: 2;
+    justify-self: start;
   }
 }

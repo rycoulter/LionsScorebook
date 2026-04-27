@@ -14,8 +14,30 @@ create table if not exists public.app_state (
   id text primary key,
   roster jsonb not null default '[]'::jsonb,
   lineup jsonb not null default '[]'::jsonb,
-  roster_version integer,
+  roster_version text,
   active_game_id text not null default '',
+  metadata jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+alter table public.app_state
+alter column roster_version type text using roster_version::text;
+
+create table if not exists public.roster_players (
+  id text primary key,
+  team_id text not null default 'lions',
+  roster_version text not null default '',
+  name text not null,
+  jersey_number text not null default '',
+  positions jsonb not null default '[]'::jsonb,
+  primary_position text not null default 'UTL',
+  bats text not null default 'R',
+  throws text not null default 'R',
+  height text not null default '',
+  weight text not null default '',
+  active boolean not null default true,
+  grades jsonb not null default '{}'::jsonb,
+  sort_order integer not null default 0,
   metadata jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default timezone('utc', now())
 );
@@ -66,12 +88,19 @@ create table if not exists public.league_standings (
 create index if not exists games_status_idx on public.games (status);
 create index if not exists games_game_date_idx on public.games (game_date);
 create index if not exists games_updated_at_idx on public.games (updated_at desc);
+create index if not exists roster_players_team_idx on public.roster_players (team_id, active, sort_order);
+create index if not exists roster_players_updated_at_idx on public.roster_players (updated_at desc);
 create index if not exists league_standings_division_season_idx on public.league_standings (division, season, rank);
 create index if not exists league_standings_updated_at_idx on public.league_standings (updated_at desc);
 
 drop trigger if exists set_app_state_updated_at on public.app_state;
 create trigger set_app_state_updated_at
 before update on public.app_state
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_roster_players_updated_at on public.roster_players;
+create trigger set_roster_players_updated_at
+before update on public.roster_players
 for each row execute function public.set_updated_at();
 
 drop trigger if exists set_games_updated_at on public.games;
@@ -88,7 +117,66 @@ insert into public.app_state (id)
 values ('primary')
 on conflict (id) do nothing;
 
+insert into public.roster_players (
+  id,
+  team_id,
+  roster_version,
+  name,
+  jersey_number,
+  positions,
+  primary_position,
+  bats,
+  throws,
+  height,
+  weight,
+  active,
+  grades,
+  sort_order,
+  metadata
+)
+select
+  player.value ->> 'id' as id,
+  'lions' as team_id,
+  coalesce(app_state.roster_version, '') as roster_version,
+  coalesce(nullif(player.value ->> 'name', ''), 'Unknown Player') as name,
+  coalesce(player.value ->> 'number', '') as jersey_number,
+  case
+    when jsonb_typeof(player.value -> 'positions') = 'array' then player.value -> 'positions'
+    else '[]'::jsonb
+  end as positions,
+  coalesce(player.value ->> 'primaryPosition', 'UTL') as primary_position,
+  coalesce(player.value ->> 'bats', 'R') as bats,
+  coalesce(player.value ->> 'throws', coalesce(player.value ->> 'bats', 'R')) as throws,
+  coalesce(player.value ->> 'height', '') as height,
+  coalesce(player.value ->> 'weight', '') as weight,
+  coalesce((player.value ->> 'active')::boolean, true) as active,
+  coalesce(player.value -> 'grades', '{}'::jsonb) as grades,
+  player.ordinality::integer - 1 as sort_order,
+  jsonb_build_object('migrated_from', 'app_state.roster') as metadata
+from public.app_state app_state
+cross join lateral jsonb_array_elements(app_state.roster) with ordinality as player(value, ordinality)
+where app_state.id = 'primary'
+  and jsonb_typeof(app_state.roster) = 'array'
+  and coalesce(player.value ->> 'id', '') <> ''
+on conflict (id) do update
+set
+  team_id = excluded.team_id,
+  roster_version = excluded.roster_version,
+  name = excluded.name,
+  jersey_number = excluded.jersey_number,
+  positions = excluded.positions,
+  primary_position = excluded.primary_position,
+  bats = excluded.bats,
+  throws = excluded.throws,
+  height = excluded.height,
+  weight = excluded.weight,
+  active = excluded.active,
+  grades = excluded.grades,
+  sort_order = excluded.sort_order,
+  metadata = public.roster_players.metadata || excluded.metadata;
+
 alter table public.app_state enable row level security;
+alter table public.roster_players enable row level security;
 alter table public.games enable row level security;
 alter table public.app_admins enable row level security;
 alter table public.league_standings enable row level security;
@@ -96,6 +184,13 @@ alter table public.league_standings enable row level security;
 drop policy if exists "Public read app_state" on public.app_state;
 create policy "Public read app_state"
 on public.app_state
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Public read roster_players" on public.roster_players;
+create policy "Public read roster_players"
+on public.roster_players
 for select
 to anon, authenticated
 using (true);
@@ -117,6 +212,26 @@ using (true);
 drop policy if exists "Authenticated write app_state" on public.app_state;
 create policy "Authenticated write app_state"
 on public.app_state
+for all
+to authenticated
+using (
+  exists (
+    select 1
+    from public.app_admins admins
+    where admins.email = lower((select auth.jwt() ->> 'email'))
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.app_admins admins
+    where admins.email = lower((select auth.jwt() ->> 'email'))
+  )
+);
+
+drop policy if exists "Authenticated write roster_players" on public.roster_players;
+create policy "Authenticated write roster_players"
+on public.roster_players
 for all
 to authenticated
 using (

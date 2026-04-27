@@ -631,10 +631,16 @@ let scoringStepHoldTimer = null;
 let scoringStepHoldButton = null;
 let scoringStepHoldConsumedButton = null;
 let scoringStepHoldConsumedAt = 0;
+let lastPitchFeedback = null;
+let pitchFeedbackTimer = null;
+let pitchFeedbackSequence = 0;
+let pitcherSelectLastFocus = null;
 const pendingSharedGameIds = new Set();
 const pendingDeletedSharedGameIds = new Set();
 let pendingServiceWorkerRefresh = false;
 const SUPABASE_REFRESH_THROTTLE_MS = 15000;
+const PLAY_HISTORY_LIMIT = 25;
+const PITCH_FEEDBACK_DURATION_MS = 700;
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
@@ -689,7 +695,8 @@ const els = {
   scoreHomeDisplay: document.getElementById("scoreHomeDisplay"),
   scoreBannerShell: document.querySelector("#scoreView .score-banner-shell"),
   scoreBannerArrow: document.querySelector("#scoreView .score-banner-arrow"),
-  headerOutDots: [...document.querySelectorAll("#scoreView .score-banner-out-dot")],
+  headerOutDots: [...document.querySelectorAll("#headerOutsFocus .score-banner-out-dot")],
+  headerBaseIndicators: [...document.querySelectorAll("#scoreView .score-banner-base[data-score-base]")],
   headerBatterDisplay: document.getElementById("headerBatterDisplay"),
   headerBatterOutcomesDisplay: document.getElementById("headerBatterOutcomesDisplay"),
   currentBatterStatLabel: document.getElementById("currentBatterStatLabel"),
@@ -708,7 +715,6 @@ const els = {
   inningStateDisplay: document.getElementById("inningStateDisplay"),
   outsStateDisplay: document.getElementById("outsStateDisplay"),
   headerOutsFocus: document.getElementById("headerOutsFocus"),
-  bases: [...document.querySelectorAll(".base")],
   scorerStack: document.getElementById("scorerStack"),
   currentBatterName: document.getElementById("currentBatterName"),
   currentBatterMeta: document.getElementById("currentBatterMeta"),
@@ -766,6 +772,7 @@ const els = {
   scoringStepTitle: document.getElementById("scoringStepTitle"),
   scoringStepHint: document.getElementById("scoringStepHint"),
   scoringStepBody: document.getElementById("scoringStepBody"),
+  pitchFeedbackLayer: document.getElementById("pitchFeedbackLayer"),
   panelUndoPitchBtn: document.getElementById("panelUndoPitchBtn"),
   openGameActionsBtn: document.getElementById("openGameActionsBtn"),
   scoringDockFooter: document.getElementById("scoringDockFooter"),
@@ -774,13 +781,19 @@ const els = {
   dockBaseIndicators: [...document.querySelectorAll("[data-dock-base]")],
   dockOutDots: [...document.querySelectorAll("[data-dock-out]")],
   dockUndoLastPlayBtn: document.getElementById("dockUndoLastPlayBtn"),
+  dockChangePitcherBtn: document.getElementById("dockChangePitcherBtn"),
   dockLastResultCard: document.getElementById("dockLastResultCard"),
   dockLastResultTitle: document.getElementById("dockLastResultTitle"),
   dockLastResultMeta: document.getElementById("dockLastResultMeta"),
+  dockPitcherNumber: document.getElementById("dockPitcherNumber"),
+  dockPitcherName: document.getElementById("dockPitcherName"),
+  dockPitcherPitchCount: document.getElementById("dockPitcherPitchCount"),
+  dockPitcherBreakdown: document.getElementById("dockPitcherBreakdown"),
   dockBatterName: document.getElementById("dockBatterName"),
   dockBatterGameLine: document.getElementById("dockBatterGameLine"),
   dockBatterSeasonLine: document.getElementById("dockBatterSeasonLine"),
   dockBatterNumber: document.getElementById("dockBatterNumber"),
+  dockBatterPosition: document.getElementById("dockBatterPosition"),
   dockViewLineupBtn: document.getElementById("dockViewLineupBtn"),
   dockViewScorebookBtn: document.getElementById("dockViewScorebookBtn"),
   scoreForm: document.getElementById("scoreForm"),
@@ -869,6 +882,10 @@ const els = {
   gameActionsCompleteBtn: document.getElementById("gameActionsCompleteBtn"),
   gameActionsStatusText: document.getElementById("gameActionsStatusText"),
   closeGameActionsBtn: document.getElementById("closeGameActionsBtn"),
+  pitcherSelectModal: document.getElementById("pitcherSelectModal"),
+  pitcherSelectList: document.getElementById("pitcherSelectList"),
+  pitcherSelectHint: document.getElementById("pitcherSelectHint"),
+  closePitcherSelectBtn: document.getElementById("closePitcherSelectBtn"),
   liveLineup: document.getElementById("liveLineup"),
   lineupCount: document.getElementById("lineupCount"),
   playFeed: document.getElementById("playFeed"),
@@ -931,8 +948,9 @@ const els = {
   closeGameSummaryBtn: document.getElementById("closeGameSummaryBtn"),
   lionsWinOverlay: document.getElementById("lionsWinOverlay"),
   lionsWinText: document.getElementById("lionsWinText"),
-  lionsWinLeft: document.getElementById("lionsWinLeft"),
-  lionsWinRight: document.getElementById("lionsWinRight"),
+  lionsWinDetail: document.getElementById("lionsWinDetail"),
+  lionsWinLogo: document.getElementById("lionsWinLogo"),
+  lionsWinSparks: document.getElementById("lionsWinSparks"),
   halfInningOverlay: document.getElementById("halfInningOverlay"),
   halfInningFlash: document.getElementById("halfInningFlash"),
   halfInningLineTop: document.getElementById("halfInningLineTop"),
@@ -1518,7 +1536,8 @@ function createGame(options = {}) {
     currentPlateAppearanceId: "",
     substitutions: [],
     events: [],
-    atBat: makeAtBat()
+    atBat: makeAtBat(),
+    playHistory: []
   };
   syncScoreBySide(game);
   return game;
@@ -1743,7 +1762,8 @@ function normalizeGame(game, nextState = state) {
       pitches: normalizePitchTrail(event.pitches || []),
       spray: event.spray || event.result?.sprayChart || null
     })),
-    substitutions: game.substitutions || []
+    substitutions: game.substitutions || [],
+    playHistory: normalizePlayHistory(game.playHistory, game.id)
   };
   normalized.sync = normalizeGameSyncState(game.sync);
   normalized.current = {
@@ -1761,6 +1781,25 @@ function normalizeGame(game, nextState = state) {
   syncGameTeams(normalized, normalized.lionsSide);
   syncGameCurrent(normalized);
   return normalized;
+}
+
+function normalizePlayHistory(history = [], gameId = "") {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter((entry) => entry?.game?.id === gameId)
+    .slice(-PLAY_HISTORY_LIMIT)
+    .map((entry) => {
+      const snapshotGame = deepClone(entry.game);
+      if (snapshotGame) snapshotGame.playHistory = [];
+      return {
+        id: entry.id || createId("play-history"),
+        reason: entry.reason || "play",
+        result: entry.result || "",
+        createdAt: entry.createdAt || new Date().toISOString(),
+        game: snapshotGame,
+        pending: deepClone(entry.pending || {})
+      };
+    });
 }
 
 function normalizePlateAppearances(plateAppearances, game) {
@@ -1858,6 +1897,7 @@ function normalizePitchTrail(pitches = []) {
       outcome,
       ballsAfter: balls,
       strikesAfter: strikes,
+      pitcherId: pitch.pitcherId || "",
       inPlay: Boolean(pitch.inPlay ?? outcome === "in_play"),
       type: outcome,
       label: pitch.label || pitchLabels[outcome] || outcome,
@@ -2136,6 +2176,7 @@ function saveStateWithOptions(options = {}) {
 function hasMeaningfulSupabaseSnapshot(snapshot) {
   if (!snapshot) return false;
   if (Array.isArray(snapshot.games) && snapshot.games.length) return true;
+  if (Array.isArray(snapshot.rosterPlayers) && snapshot.rosterPlayers.length) return true;
   const appState = snapshot.appState;
   if (!appState || typeof appState !== "object") return false;
   if (Array.isArray(appState.roster) && appState.roster.length) return true;
@@ -2146,7 +2187,9 @@ function hasMeaningfulSupabaseSnapshot(snapshot) {
 
 function sharedRosterMissing(snapshot) {
   if (!snapshot?.appState || typeof snapshot.appState !== "object") return true;
-  const rosterMissing = !Array.isArray(snapshot.appState.roster) || !snapshot.appState.roster.length;
+  const rosterRowsMissing = !Array.isArray(snapshot.rosterPlayers) || !snapshot.rosterPlayers.length;
+  const appStateRosterMissing = !Array.isArray(snapshot.appState.roster) || !snapshot.appState.roster.length;
+  const rosterMissing = rosterRowsMissing && appStateRosterMissing;
   const lineupMissing = !Array.isArray(snapshot.appState.lineup) || !snapshot.appState.lineup.length;
   return rosterMissing || lineupMissing;
 }
@@ -2266,7 +2309,7 @@ async function refreshSupabaseState(reason = "refresh", options = {}) {
         return null;
       }
       const merged = overlaySessionSharedChanges(
-        supabaseStorage.mergeRemoteSnapshot(state, data.appState, data.games),
+        supabaseStorage.mergeRemoteSnapshot(state, data.appState, data.games, data.rosterPlayers),
         state
       );
       state = normalizeState(merged);
@@ -2381,7 +2424,12 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
         const mergedState = applyDeletedGameIdsToState(
           overlaySessionSharedChanges(
             normalizeState(
-              supabaseStorage.mergeRemoteSnapshot(sourceState, remoteBootstrap.data.appState, remoteBootstrap.data.games)
+              supabaseStorage.mergeRemoteSnapshot(
+                sourceState,
+                remoteBootstrap.data.appState,
+                remoteBootstrap.data.games,
+                remoteBootstrap.data.rosterPlayers
+              )
             ),
             sourceState
           ),
@@ -2399,14 +2447,17 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
         sourceState = applyDeletedGameIdsToState(sourceState, deleteGameIds);
       }
       const snapshot = buildSharedSnapshot(sourceState);
-      const [appStateResponse, gamesResponse] = await Promise.all([
+      const [appStateResponse, rosterPlayersResponse, gamesResponse] = await Promise.all([
         supabaseStorage.upsertAppState(snapshot),
+        supabaseStorage.upsertRosterPlayers
+          ? supabaseStorage.upsertRosterPlayers(snapshot.roster, snapshot.rosterVersion)
+          : Promise.resolve({ data: [], error: null }),
         supabaseStorage.upsertGames(snapshot.games)
       ]);
       const deleteResponse = deleteGameIds.length
         ? await supabaseStorage.deleteGames(deleteGameIds)
         : { data: [], error: null };
-      const error = appStateResponse.error || gamesResponse.error || deleteResponse.error || null;
+      const error = appStateResponse.error || rosterPlayersResponse.error || gamesResponse.error || deleteResponse.error || null;
       if (error) {
         console.warn(`Unable to sync shared scorebook snapshot (${reason}).`, error);
         return { data: null, error };
@@ -2429,6 +2480,7 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
       return {
         data: {
           appState: appStateResponse.data || null,
+          rosterPlayers: rosterPlayersResponse.data || [],
           games: gamesResponse.data || []
         },
         error: null
@@ -3133,6 +3185,7 @@ function bindEvents() {
   els.panelUndoPitchBtn.addEventListener("click", undoPitch);
   els.openGameActionsBtn?.addEventListener("click", openGameActionsModal);
   els.dockUndoLastPlayBtn?.addEventListener("click", undoLastPlay);
+  els.dockChangePitcherBtn?.addEventListener("click", openPitcherSelectModal);
   els.dockViewScorebookBtn?.addEventListener("click", () => {
     const game = activeGame();
     if (!game?.id) return;
@@ -3146,6 +3199,16 @@ function bindEvents() {
   });
   els.gameActionsModal?.addEventListener("click", (event) => {
     if (event.target === els.gameActionsModal) closeGameActionsModal();
+  });
+  els.closePitcherSelectBtn?.addEventListener("click", closePitcherSelectModal);
+  els.pitcherSelectModal?.addEventListener("click", (event) => {
+    if (event.target === els.pitcherSelectModal) closePitcherSelectModal();
+  });
+  els.pitcherSelectModal?.addEventListener("keydown", handlePitcherSelectModalKeydown);
+  els.pitcherSelectList?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-pitcher-select-id]");
+    if (!button || button.disabled) return;
+    changeActivePitcher(button.dataset.pitcherSelectId);
   });
   els.gameActionsSyncBtn?.addEventListener("click", () => {
     const game = activeGame();
@@ -3407,7 +3470,7 @@ function bindEvents() {
   els.opponentMoveTypeSelect?.addEventListener("change", renderSubControls);
   els.applyOpponentMoveBtn?.addEventListener("click", applyOpponentLineupMove);
 
-  els.pitcherSelect.addEventListener("change", () => {
+  els.pitcherSelect?.addEventListener("change", () => {
     const game = activeGame();
     if (gameIsScoreLocked(game)) return;
     game.pitcherId = els.pitcherSelect.value;
@@ -4078,6 +4141,7 @@ function getCurrentPlateAppearance(game = activeGame(), createIfMissing = true) 
 function recordPitch(game = activeGame(), outcome) {
   syncGameCurrent(game);
   const plateAppearance = getCurrentPlateAppearance(game);
+  const pitcherId = currentPitcherId(game);
   const ballsBefore = game.current.balls;
   const strikesBefore = game.current.strikes;
   const next = nextPitchCount(ballsBefore, strikesBefore, outcome);
@@ -4089,6 +4153,7 @@ function recordPitch(game = activeGame(), outcome) {
     outcome,
     ballsAfter: next.balls,
     strikesAfter: next.strikes,
+    pitcherId,
     inPlay: outcome === "in_play",
     type: outcome,
     label: pitchLabels[outcome] || outcome,
@@ -4139,6 +4204,7 @@ function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
   const type = resultInput.type || resultInput.result || "GO";
   const rule = eventRules[type] || eventRules.GO;
   if (resultInput.pitcherId) plateAppearance.pitcherId = resultInput.pitcherId;
+  const playHistoryEntry = pushPlayHistorySnapshot(game, { reason: "plateAppearance", result: type });
   const runnerAdvancements = resultInput.runnerAdvancements || defaultRunnerAdvancements(game, type, plateAppearance.batterId);
   const movement = applyRunnerAdvancements(game, runnerAdvancements);
   const runsScored = resultInput.runsScored ?? movement.runsScored;
@@ -4152,7 +4218,9 @@ function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
     batterIndex: game.batterIndex,
     opponentBatterIndex: game.opponentBatterIndex || 0,
     score: deepClone(game.score),
-    atBat: cloneAtBat(game.atBat || makeAtBat())
+    atBat: cloneAtBat(game.atBat || makeAtBat()),
+    pitcherId: game.pitcherId || game.current?.pitcherId || "",
+    currentPlateAppearanceId: game.currentPlateAppearanceId || ""
   };
 
   addRunsForBattingTeam(game, runsScored);
@@ -4211,7 +4279,8 @@ function finalizePlateAppearance(game = activeGame(), resultInput = {}) {
     errorFielderPosition: result.errorFielderPosition,
     runnerAdvancements: deepClone(result.runnerAdvancements),
     createdAt: plateAppearance.completedAt,
-    snapshotBefore
+    snapshotBefore,
+    playHistoryId: playHistoryEntry?.id || ""
   };
   if (!game.events) game.events = [];
   game.events.push(event);
@@ -4359,6 +4428,7 @@ function advanceHalfInning(game = activeGame()) {
   commitCurrentToLegacy(game);
   if (gameIsFinal(game)) moveActiveGameOffFinal(game.id);
   clearPendingPlayState(game, true);
+  if (lionsWonGame(game)) playLionsWinAnimation(lionsWinAnimationPayloadForGame(game));
   if (!gameIsFinal(game)) playHalfInningChange(game);
 }
 
@@ -4413,17 +4483,9 @@ function addSubstitution(game = activeGame(), substitution = {}) {
     count: `${game.current.balls}-${game.current.strikes}`,
     spray: null,
     createdAt: record.createdAt,
-    snapshotBefore: {
-      inning: game.inning,
-      half: game.half,
-      outs: game.outs,
-      bases: deepClone(game.bases),
-      batterIndex: game.batterIndex,
-      opponentBatterIndex: game.opponentBatterIndex || 0,
-      score: deepClone(game.score),
-      atBat: cloneAtBat(game.atBat || makeAtBat()),
+    snapshotBefore: liveGameSnapshot(game, {
       lineupEntries: deepClone(currentEntries)
-    }
+    })
   });
   syncGameCurrent(game);
   return record;
@@ -4508,7 +4570,7 @@ function applyEvent(game = activeGame(), event = {}) {
       if (outcome === "ball" && pitch.ballsAfter >= 4) {
         return applyEvent(game, { type: "resolve_play", result: "BB" });
       }
-      if ((outcome === "called_strike" || outcome === "swinging_strike") && pitch.strikesAfter >= 3) {
+      if ((outcome === "strike" || outcome === "called_strike" || outcome === "swinging_strike") && pitch.strikesAfter >= 3) {
         return applyEvent(game, { type: "resolve_play", result: "K" });
       }
       if (outcome === "in_play") {
@@ -4523,7 +4585,7 @@ function applyEvent(game = activeGame(), event = {}) {
       return pitch;
     }
     if (outcome === "ball" && pitch.ballsAfter >= 4) return applyEvent(game, { type: "resolve_play", result: "BB" });
-    if ((outcome === "called_strike" || outcome === "swinging_strike") && pitch.strikesAfter >= 3) return applyEvent(game, { type: "resolve_play", result: "K" });
+    if ((outcome === "strike" || outcome === "called_strike" || outcome === "swinging_strike") && pitch.strikesAfter >= 3) return applyEvent(game, { type: "resolve_play", result: "K" });
     if (outcome === "in_play") {
       clearPendingPlayState(game, true);
       if (game.atBat) game.atBat.pendingInPlay = true;
@@ -5129,15 +5191,7 @@ function logPlay() {
   const runs = runnerAdvancements.filter((advancement) => advancement.to === "home" && !advancement.out && !advancement.remove).length;
   const rbi = automaticRbiForPlay(result, runs);
   const outsRecorded = result === "DP" ? 2 : undefined;
-  const snapshotBefore = {
-    inning: game.inning,
-    half: game.half,
-    outs: game.outs,
-    bases: { ...game.bases },
-    batterIndex: game.batterIndex,
-    score: { ...game.score },
-    atBat: game.atBat ? cloneAtBat(game.atBat) : makeAtBat()
-  };
+  const snapshotBefore = liveGameSnapshot(game);
 
   finalizePlateAppearance(game, {
     type: result,
@@ -5345,15 +5399,8 @@ function recordSteal(target, outcome) {
   if (!isOccupied(runner)) return;
   if (steal.to !== "home" && isOccupied(game.bases[steal.to])) return;
 
-  const snapshotBefore = {
-    inning: game.inning,
-    half: game.half,
-    outs: game.outs,
-    bases: { ...game.bases },
-    batterIndex: game.batterIndex,
-    score: { ...game.score },
-    atBat: game.atBat ? cloneAtBat(game.atBat) : makeAtBat()
-  };
+  const snapshotBefore = liveGameSnapshot(game);
+  const playHistoryEntry = pushPlayHistorySnapshot(game, { reason: "runnerAction", result: outcome === "safe" ? "SB" : "CS" });
 
   const movement = applyRunnerAdvancements(game, [
     outcome === "safe"
@@ -5391,7 +5438,8 @@ function recordSteal(target, outcome) {
     count: game.atBat ? `${game.atBat.balls}-${game.atBat.strikes}` : "0-0",
     spray: null,
     createdAt: new Date().toISOString(),
-    snapshotBefore
+    snapshotBefore,
+    playHistoryId: playHistoryEntry?.id || ""
   };
   game.events.push(event);
   selectedFieldRunnerBase = "";
@@ -5408,15 +5456,8 @@ function recordPickoff(base) {
   const runner = game.bases?.[base];
   if (!isOccupied(runner)) return;
 
-  const snapshotBefore = {
-    inning: game.inning,
-    half: game.half,
-    outs: game.outs,
-    bases: { ...game.bases },
-    batterIndex: game.batterIndex,
-    score: { ...game.score },
-    atBat: game.atBat ? cloneAtBat(game.atBat) : makeAtBat()
-  };
+  const snapshotBefore = liveGameSnapshot(game);
+  const playHistoryEntry = pushPlayHistorySnapshot(game, { reason: "runnerAction", result: "PO" });
 
   const movement = applyRunnerAdvancements(game, [{ runnerId: runner, from: base, out: true }]);
   game.current.outs += movement.outsRecorded;
@@ -5445,7 +5486,8 @@ function recordPickoff(base) {
     count: game.atBat ? `${game.atBat.balls}-${game.atBat.strikes}` : "0-0",
     spray: null,
     createdAt: new Date().toISOString(),
-    snapshotBefore
+    snapshotBefore,
+    playHistoryId: playHistoryEntry?.id || ""
   });
   selectedFieldRunnerBase = "";
   scoringStep = "pitch";
@@ -5464,15 +5506,8 @@ function recordTagUp(target) {
   if (!isOccupied(runner)) return;
   if (tag.to !== "home" && isOccupied(game.bases[tag.to])) return;
 
-  const snapshotBefore = {
-    inning: game.inning,
-    half: game.half,
-    outs: game.outs,
-    bases: { ...game.bases },
-    batterIndex: game.batterIndex,
-    score: { ...game.score },
-    atBat: game.atBat ? cloneAtBat(game.atBat) : makeAtBat()
-  };
+  const snapshotBefore = liveGameSnapshot(game);
+  const playHistoryEntry = pushPlayHistorySnapshot(game, { reason: "runnerAction", result: "TAG" });
   const movement = applyRunnerAdvancements(game, [{ runnerId: runner, from: tag.from, to: tag.to }]);
   if (movement.runsScored) {
     addRunsForBattingTeam(game, movement.runsScored);
@@ -5502,7 +5537,8 @@ function recordTagUp(target) {
     spray: null,
     runnerAdvancements: [{ runnerId: runner, from: tag.from, to: tag.to }],
     createdAt,
-    snapshotBefore
+    snapshotBefore,
+    playHistoryId: playHistoryEntry?.id || ""
   });
   commitCurrentToLegacy(game);
   saveState();
@@ -5527,16 +5563,7 @@ function logOpponentOutcome(result, options = {}) {
   const runnerAdvancements = runnerAdvancementsForPlay(game, result, batterId);
   const runs = runnerAdvancements.filter((advancement) => advancement.to === "home" && !advancement.out && !advancement.remove).length;
   const rbi = automaticRbiForPlay(result, runs);
-  const snapshotBefore = {
-    inning: game.inning,
-    half: game.half,
-    outs: game.outs,
-    bases: { ...game.bases },
-    batterIndex: game.batterIndex,
-    opponentBatterIndex: game.opponentBatterIndex || 0,
-    score: { ...game.score },
-    atBat: game.atBat ? cloneAtBat(game.atBat) : makeAtBat()
-  };
+  const snapshotBefore = liveGameSnapshot(game);
 
   finalizePlateAppearance(game, {
     type: result,
@@ -5562,38 +5589,10 @@ function advanceHalf(game) {
 function undoLastPlay() {
   const game = activeGame();
   if (gameIsScoreLocked(game)) return;
-  const event = game.events.pop();
-  if (!event) return;
-  if (event.plateAppearanceId) {
-    game.plateAppearances = (game.plateAppearances || []).filter((appearance) => appearance.id !== event.plateAppearanceId);
-    game.currentPlateAppearanceId = "";
-  }
-  if (event.substitutionId) {
-    game.substitutions = (game.substitutions || []).filter((substitution) => substitution.id !== event.substitutionId);
-  }
-  if (event.snapshotBefore) {
-    game.inning = event.snapshotBefore.inning;
-    game.half = event.snapshotBefore.half;
-    game.outs = event.snapshotBefore.outs;
-    game.bases = { ...event.snapshotBefore.bases };
-    game.batterIndex = event.snapshotBefore.batterIndex;
-    game.opponentBatterIndex = event.snapshotBefore.opponentBatterIndex ?? game.opponentBatterIndex ?? 0;
-    game.score = { ...event.snapshotBefore.score };
-    game.atBat = cloneAtBat(event.snapshotBefore.atBat || makeAtBat());
-    if (event.snapshotBefore.lineupEntries) {
-      game.lineupEntries = deepClone(event.snapshotBefore.lineupEntries);
-      game.lineups.away = deepClone(game.lineupEntries);
-    }
-    if (event.snapshotBefore.opponentLineupEntries) {
-      const restoredOpponentEntries = deepClone(event.snapshotBefore.opponentLineupEntries);
-      if (!game.lineups) game.lineups = { away: deepClone(game.lineupEntries || []), home: [] };
-      game.lineups.home = restoredOpponentEntries;
-      game.opponentLineup = opponentLineupSnapshot(restoredOpponentEntries);
-    }
-    clearPendingPlayState(game, false);
-    pendingSpray = event.spray || null;
-    syncGameCurrent(game);
-  }
+  const history = Array.isArray(game.playHistory) ? game.playHistory : [];
+  const historyEntry = history[history.length - 1];
+  if (!historyEntry) return;
+  restorePlayHistorySnapshot(game, historyEntry, history.slice(0, -1));
   saveState();
   render();
 }
@@ -5837,6 +5836,35 @@ function lionsWonGame(game) {
   return Boolean(gameIsFinal(game) && Number(game?.score?.lions || 0) > Number(game?.score?.opponent || 0));
 }
 
+function lionsWinAnimationKey(details = {}) {
+  if (details.gameId) return String(details.gameId);
+  return [
+    displayTeamName(details.awayTeam || ""),
+    displayTeamName(details.homeTeam || ""),
+    details.awayScore ?? "",
+    details.homeScore ?? ""
+  ].join("|");
+}
+
+function lionsWinDetailText(details = {}) {
+  const awayTeam = displayTeamName(details.awayTeam || "Opponent");
+  const homeTeam = displayTeamName(details.homeTeam || "Opponent");
+  const awayScore = Number.isFinite(Number(details.awayScore)) ? Number(details.awayScore) : 0;
+  const homeScore = Number.isFinite(Number(details.homeScore)) ? Number(details.homeScore) : 0;
+  return `${awayTeam} ${awayScore} - ${homeScore} ${homeTeam}`;
+}
+
+function lionsWinAnimationPayloadForGame(game, extra = {}) {
+  return {
+    gameId: game?.id || "",
+    homeTeam: homeTeamName(game),
+    awayTeam: awayTeamName(game),
+    homeScore: scoreForSide(game, "home"),
+    awayScore: scoreForSide(game, "away"),
+    ...extra
+  };
+}
+
 function resetLionsWinAnimation() {
   if (lionsWinAnimationTimer) {
     clearTimeout(lionsWinAnimationTimer);
@@ -5844,26 +5872,120 @@ function resetLionsWinAnimation() {
   }
   activeLionsWinAnimationGameId = "";
   if (!els.lionsWinOverlay) return;
-  els.lionsWinOverlay.classList.remove("is-active");
+  const animationTargets = [
+    els.lionsWinOverlay,
+    ...els.lionsWinOverlay.querySelectorAll(".lions-win-burst, .lions-win-sparks, .lions-win-claw, .lions-win-logo-glow, .lions-win-logo, .lions-win-title, .lions-win-detail")
+  ];
+  els.lionsWinOverlay.classList.remove("is-static");
+  if (window.gsap) {
+    window.gsap.killTweensOf(animationTargets);
+    window.gsap.set(animationTargets, { clearProps: "all" });
+  } else {
+    els.lionsWinOverlay.removeAttribute("style");
+    animationTargets.forEach((node) => node?.removeAttribute?.("style"));
+  }
   els.lionsWinOverlay.hidden = true;
   els.lionsWinOverlay.setAttribute("aria-hidden", "true");
 }
 
-function playLionsWinAnimation(gameId, onComplete) {
-  if (!els.lionsWinOverlay || !gameId) return false;
-  if (activeLionsWinAnimationGameId === gameId || playedLionsWinAnimationGameIds.has(gameId)) return false;
-  playedLionsWinAnimationGameIds.add(gameId);
-  activeLionsWinAnimationGameId = gameId;
+function playLionsWinAnimation(details = {}) {
+  if (!els.lionsWinOverlay) return false;
+  const key = lionsWinAnimationKey(details);
+  if (!key) return false;
+  if (activeLionsWinAnimationGameId === key || playedLionsWinAnimationGameIds.has(key)) return false;
+  playedLionsWinAnimationGameIds.add(key);
+  activeLionsWinAnimationGameId = key;
   if (lionsWinAnimationTimer) clearTimeout(lionsWinAnimationTimer);
+  if (els.lionsWinText) els.lionsWinText.textContent = "LIONS WIN";
+  if (els.lionsWinDetail) els.lionsWinDetail.textContent = lionsWinDetailText(details);
   els.lionsWinOverlay.hidden = false;
   els.lionsWinOverlay.setAttribute("aria-hidden", "false");
-  requestAnimationFrame(() => {
-    els.lionsWinOverlay?.classList.add("is-active");
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const overlay = els.lionsWinOverlay;
+  const claws = [...overlay.querySelectorAll(".lions-win-claw")];
+  const burst = overlay.querySelector(".lions-win-burst");
+  const logoGlow = overlay.querySelector(".lions-win-logo-glow");
+  const title = overlay.querySelector(".lions-win-title");
+  const detail = overlay.querySelector(".lions-win-detail");
+  const onComplete = typeof details.onComplete === "function" ? details.onComplete : null;
+
+  if (reduceMotion || !window.gsap) {
+    overlay.classList.add("is-static");
+    overlay.style.opacity = "1";
+    lionsWinAnimationTimer = setTimeout(() => {
+      resetLionsWinAnimation();
+      onComplete?.();
+    }, 2200);
+    return true;
+  }
+
+  const gsap = window.gsap;
+  gsap.set(overlay, { opacity: 0 });
+  gsap.set(claws, {
+    opacity: 0,
+    xPercent: -120,
+    yPercent: 38,
+    scale: 0.82
   });
-  lionsWinAnimationTimer = setTimeout(() => {
-    resetLionsWinAnimation();
-    onComplete?.();
-  }, 1960);
+  gsap.set(burst, { opacity: 0, scale: 0.42 });
+  gsap.set(els.lionsWinSparks, { opacity: 0 });
+  gsap.set(logoGlow, { opacity: 0, scale: 0.56 });
+  gsap.set(els.lionsWinLogo, { opacity: 0, scale: 0.68 });
+  gsap.set(title, { opacity: 0, y: 56, scale: 0.92 });
+  gsap.set(detail, { opacity: 0, y: 28 });
+
+  gsap.timeline({
+    onComplete: () => {
+      resetLionsWinAnimation();
+      onComplete?.();
+    }
+  })
+    .to(overlay, { opacity: 1, duration: 0.28, ease: "power1.out" })
+    .to(claws, {
+      opacity: 1,
+      xPercent: 0,
+      yPercent: 0,
+      scale: 1,
+      duration: 0.3,
+      stagger: 0.1,
+      ease: "power3.out"
+    }, 0.08)
+    .to(claws, {
+      opacity: 0,
+      xPercent: 110,
+      yPercent: -30,
+      duration: 0.3,
+      stagger: 0.08,
+      ease: "power2.in"
+    }, 0.42)
+    .to(burst, { opacity: 1, scale: 1.2, duration: 0.5, ease: "power2.out" }, 0.32)
+    .to(els.lionsWinSparks, { opacity: 0.8, duration: 0.5, ease: "power2.out" }, 0.36)
+    .to(logoGlow, { opacity: 1, scale: 1, duration: 0.48, ease: "power2.out" }, 0.42)
+    .to(els.lionsWinLogo, {
+      opacity: 1,
+      scale: 1.08,
+      duration: 0.52,
+      ease: "back.out(1.8)"
+    }, 0.45)
+    .to(els.lionsWinLogo, { scale: 1, duration: 0.24, ease: "power2.out" })
+    .to(title, {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      duration: 0.36,
+      ease: "back.out(2)"
+    }, 0.82)
+    .to(detail, {
+      opacity: 1,
+      y: 0,
+      duration: 0.28,
+      ease: "power2.out"
+    }, 0.94)
+    .to(overlay, {
+      opacity: 0,
+      duration: 0.48,
+      ease: "power2.inOut"
+    }, "+=1.65");
   return true;
 }
 
@@ -5967,7 +6089,9 @@ function finishGame() {
   moveActiveGameOffFinal(current.id);
   saveStateWithOptions({ markLiveGamesDirty: false });
   render();
-  if (lionsWonGame(current) && playLionsWinAnimation(current.id, () => openGameSummary(current.id))) return;
+  if (lionsWonGame(current) && playLionsWinAnimation(lionsWinAnimationPayloadForGame(current, {
+    onComplete: () => openGameSummary(current.id)
+  }))) return;
   openGameSummary(current.id);
 }
 
@@ -6720,8 +6844,8 @@ function renderScoreboard() {
     els.scoreHomeLogo.alt = `${homeName} logo`;
   }
   els.inningStateDisplay.textContent = inningLabel;
-  els.headerCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
-  els.outsStateDisplay.textContent = String(game.outs);
+  if (els.headerCountDisplay) els.headerCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
+  if (els.outsStateDisplay) els.outsStateDisplay.textContent = String(game.outs);
   if (els.scoreBannerArrow) {
     els.scoreBannerArrow.classList.toggle("is-bottom", !gameIsFinal(game) && game.half === "bottom");
   }
@@ -6733,12 +6857,19 @@ function renderScoreboard() {
       dot.classList.toggle("is-filled", index < game.outs);
     });
   }
+  if (els.headerBaseIndicators?.length) {
+    const currentBases = game.current?.runners || game.bases || emptyBases(false);
+    els.headerBaseIndicators.forEach((base) => {
+      const key = base.dataset.scoreBase;
+      base.classList.toggle("is-filled", Boolean(currentBases?.[key]));
+    });
+  }
   if (els.headerBatterCountDisplay) els.headerBatterCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   if (els.headerBatterOutsDisplay) els.headerBatterOutsDisplay.textContent = `${game.outs}`;
   if (els.pitcherRowCountDisplay) els.pitcherRowCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   if (els.pitcherRowOutsDisplay) els.pitcherRowOutsDisplay.textContent = `${game.outs}`;
   if (els.headerBatterStatus) els.headerBatterStatus.hidden = true;
-  if (els.headerCountFocus) els.headerCountFocus.hidden = false;
+  if (els.headerCountFocus) els.headerCountFocus.hidden = true;
   if (els.headerOutsFocus) els.headerOutsFocus.hidden = false;
   if (els.currentBatterCard) els.currentBatterCard.classList.toggle("is-expanded", lionsBatting);
   if (els.gamePitcherCard) els.gamePitcherCard.hidden = lionsBatting;
@@ -6755,10 +6886,6 @@ function renderScoreboard() {
     ? `${gameTeamMeta(game)} | Final after ${completedInningCount(game)} innings`
     : `${gameTeamMeta(game)} | ${game.half === "top" ? "Top" : "Bottom"} ${game.inning}, ${game.outs} ${game.outs === 1 ? "out" : "outs"}`;
   setScoreGameLocked(gameIsScoreLocked(game), game);
-  els.bases.forEach((base) => {
-    const key = base.dataset.base === "1" ? "first" : base.dataset.base === "2" ? "second" : "third";
-    base.classList.toggle("is-filled", Boolean(game.bases[key]));
-  });
 }
 
 function gamePlateAppearanceEvents(events = []) {
@@ -6940,6 +7067,13 @@ function handleFieldRunnerClick(event) {
   firstVisibleAction?.focus();
 }
 
+function clearSelectedRunnerAction() {
+  if (!selectedFieldRunnerBase) return;
+  selectedFieldRunnerBase = "";
+  renderRunnerTracker();
+  renderScoringStepPanel();
+}
+
 window.handleFieldRunnerClick = handleFieldRunnerClick;
 
 function togglePendingRunnerOut(base) {
@@ -6966,6 +7100,67 @@ function renderAutoScorePreview() {
   els.autoScorePreview.textContent = `Auto: ${runs} run${runs === 1 ? "" : "s"}, ${rbi} RBI, ${extraOuts} out${extraOuts === 1 ? "" : "s"} on this result.`;
 }
 
+function pitchFeedbackTypeForOutcome(outcome) {
+  if (outcome === "ball") return "ball";
+  if (["strike", "called_strike", "swinging_strike"].includes(outcome)) return "strike";
+  return "";
+}
+
+function pitchFeedbackClassForOutcome(outcome) {
+  if (!lastPitchFeedback) return "";
+  return pitchFeedbackTypeForOutcome(outcome) === lastPitchFeedback.type ? " pitch-button--feedback" : "";
+}
+
+function renderPitchFeedbackLayer() {
+  if (!els.pitchFeedbackLayer) return;
+  if (!lastPitchFeedback) {
+    els.pitchFeedbackLayer.innerHTML = "";
+    els.pitchFeedbackLayer.removeAttribute("data-feedback-type");
+    return;
+  }
+  const type = lastPitchFeedback.type;
+  const label = type === "ball" ? "BALL" : "STRIKE";
+  els.pitchFeedbackLayer.dataset.feedbackType = type;
+  els.pitchFeedbackLayer.innerHTML = `<div class="pitch-feedback pitch-feedback--${type}" data-feedback-id="${lastPitchFeedback.id}">${label}</div>`;
+}
+
+function syncPitchFeedbackButtonState(preferredButton = null) {
+  if (!els.scoringStepPanel) return;
+  els.scoringStepPanel.querySelectorAll(".pitch-button--feedback").forEach((button) => {
+    button.classList.remove("pitch-button--feedback");
+  });
+  if (!lastPitchFeedback) return;
+  const type = lastPitchFeedback.type;
+  const selector = type === "ball"
+    ? 'button[data-step-pitch="ball"]'
+    : 'button[data-step-pitch="strike"], button[data-step-pitch="called_strike"], button[data-step-pitch="swinging_strike"]';
+  const target = preferredButton?.matches?.(selector) ? preferredButton : els.scoringStepPanel.querySelector(selector);
+  if (!target) return;
+  void target.offsetWidth;
+  target.classList.add("pitch-button--feedback");
+}
+
+function clearPitchFeedback(feedbackId = null) {
+  if (feedbackId && lastPitchFeedback?.id !== feedbackId) return;
+  lastPitchFeedback = null;
+  if (pitchFeedbackTimer) {
+    clearTimeout(pitchFeedbackTimer);
+    pitchFeedbackTimer = null;
+  }
+  renderPitchFeedbackLayer();
+  syncPitchFeedbackButtonState();
+}
+
+function triggerPitchFeedback(type, sourceButton = null) {
+  if (!["ball", "strike"].includes(type)) return;
+  if (pitchFeedbackTimer) clearTimeout(pitchFeedbackTimer);
+  lastPitchFeedback = { type, id: ++pitchFeedbackSequence };
+  renderPitchFeedbackLayer();
+  syncPitchFeedbackButtonState(sourceButton);
+  const feedbackId = lastPitchFeedback.id;
+  pitchFeedbackTimer = setTimeout(() => clearPitchFeedback(feedbackId), PITCH_FEEDBACK_DURATION_MS);
+}
+
 function handleScoringPanelClick(event) {
   const button = event.target.closest("button");
   if (!button) return;
@@ -6990,6 +7185,8 @@ function handleScoringPanelClick(event) {
         return;
       }
     }
+    const feedbackType = pitchFeedbackTypeForOutcome(button.dataset.stepPitch);
+    if (feedbackType) triggerPitchFeedback(feedbackType, button);
     applyEvent(activeGame(), { type: "pitch", outcome: button.dataset.stepPitch });
     return;
   }
@@ -7007,6 +7204,10 @@ function handleScoringPanelClick(event) {
       action: button.dataset.specialAction,
       target: button.dataset.specialTarget
     });
+    return;
+  }
+  if (button.dataset.clearRunnerSelection !== undefined) {
+    clearSelectedRunnerAction();
     return;
   }
   if (button.dataset.stepOutcome) {
@@ -7085,9 +7286,15 @@ function backScoringStep() {
     scoringStep = "spray";
   } else if (scoringStep === "spray") {
     pendingSpray = null;
+    pendingRunnerChoices = {};
+    pendingRunnerOutBases = [];
+    pendingOutType = "";
+    pendingOutFielder = "";
+    bipOutcomeChosen = false;
     awaitingSprayLocation = false;
-    if (game.atBat) game.atBat.pendingInPlay = !pendingOutType;
-    scoringStep = pendingOutType ? "out_fielder" : "outcome";
+    awaitingRunnerDecision = false;
+    if (game.atBat) game.atBat.pendingInPlay = true;
+    scoringStep = "outcome";
   } else if (scoringStep === "out_fielder") {
     pendingOutFielder = "";
     scoringStep = "out_type";
@@ -7254,31 +7461,57 @@ function scoringDockBatterSummary(game = activeGame()) {
     return {
       name: "No batter",
       gameLine: "0 for 0",
-      seasonLine: "Season: --",
-      number: "--"
+      seasonLine: "--",
+      number: "--",
+      position: "--"
     };
   }
   if (isOpponentAtBat(game)) {
-    const name = currentOpponentBatter(game) || "Opponent batter";
+    const opponentLabel = currentOpponentBatter(game) || "Opponent batter";
     const lineupIndex = game.opponentBatterIndex || 0;
     const entry = opponentLineupEntriesForGame(game)[lineupIndex] || {};
-    const summary = currentOpponentHeaderSummary(game, name);
+    const summary = currentOpponentHeaderSummary(game, opponentLabel);
     return {
-      name,
+      name: entry.name || opponentLabel,
       gameLine: summary.line,
       seasonLine: `Spot ${lineupIndex + 1} in lineup`,
-      number: entry.number || "--"
+      number: entry.number || "--",
+      position: entry.position || "AB"
     };
   }
   const batterId = currentBatterId(game);
   const player = state.roster.find((item) => item.id === batterId);
+  const entry = gameLineupEntries(game).find((item) => item.playerId === batterId);
   const summary = currentGameBatterHeaderSummary(game, batterId);
   const stats = player ? statsForPlayer(player.id) : emptyStats();
   return {
-    name: player ? `#${player.number} ${player.name}` : "Current batter",
+    name: player ? player.name : "Current batter",
     gameLine: summary.line,
-    seasonLine: `Season: ${formatRate(stats.avg)} AVG, ${stats.hr || 0} HR, ${stats.rbi || 0} RBI`,
-    number: player?.number || "--"
+    seasonLine: `${formatRate(stats.avg)} AVG | ${stats.hr || 0} HR | ${stats.rbi || 0} RBI | ${formatRate(stats.obp)} OBP`,
+    number: player?.number || "--",
+    position: entry?.role || playerPrimaryPosition(player) || "AB"
+  };
+}
+
+function scoringDockPitcherSummary(game = activeGame()) {
+  if (!game) {
+    return {
+      name: "No pitcher",
+      number: "--",
+      pitches: 0,
+      balls: 0,
+      strikes: 0
+    };
+  }
+  const pitcherId = currentPitcherId(game);
+  const player = state.roster.find((item) => item.id === pitcherId);
+  const stats = pitcherStatsWithCurrentAtBat(game);
+  return {
+    name: player ? player.name : "Lions pitcher",
+    number: player?.number || "--",
+    pitches: stats.pitches || 0,
+    balls: stats.balls || 0,
+    strikes: stats.strikes || 0
   };
 }
 
@@ -7292,9 +7525,11 @@ function renderScoringDockUtilities(game = activeGame()) {
   if (els.dockLastResultMeta) els.dockLastResultMeta.textContent = lastResult.meta;
   const balls = game?.atBat?.balls ?? game?.current?.balls ?? 0;
   const strikes = game?.atBat?.strikes ?? game?.current?.strikes ?? 0;
-  if (els.dockCountValue) els.dockCountValue.textContent = `${balls}-${strikes}`;
+  if (els.dockCountValue) {
+    els.dockCountValue.innerHTML = `<span class="count-balls">${balls}</span><span class="count-separator">-</span><span class="count-strikes">${strikes}</span>`;
+  }
   if (els.dockCountMeta) {
-    els.dockCountMeta.textContent = `${balls} Ball${balls === 1 ? "" : "s"} \u2022 ${strikes} Strike${strikes === 1 ? "" : "s"}`;
+    els.dockCountMeta.innerHTML = `<span class="count-balls">${balls} Ball${balls === 1 ? "" : "s"}</span><span class="count-dot">&bull;</span><span class="count-strikes">${strikes} Strike${strikes === 1 ? "" : "s"}</span>`;
   }
   if (els.dockBaseIndicators?.length) {
     els.dockBaseIndicators.forEach((node) => {
@@ -7308,21 +7543,54 @@ function renderScoringDockUtilities(game = activeGame()) {
     });
   }
   const batterSummary = scoringDockBatterSummary(game);
-  if (els.dockBatterName) els.dockBatterName.textContent = batterSummary.name;
+  const batterNumber = batterSummary.number && batterSummary.number !== "--" ? batterSummary.number : "";
+  const pitcherSummary = scoringDockPitcherSummary(game);
+  if (els.dockPitcherNumber) els.dockPitcherNumber.textContent = pitcherSummary.number === "--" ? "P" : `#${pitcherSummary.number}`;
+  if (els.dockPitcherName) {
+    els.dockPitcherName.textContent = pitcherSummary.number && pitcherSummary.number !== "--"
+      ? `#${pitcherSummary.number} ${pitcherSummary.name}`
+      : pitcherSummary.name;
+  }
+  if (els.dockPitcherPitchCount) els.dockPitcherPitchCount.textContent = `Pitch Count: ${pitcherSummary.pitches}`;
+  if (els.dockPitcherBreakdown) {
+    els.dockPitcherBreakdown.innerHTML = `<span class="pitcher-balls">B: ${pitcherSummary.balls}</span><span class="pitcher-divider">|</span><span class="pitcher-strikes">S: ${pitcherSummary.strikes}</span><span class="pitcher-divider">|</span><span class="pitcher-total">T: ${pitcherSummary.pitches}</span>`;
+  }
+  if (els.dockChangePitcherBtn) {
+    els.dockChangePitcherBtn.disabled = !canScore;
+    els.dockChangePitcherBtn.setAttribute("aria-label", `Change pitcher. Current pitcher ${pitcherSummary.name}.`);
+  }
+  if (els.dockBatterName) {
+    els.dockBatterName.textContent = batterNumber ? `#${batterNumber} ${batterSummary.name}` : batterSummary.name;
+  }
   if (els.dockBatterGameLine) els.dockBatterGameLine.textContent = batterSummary.gameLine;
   if (els.dockBatterSeasonLine) els.dockBatterSeasonLine.textContent = batterSummary.seasonLine;
   if (els.dockBatterNumber) els.dockBatterNumber.textContent = batterSummary.number;
-  if (els.dockUndoLastPlayBtn) els.dockUndoLastPlayBtn.disabled = !canScore || !game.events?.length;
+  if (els.dockBatterPosition) els.dockBatterPosition.textContent = batterSummary.position || "AB";
+  if (els.dockUndoLastPlayBtn) els.dockUndoLastPlayBtn.disabled = !canScore || !hasPlayHistory(game);
   if (els.dockViewLineupBtn) els.dockViewLineupBtn.disabled = !game;
   if (els.dockViewScorebookBtn) els.dockViewScorebookBtn.disabled = !game?.id;
   if (els.openGameActionsBtn) els.openGameActionsBtn.hidden = !game;
 }
 
-function placePanelUndoPitchButton() {
-  if (!els.panelUndoPitchBtn || !els.scoringStepBody) return;
+function configurePanelUndoButton(button, iconType, title, subtitle) {
+  if (!button) return;
+  button.classList.add("pitch-secondary-card", "pitch-secondary-undo");
+  button.innerHTML = `<span class="pitch-secondary-icon" aria-hidden="true">${pitchSecondaryIconMarkup(iconType)}</span>
+    <span class="pitch-choice-copy">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(subtitle)}</span>
+    </span>`;
+  button.hidden = false;
+}
+
+function placePanelUndoControls() {
+  if (!els.scoringStepBody) return;
   const secondaryRow = els.scoringStepBody.querySelector(".panel-secondary-row");
   if (!secondaryRow) return;
-  secondaryRow.appendChild(els.panelUndoPitchBtn);
+  configurePanelUndoButton(els.panelUndoPitchBtn, "undo", "UNDO PITCH", "Undo Last Pitch");
+  configurePanelUndoButton(els.dockUndoLastPlayBtn, "history", "UNDO PLAY", "Undo Last Play");
+  if (els.panelUndoPitchBtn) secondaryRow.appendChild(els.panelUndoPitchBtn);
+  if (els.dockUndoLastPlayBtn) secondaryRow.appendChild(els.dockUndoLastPlayBtn);
 }
 
 function currentLineupFocusRows(game = activeGame()) {
@@ -7460,6 +7728,248 @@ function closeGameActionsModal() {
   if (els.gameActionsModal) els.gameActionsModal.hidden = true;
 }
 
+function eligiblePitcherOptions(game = activeGame()) {
+  const currentPitcher = currentPitcherId(game);
+  const eligible = state.roster.filter((player) => playerHasPosition(player, "P") || player.id === currentPitcher);
+  return eligible.length ? eligible : [...state.roster];
+}
+
+function pitcherOptionMeta(player) {
+  return [
+    `Positions: ${formatPositions(player.positions)}`,
+    `Throws: ${String(player.throws || "-").trim().toUpperCase()}`
+  ].join(" | ");
+}
+
+function renderPitcherSelectModal(game = activeGame()) {
+  if (!els.pitcherSelectList) return;
+  const currentPitcher = currentPitcherId(game);
+  const players = eligiblePitcherOptions(game);
+  if (els.pitcherSelectHint) {
+    els.pitcherSelectHint.textContent = "Choose an eligible Lions pitcher. The inning, count, outs, bases, score, and batter stay intact.";
+  }
+  els.pitcherSelectList.innerHTML = players.length
+    ? players.map((player) => {
+      const isCurrent = player.id === currentPitcher;
+      return `<button type="button" class="pitcher-select-option ${isCurrent ? "is-current" : ""}" data-pitcher-select-id="${escapeHtml(player.id)}" ${isCurrent ? "disabled" : ""}>
+        <span class="pitcher-select-number">#${escapeHtml(player.number || "--")}</span>
+        <span class="pitcher-select-copy">
+          <strong>${escapeHtml(player.name)}</strong>
+          <span>${escapeHtml(pitcherOptionMeta(player))}</span>
+        </span>
+        <span class="pitcher-select-status">${isCurrent ? "Current" : "Select"}</span>
+      </button>`;
+    }).join("")
+    : `<p class="player-meta">No rostered pitchers are available.</p>`;
+}
+
+function pitcherSelectFocusableElements() {
+  if (!els.pitcherSelectModal || els.pitcherSelectModal.hidden) return [];
+  return [...els.pitcherSelectModal.querySelectorAll("button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")]
+    .filter((node) => !node.hidden && node.offsetParent !== null);
+}
+
+function openPitcherSelectModal() {
+  const game = activeGame();
+  if (!game || gameIsScoreLocked(game) || !els.pitcherSelectModal) return;
+  pitcherSelectLastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  renderPitcherSelectModal(game);
+  els.pitcherSelectModal.hidden = false;
+  const focusTargets = pitcherSelectFocusableElements();
+  (focusTargets.find((node) => node.dataset.pitcherSelectId) || els.closePitcherSelectBtn || focusTargets[0])?.focus();
+}
+
+function closePitcherSelectModal() {
+  if (!els.pitcherSelectModal) return;
+  els.pitcherSelectModal.hidden = true;
+  if (els.pitcherSelectList) els.pitcherSelectList.innerHTML = "";
+  pitcherSelectLastFocus?.focus?.();
+  pitcherSelectLastFocus = null;
+}
+
+function handlePitcherSelectModalKeydown(event) {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closePitcherSelectModal();
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const focusTargets = pitcherSelectFocusableElements();
+  if (!focusTargets.length) return;
+  const first = focusTargets[0];
+  const last = focusTargets[focusTargets.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function liveGameSnapshot(game = activeGame(), extras = {}) {
+  return {
+    inning: game.inning,
+    half: game.half,
+    outs: game.outs,
+    bases: deepClone(game.bases),
+    batterIndex: game.batterIndex,
+    opponentBatterIndex: game.opponentBatterIndex || 0,
+    score: deepClone(game.score),
+    atBat: cloneAtBat(game.atBat || makeAtBat()),
+    pitcherId: game.pitcherId || game.current?.pitcherId || "",
+    currentPlateAppearanceId: game.currentPlateAppearanceId || "",
+    ...extras
+  };
+}
+
+function pendingScoringSnapshot() {
+  return {
+    pendingSpray: deepClone(pendingSpray),
+    pendingRunnerOutBases: [...pendingRunnerOutBases],
+    pendingRunnerChoices: deepClone(pendingRunnerChoices),
+    pendingOutType,
+    pendingOutFielder,
+    bipOutcomeChosen,
+    awaitingSprayLocation,
+    awaitingRunnerDecision,
+    scoringStep,
+    selectedFieldRunnerBase
+  };
+}
+
+function restorePendingScoringSnapshot(snapshot = {}) {
+  pendingSpray = deepClone(snapshot.pendingSpray || null);
+  pendingRunnerOutBases = Array.isArray(snapshot.pendingRunnerOutBases) ? [...snapshot.pendingRunnerOutBases] : [];
+  pendingRunnerChoices = deepClone(snapshot.pendingRunnerChoices || {});
+  pendingOutType = snapshot.pendingOutType || "";
+  pendingOutFielder = snapshot.pendingOutFielder || "";
+  bipOutcomeChosen = Boolean(snapshot.bipOutcomeChosen);
+  awaitingSprayLocation = Boolean(snapshot.awaitingSprayLocation);
+  awaitingRunnerDecision = Boolean(snapshot.awaitingRunnerDecision);
+  scoringStep = snapshot.scoringStep || "pitch";
+  selectedFieldRunnerBase = snapshot.selectedFieldRunnerBase || "";
+}
+
+function gameSnapshotForPlayHistory(game = activeGame()) {
+  const snapshot = deepClone(game);
+  if (snapshot) snapshot.playHistory = [];
+  return snapshot;
+}
+
+function hasPlayHistory(game = activeGame()) {
+  return Boolean(Array.isArray(game?.playHistory) && game.playHistory.length);
+}
+
+function pushPlayHistorySnapshot(game = activeGame(), details = {}) {
+  if (!game) return null;
+  syncGameCurrent(game);
+  const entry = {
+    id: createId("play-history"),
+    reason: details.reason || "play",
+    result: details.result || "",
+    createdAt: new Date().toISOString(),
+    game: gameSnapshotForPlayHistory(game),
+    pending: pendingScoringSnapshot()
+  };
+  game.playHistory = normalizePlayHistory([...(game.playHistory || []), entry], game.id);
+  return game.playHistory[game.playHistory.length - 1] || null;
+}
+
+function restorePlayHistorySnapshot(currentGame, historyEntry, remainingHistory = []) {
+  if (!historyEntry?.game?.id) return null;
+  const restoredGame = deepClone(historyEntry.game);
+  restoredGame.playHistory = normalizePlayHistory(remainingHistory, restoredGame.id);
+  restorePendingScoringSnapshot(historyEntry.pending);
+  syncGameCurrent(restoredGame);
+  const index = state.games.findIndex((game) => game.id === currentGame.id);
+  if (index >= 0) state.games[index] = restoredGame;
+  else state.games.push(restoredGame);
+  state.activeGameId = restoredGame.id;
+  return restoredGame;
+}
+
+function tagOpenPitcherPitches(game = activeGame(), pitcherId = currentPitcherId(game)) {
+  if (!game || !pitcherId) return;
+  const activeAppearance = getCurrentPlateAppearance(game, false);
+  const openPitches = [
+    ...(game.atBat?.pitches || []),
+    ...(activeAppearance?.pitches || [])
+  ];
+  openPitches.forEach((pitch) => {
+    if (!pitch.pitcherId) pitch.pitcherId = pitcherId;
+  });
+}
+
+function changeActivePitcher(incomingPitcherId, game = activeGame()) {
+  if (!game || gameIsScoreLocked(game) || !incomingPitcherId) return null;
+  syncGameCurrent(game);
+  const outgoingPitcherId = currentPitcherId(game);
+  if (incomingPitcherId === outgoingPitcherId) {
+    closePitcherSelectModal();
+    return null;
+  }
+  const incoming = state.roster.find((player) => player.id === incomingPitcherId);
+  if (!incoming) return null;
+  const outgoing = state.roster.find((player) => player.id === outgoingPitcherId);
+  tagOpenPitcherPitches(game, outgoingPitcherId);
+  const snapshotBefore = liveGameSnapshot(game);
+  const createdAt = new Date().toISOString();
+  const record = {
+    id: createId("sub"),
+    gameId: game.id,
+    inning: game.current.inning,
+    half: game.current.half,
+    teamSide: lionsSide(game),
+    outgoingPlayerId: outgoingPitcherId,
+    incomingPlayerId: incomingPitcherId,
+    type: "pitcher",
+    role: "P",
+    notes: "Pitching change",
+    createdAt
+  };
+  if (!game.substitutions) game.substitutions = [];
+  if (!game.events) game.events = [];
+  game.substitutions.push(record);
+  game.pitcherId = incomingPitcherId;
+  game.current.pitcherId = incomingPitcherId;
+  const activeAppearance = getCurrentPlateAppearance(game, false);
+  if (activeAppearance && !activeAppearance.result) activeAppearance.pitcherId = incomingPitcherId;
+  game.events.push({
+    id: createId("event"),
+    gameId: game.id,
+    playerId: incomingPitcherId,
+    pitcherId: incomingPitcherId,
+    result: "SUB",
+    runs: 0,
+    rbi: 0,
+    contact: "none",
+    launch: "none",
+    leverage: "neutral",
+    inning: game.current.inning,
+    half: game.current.half,
+    outsBefore: game.current.outs,
+    outsAfter: game.current.outs,
+    basesBefore: deepClone(game.current.runners),
+    basesAfter: deepClone(game.current.runners),
+    scope: "lineup",
+    teamLabel: "Lions",
+    substitutionId: record.id,
+    substitutionType: "pitcher",
+    playerName: incoming.name,
+    note: `Pitching change: ${outgoing ? `#${outgoing.number} ${outgoing.name}` : "Previous pitcher"} to #${incoming.number} ${incoming.name}`,
+    pitches: [],
+    count: `${game.current.balls}-${game.current.strikes}`,
+    spray: null,
+    createdAt,
+    snapshotBefore
+  });
+  saveState();
+  render();
+  closePitcherSelectModal();
+  return record;
+}
+
 function latestScoringDockResult(game = activeGame()) {
   const lastEvent = game?.events?.[game.events.length - 1] || null;
   if (lastEvent) {
@@ -7570,7 +8080,7 @@ function renderScoringStepPanel() {
   const backButton = els.scoringStepPanel.querySelector("[data-score-step-back]");
     if (backButton) backButton.hidden = scoringStep === "pitch";
     els.scoringStepBody.innerHTML = config.body;
-    placePanelUndoPitchButton();
+    placePanelUndoControls();
     renderScoringDockUtilities(game);
   }
 
@@ -7589,13 +8099,16 @@ function selectedRunnerActionConfig(game) {
   return {
     eyebrow: "Runner Action",
     title: `${runnerLabel} on ${baseLabel(base)}`,
-    hint: "Choose SB, CS, or PO. Tap the selected runner again to return to pitch mode.",
+    hint: "Choose SB, CS, or PO. Use Back if you selected the runner by mistake.",
     body: `<div class="special-action-group runner-action-group">
       <span>${escapeHtml(runnerLabel)} selected on ${escapeHtml(baseLabel(base))}</span>
       <div class="step-grid step-grid-special runner-action-grid">
         <button type="button" class="step-button step-safe" data-special-action="steal" data-special-target="${escapeHtml(stealTarget)}"${canSteal ? "" : " disabled"}>SB ${escapeHtml(baseLabel(stealTarget))}</button>
         <button type="button" class="step-button step-danger" data-special-action="caught_stealing" data-special-target="${escapeHtml(stealTarget)}">CS ${escapeHtml(baseLabel(stealTarget))}</button>
         <button type="button" class="step-button step-danger" data-special-action="pickoff" data-special-target="${escapeHtml(base)}">PO ${escapeHtml(baseLabel(base))}</button>
+      </div>
+      <div class="confirm-play-row">
+        <button type="button" class="secondary-action" data-clear-runner-selection>Back</button>
       </div>
     </div>`
   };
@@ -7694,6 +8207,9 @@ function scoringStepConfig(game) {
       body: `<div class="spray-instruction-card">
         <strong>${escapeHtml(resultLabel(els.resultSelect.value))}</strong>
         <span>Keep the field clear. Tap the landing or fielded spot on the diamond.</span>
+      </div>
+      <div class="confirm-play-row spray-step-actions">
+        <button type="button" class="secondary-action" data-score-step-back>Back to Select Outcome</button>
       </div>`
     };
   }
@@ -7716,13 +8232,11 @@ function scoringStepConfig(game) {
     title: "Record Pitch",
     hint: "Tap a result. Hold Ball for intentional walk or HBP.",
     body: `${pitchModePrimaryCards()}
-      <div class="panel-secondary-row">
-        ${stepButton("Foul", "step-pitch", "foul", "foul")}
-      </div>`
+      ${pitchModeSecondaryRow()}`
   };
 }
 
-function pitchModePrimaryCards() {
+function legacyPitchModePrimaryCards() {
   return `<div class="pitch-choice-stack">
     ${pitchChoiceActionCard("Ball", "Record Ball", "step-open", "ball_menu", "ball", "⚾")}
     ${pitchChoiceActionCard("Strike", "Record Strike", "step-open", "strike_menu", "strike", "◎")}
@@ -7730,7 +8244,7 @@ function pitchModePrimaryCards() {
   </div>`;
 }
 
-function pitchChoiceActionCard(title, subtitle, dataName, value, tone, icon) {
+function legacyPitchChoiceActionCard(title, subtitle, dataName, value, tone, icon) {
   return `<button type="button" class="pitch-choice-card pitch-choice-${tone}" data-${dataName}="${escapeHtml(value)}">
     <span class="pitch-choice-icon" aria-hidden="true">${escapeHtml(icon)}</span>
     <span class="pitch-choice-copy">
@@ -7742,10 +8256,10 @@ function pitchChoiceActionCard(title, subtitle, dataName, value, tone, icon) {
 }
 
 function pitchModePrimaryCards() {
-  return `<div class="pitch-choice-stack">
-    ${pitchChoiceActionCard("Ball", "Record Ball", "step-pitch", "ball", "ball", "", "Hold for IBB or HBP", "ball_menu")}
-    ${pitchChoiceActionCard("Strike", "Record Strike", "step-pitch", "strike", "strike", "")}
-    ${pitchChoiceActionCard("In Play", "Ball In Play", "step-pitch", "in_play", "inplay", "")}
+  return `<div class="pitch-choice-stack pitch-choice-primary-row">
+    ${pitchChoiceActionCard("BALL", "Record Ball", "step-pitch", "ball", "ball", "", "Hold for IBB or HBP", "ball_menu")}
+    ${pitchChoiceActionCard("STRIKE", "Record Strike", "step-pitch", "strike", "strike", "")}
+    ${pitchChoiceActionCard("IN PLAY", "Ball In Play", "step-pitch", "in_play", "inplay", "")}
   </div>`;
 }
 
@@ -7780,15 +8294,49 @@ function pitchChoiceIconMarkup(tone) {
 }
 
 function pitchChoiceActionCard(title, subtitle, dataName, value, tone, icon, helper = "", holdOpen = "") {
-  return `<button type="button" class="pitch-choice-card pitch-choice-${tone}${holdOpen ? " has-hold" : ""}" data-${dataName}="${escapeHtml(value)}"${holdOpen ? ` data-hold-open="${escapeHtml(holdOpen)}"` : ""}>
-    <span class="pitch-choice-icon" aria-hidden="true">${pitchChoiceIconMarkup(tone)}</span>
-    <span class="pitch-choice-copy">
-      <strong>${escapeHtml(title)}</strong>
-      <span>${escapeHtml(subtitle)}</span>
-      ${helper ? `<small>${escapeHtml(helper)}</small>` : ""}
+  const feedbackClass = dataName === "step-pitch" ? pitchFeedbackClassForOutcome(value) : "";
+  return `<button type="button" class="pitch-choice-card pitch-choice-${tone}${holdOpen ? " has-hold" : ""}${feedbackClass}" data-${dataName}="${escapeHtml(value)}"${holdOpen ? ` data-hold-open="${escapeHtml(holdOpen)}"` : ""}>
+    <span class="pitch-choice-content">
+      <span class="pitch-choice-icon" aria-hidden="true">${pitchChoiceIconMarkup(tone)}</span>
+      <span class="pitch-choice-copy">
+        <strong>${escapeHtml(title)}</strong>
+        <span>${escapeHtml(subtitle)}</span>
+        ${helper ? `<small>${escapeHtml(helper)}</small>` : ""}
+      </span>
     </span>
-    <span class="pitch-choice-arrow" aria-hidden="true">&rsaquo;</span>
   </button>`;
+}
+
+function pitchModeSecondaryRow() {
+  return `<div class="panel-secondary-row pitch-choice-secondary-row">
+    <button type="button" class="pitch-secondary-card pitch-secondary-foul" data-step-pitch="foul">
+      <span class="pitch-secondary-icon" aria-hidden="true">${pitchSecondaryIconMarkup("foul")}</span>
+      <span class="pitch-choice-copy">
+        <strong>FOUL</strong>
+        <span>Record Foul</span>
+      </span>
+    </button>
+  </div>`;
+}
+
+function pitchSecondaryIconMarkup(type) {
+  if (type === "history") {
+    return `<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <path d="M16 12h-7v-7" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path d="M10 12c4-5 10-8 17-6 9 2 15 10 13 20-2 9-11 16-21 13" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path d="M24 15v10l7 4" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>`;
+  }
+  if (type === "undo") {
+    return `<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <path d="M18 16h-8v-8" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path d="M12 16c4-5 10-8 17-6 8 2 13 10 11 18-2 9-11 14-20 11" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>`;
+  }
+  return `<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+    <circle cx="24" cy="24" r="15" fill="none" stroke="currentColor" stroke-width="3"></circle>
+    <path d="M17 17l14 14M31 17L17 31" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+  </svg>`;
 }
 
 function renderOpponentScoringStepPanel(game) {
@@ -7880,14 +8428,13 @@ function renderOpponentScoringStepPanel(game) {
   scoringStep = "pitch";
   els.scoringStepHint.textContent = "Tap a result. Hold Ball for intentional walk or HBP. Runner badges open SB, CS, or PO.";
   els.scoringStepBody.innerHTML = `${pitchModePrimaryCards()}
-      <div class="panel-secondary-row">
-        ${stepButton("Foul", "step-pitch", "foul", "foul")}
-      </div>`;
-  placePanelUndoPitchButton();
+      ${pitchModeSecondaryRow()}`;
+  placePanelUndoControls();
 }
 
 function stepButton(label, dataName, value, tone) {
-  return `<button type="button" class="step-button step-${tone}" data-${dataName}="${escapeHtml(value)}">${escapeHtml(label)}</button>`;
+  const feedbackClass = dataName === "step-pitch" ? pitchFeedbackClassForOutcome(value) : "";
+  return `<button type="button" class="step-button step-${tone}${feedbackClass}" data-${dataName}="${escapeHtml(value)}">${escapeHtml(label)}</button>`;
 }
 
 function opponentOutcomeGrid() {
@@ -8045,6 +8592,7 @@ function renderAtBat() {
 }
 
 function renderPitcherSelect(game = activeGame()) {
+  if (!els.pitcherSelect) return;
   const current = currentPitcherId(game);
   els.pitcherSelect.innerHTML = state.roster
     .map((player) => `<option value="${player.id}">#${escapeHtml(player.number)} ${escapeHtml(player.name)}</option>`)
@@ -8128,22 +8676,31 @@ function pitcherStats(playerId, gameId = null, season = null) {
     });
   games
     .flatMap((game) => game.events)
-    .filter((event) => event.scope === "defense" && event.pitcherId === playerId)
+    .filter((event) => event.scope === "defense" && (
+      event.pitcherId === playerId ||
+      (event.pitches || []).some((pitch) => pitch.pitcherId === playerId)
+    ))
     .forEach((event) => {
       const rule = eventRules[event.result] || {};
-      stats.batters += rule.pa ? 1 : 0;
-      stats.outs += Math.max(0, (event.outsAfter ?? event.outsBefore ?? 0) - (event.outsBefore ?? 0)) || (rule.out ? 1 : 0);
-      stats.h += rule.hit ? 1 : 0;
-      stats.hr += event.result === "HR" ? 1 : 0;
-      stats.k += event.result === "K" ? 1 : 0;
-      stats.bb += event.result === "BB" ? 1 : 0;
-      stats.hbp += event.result === "HBP" ? 1 : 0;
-      stats.runs += event.runs || 0;
-      stats.earnedRuns += earnedRunMaps.get(event.gameId)?.get(event.id) || 0;
+      const isPitcherOfRecord = event.pitcherId === playerId;
+      if (isPitcherOfRecord) {
+        stats.batters += rule.pa ? 1 : 0;
+        stats.outs += Math.max(0, (event.outsAfter ?? event.outsBefore ?? 0) - (event.outsBefore ?? 0)) || (rule.out ? 1 : 0);
+        stats.h += rule.hit ? 1 : 0;
+        stats.hr += event.result === "HR" ? 1 : 0;
+        stats.k += event.result === "K" ? 1 : 0;
+        stats.bb += event.result === "BB" ? 1 : 0;
+        stats.hbp += event.result === "HBP" ? 1 : 0;
+        stats.runs += event.runs || 0;
+        stats.earnedRuns += earnedRunMaps.get(event.gameId)?.get(event.id) || 0;
+      }
       (event.pitches || []).forEach((pitch) => {
-        stats.pitches += 1;
-        if (pitch.type === "ball") stats.balls += 1;
-    if (["strike", "called_strike", "swinging_strike", "foul", "in_play"].includes(pitch.type)) stats.strikes += 1;
+        if (pitch.pitcherId) {
+          if (pitch.pitcherId !== playerId) return;
+        } else if (!isPitcherOfRecord) {
+          return;
+        }
+        addPitchToPitcherStats(stats, pitch);
       });
     });
   stats.decisions = stats.wins + stats.losses;
@@ -8347,20 +8904,23 @@ function lionsPitchingDecision(game) {
 function addPitchToPitcherStats(stats, pitch) {
   stats.pitches += 1;
   if (pitch.type === "ball") stats.balls += 1;
-    if (["strike", "called_strike", "swinging_strike", "foul", "in_play"].includes(pitch.type)) stats.strikes += 1;
+  if (["strike", "called_strike", "swinging_strike", "foul", "in_play"].includes(pitch.type)) stats.strikes += 1;
 }
 
 function pitcherStatsWithCurrentAtBat(game = activeGame()) {
   const pitcherId = currentPitcherId(game);
   const stats = pitcherStats(pitcherId, game.id);
   if (isOpponentAtBat(game) && Array.isArray(game.atBat?.pitches) && game.atBat.pitches.length) {
-    game.atBat.pitches.forEach((pitch) => addPitchToPitcherStats(stats, pitch));
+    game.atBat.pitches
+      .filter((pitch) => !pitch.pitcherId || pitch.pitcherId === pitcherId)
+      .forEach((pitch) => addPitchToPitcherStats(stats, pitch));
     stats.strikeRate = divide(stats.strikes, stats.pitches);
   }
   return stats;
 }
 
 function renderPitcherStatStrip(game = activeGame()) {
+  if (!els.pitcherStatStrip) return;
   const stats = pitcherStatsWithCurrentAtBat(game);
   els.pitcherStatStrip.innerHTML = [
     statCell("Pitches", stats.pitches),
