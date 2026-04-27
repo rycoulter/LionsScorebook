@@ -621,6 +621,7 @@ let supabaseBootstrapPromise = null;
 let supabaseRefreshPromise = null;
 let sharedSyncPromise = null;
 let completedGameSyncQueuePromise = null;
+let liveGameSyncTimer = null;
 let supabaseAdminEmail = "";
 const activeCompletedGameSyncs = new Set();
 const weatherCache = {};
@@ -636,6 +637,9 @@ let scoringStepHoldConsumedAt = 0;
 let lastPitchFeedback = null;
 let pitchFeedbackTimer = null;
 let pitchFeedbackSequence = 0;
+let actionFeedback = null;
+let actionFeedbackTimer = null;
+let actionFeedbackSequence = 0;
 let pitcherSelectLastFocus = null;
 const pendingSharedGameIds = new Set();
 const pendingDeletedSharedGameIds = new Set();
@@ -643,6 +647,8 @@ let pendingServiceWorkerRefresh = false;
 const SUPABASE_REFRESH_THROTTLE_MS = 15000;
 const PLAY_HISTORY_LIMIT = 25;
 const PITCH_FEEDBACK_DURATION_MS = 700;
+const ACTION_FEEDBACK_DURATION_MS = 600;
+const LIVE_GAME_SYNC_DEBOUNCE_MS = 900;
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
@@ -776,6 +782,7 @@ const els = {
   scoringStepHint: document.getElementById("scoringStepHint"),
   scoringStepBody: document.getElementById("scoringStepBody"),
   pitchFeedbackLayer: document.getElementById("pitchFeedbackLayer"),
+  actionFeedbackLayer: document.getElementById("actionFeedbackLayer"),
   panelUndoPitchBtn: document.getElementById("panelUndoPitchBtn"),
   openGameActionsBtn: document.getElementById("openGameActionsBtn"),
   scoringDockFooter: document.getElementById("scoringDockFooter"),
@@ -1063,6 +1070,7 @@ populateOpponentSelect();
 configureGameDateInputs();
 bindEvents();
 initializeScoutingReport();
+restoreActiveGamePendingScoringState();
 render();
 bootstrapSupabaseState();
 initializeSupabaseAuth();
@@ -1770,7 +1778,8 @@ function normalizeGame(game, nextState = state) {
       spray: event.spray || event.result?.sprayChart || null
     })),
     substitutions: game.substitutions || [],
-    playHistory: normalizePlayHistory(game.playHistory, game.id)
+    playHistory: normalizePlayHistory(game.playHistory, game.id),
+    pendingScoring: game.pendingScoring ? deepClone(game.pendingScoring) : null
   };
   normalized.sync = normalizeGameSyncState(game.sync);
   normalized.current = {
@@ -2164,9 +2173,15 @@ function downloadTextFile(filename, text, mimeType = "text/plain;charset=utf-8")
 }
 
 function saveState(options = {}) {
+  let activeGameObject = null;
   if (state?.games?.length) {
+    const liveGameBeforeNormalize = state.games.find((game) => game.id === state.activeGameId && game.status === "active" && !gameIsFinal(game))
+      || state.games.find((game) => game.status === "active" && !gameIsFinal(game));
+    if (liveGameBeforeNormalize && options.capturePendingScoring !== false) {
+      liveGameBeforeNormalize.pendingScoring = pendingScoringSnapshot();
+    }
     state.games = state.games.map((game) => normalizeGame(game, state));
-    let activeGameObject = state.games.find((game) => game.id === state.activeGameId && game.status === "active" && !gameIsFinal(game));
+    activeGameObject = state.games.find((game) => game.id === state.activeGameId && game.status === "active" && !gameIsFinal(game));
     if (!activeGameObject) activeGameObject = state.games.find((game) => game.status === "active" && !gameIsFinal(game));
     state.activeGameId = activeGameObject?.id || "";
     if (activeGameObject) storage.saveGame(activeGameObject, true);
@@ -2174,6 +2189,9 @@ function saveState(options = {}) {
     storage.saveLibrary(library);
   }
   storage.saveAppState(state);
+  if (activeGameObject && options.markLiveGamesDirty !== false) {
+    queueLiveGameSnapshotSync(activeGameObject, options.liveSyncReason || "live-game-save");
+  }
 }
 
 function saveStateWithOptions(options = {}) {
@@ -2320,7 +2338,8 @@ async function refreshSupabaseState(reason = "refresh", options = {}) {
         state
       );
       state = normalizeState(merged);
-      saveState();
+      restoreActiveGamePendingScoringState();
+      saveState({ markLiveGamesDirty: false, capturePendingScoring: false });
       render();
       lastSupabaseRefreshAt = Date.now();
       console.info(`Loaded shared scorebook data from Supabase (${reason}).`);
@@ -2357,8 +2376,32 @@ function requestSupabaseRefresh(reason, options = {}) {
   }, 0);
 }
 
+function activeLiveGameForState(sourceState = state) {
+  const games = Array.isArray(sourceState?.games) ? sourceState.games : [];
+  const activeById = games.find((game) => game?.id === sourceState?.activeGameId && game.status === "active" && !gameIsFinal(game));
+  return activeById || games.find((game) => game?.status === "active" && !gameIsFinal(game)) || null;
+}
+
+function requestLiveGameSnapshotSync(reason = "live-game") {
+  const game = activeLiveGameForState(state);
+  if (!game?.id) return;
+  markSharedGamesDirty(game.id);
+  requestSharedSnapshotSync(reason);
+}
+
+function queueLiveGameSnapshotSync(game = activeLiveGameForState(state), reason = "live-game") {
+  if (!game?.id || game.status !== "active" || gameIsFinal(game)) return;
+  markSharedGamesDirty(game.id);
+  if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return;
+  if (liveGameSyncTimer) window.clearTimeout(liveGameSyncTimer);
+  liveGameSyncTimer = window.setTimeout(() => {
+    liveGameSyncTimer = null;
+    requestLiveGameSnapshotSync(reason);
+  }, LIVE_GAME_SYNC_DEBOUNCE_MS);
+}
+
 function isCloudSyncedGame(game) {
-  return Boolean(game) && game.status !== "active";
+  return Boolean(game?.id);
 }
 
 function buildSharedSnapshot(sourceState = state) {
@@ -2369,12 +2412,14 @@ function buildSharedSnapshot(sourceState = state) {
       sharedGame.sync = stableGameSyncState(game);
       return sharedGame;
     });
+  const activeSharedGame = sharedGames.find((game) => game.id === sourceState?.activeGameId && game.status === "active" && !gameIsFinal(game))
+    || sharedGames.find((game) => game.status === "active" && !gameIsFinal(game));
   return {
     roster: deepClone(sourceState?.roster || []),
     lineup: deepClone(sourceState?.lineup || []),
     rosterVersion: sourceState?.rosterVersion ?? ROSTER_VERSION,
     deletedGameTombstones: normalizeDeletedGameTombstones(sourceState?.deletedGameTombstones, sourceState?.games || []),
-    activeGameId: "",
+    activeGameId: activeSharedGame?.id || "",
     games: sharedGames
   };
 }
@@ -2383,7 +2428,7 @@ function markSharedSnapshotGamesSynced(gameIds = [], timestamp = new Date().toIS
   const ids = new Set((Array.isArray(gameIds) ? gameIds : [gameIds]).filter(Boolean));
   if (!ids.size) return;
   state.games.forEach((game) => {
-    if (!ids.has(game?.id) || game?.status === "active") return;
+    if (!ids.has(game?.id)) return;
     game.sync = normalizeGameSyncState(game.sync);
     game.sync.status = "synced";
     game.sync.lastSyncedAt = timestamp;
@@ -2444,7 +2489,7 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
         );
         if (sourceState === state) {
           state = mergedState;
-          saveState();
+          saveState({ markLiveGamesDirty: false, capturePendingScoring: false });
           render();
           sourceState = state;
         } else {
@@ -2480,7 +2525,7 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
           syncedGameIds: syncedIds,
           deletedGameIds: deleteGameIds
         });
-        saveState();
+        saveState({ markLiveGamesDirty: false, capturePendingScoring: false });
         render();
       }
       console.info(`Synced shared scorebook snapshot to Supabase (${reason}).`);
@@ -2756,6 +2801,8 @@ function renderLiveSyncStatus(game = activeScoreGame()) {
     message = "Supabase is still loading on this device.";
   } else if (!online) {
     message = "Offline - score the game here, then sync it after completion when you are back online.";
+  } else if (!supabaseAdminEmail) {
+    message = "Live scoring is saved on this device. Sign in as admin to sync resume checkpoints.";
   } else if (gameIsFinal(game)) {
     if (syncState.status === "syncing") {
       message = "Syncing this completed game to the shared site...";
@@ -2771,7 +2818,9 @@ function renderLiveSyncStatus(game = activeScoreGame()) {
         : "This completed game is saved here and ready to sync when you reconnect.";
     }
   } else {
-    message = "Score locally during the game. Publish it from Games after you complete it.";
+    message = syncState.lastSyncedAt
+      ? `Live scoring checkpoint synced ${formatSyncTimestamp(syncState.lastSyncedAt)}.`
+      : "Live scoring is saved here and auto-syncing for resume.";
   }
 
   els.syncStatusText.textContent = message;
@@ -3024,6 +3073,7 @@ async function applySupabaseAdminState(user, options = {}) {
     });
   }
   requestCompletedGameSyncRetry("admin-ready");
+  requestLiveGameSnapshotSync("admin-ready-live-game");
   return true;
 }
 
@@ -3229,13 +3279,20 @@ function bindEvents() {
   });
 
   els.scoringStepPanel.addEventListener("click", handleScoringPanelClick);
+  els.scoringStepPanel.addEventListener("pointerdown", handleActionFeedbackPointerDown);
   els.scoringStepPanel.addEventListener("pointerdown", handleScoringStepPointerDown);
   els.scoringStepPanel.addEventListener("pointerup", handleScoringStepPointerUp);
   els.scoringStepPanel.addEventListener("pointercancel", clearScoringStepHold);
   els.scoringStepPanel.addEventListener("pointerleave", clearScoringStepHold);
-  els.panelUndoPitchBtn.addEventListener("click", undoPitch);
+  els.panelUndoPitchBtn.addEventListener("click", (event) => {
+    triggerActionFeedback(actionFeedbackForButton(event.currentTarget), event.currentTarget);
+    undoPitch();
+  });
   els.openGameActionsBtn?.addEventListener("click", openGameActionsModal);
-  els.dockUndoLastPlayBtn?.addEventListener("click", undoLastPlay);
+  els.dockUndoLastPlayBtn?.addEventListener("click", (event) => {
+    triggerActionFeedback(actionFeedbackForButton(event.currentTarget), event.currentTarget);
+    undoLastPlay();
+  });
   els.dockChangePitcherBtn?.addEventListener("click", openPitcherSelectModal);
   els.dockViewScorebookBtn?.addEventListener("click", () => {
     const game = activeGame();
@@ -3447,10 +3504,12 @@ function bindEvents() {
   els.confirmLineupBtn?.addEventListener("click", confirmLineupAndStartGame);
 
   els.choiceButtons.forEach((button) => {
+    button.addEventListener("pointerdown", handleActionFeedbackPointerDown);
     button.addEventListener("click", () => {
       const group = button.dataset.choiceGroup;
       const value = button.dataset.choiceValue;
       if (group === "result") {
+        triggerActionFeedback(actionFeedbackForButton(button), button);
         if (battedBallResults.has(value)) {
           applyEvent(activeGame(), { type: "ball_in_play", outcome: value });
           return;
@@ -3463,18 +3522,22 @@ function bindEvents() {
   });
 
   els.runnerActionButtons.forEach((button) => {
+    button.addEventListener("pointerdown", handleActionFeedbackPointerDown);
     button.addEventListener("click", () => {
       const game = activeGame();
       const base = selectedFieldRunnerBase;
       if (!base || !isOccupied(game.bases?.[base])) return;
       if (button.dataset.runnerAction === "non_runner") {
+        triggerActionFeedback(actionFeedbackForButton(button), button);
         openNonRunnerSelect(base);
         return;
       }
       if (button.dataset.runnerAction === "pickoff") {
+        triggerActionFeedback(actionFeedbackForButton(button), button);
         applyEvent(game, { type: "special_action", action: "pickoff", target: base });
         return;
       }
+      triggerActionFeedback(actionFeedbackForButton(button), button);
       applyEvent(activeGame(), {
         type: "special_action",
         action: button.dataset.runnerAction,
@@ -3484,12 +3547,24 @@ function bindEvents() {
   });
 
   els.runnerOutButtons.forEach((button) => {
-    button.addEventListener("click", () => applyEvent(activeGame(), { type: "runner_out", base: button.dataset.runnerOutBase }));
+    button.addEventListener("pointerdown", handleActionFeedbackPointerDown);
+    button.addEventListener("click", () => {
+      triggerActionFeedback(actionFeedbackForButton(button), button);
+      applyEvent(activeGame(), { type: "runner_out", base: button.dataset.runnerOutBase });
+    });
   });
-  els.resolvePlayBtn?.addEventListener("click", () => applyEvent(activeGame(), { type: "resolve_play" }));
+  els.resolvePlayBtn?.addEventListener("pointerdown", handleActionFeedbackPointerDown);
+  els.resolvePlayBtn?.addEventListener("click", () => {
+    triggerActionFeedback(actionFeedbackForButton(els.resolvePlayBtn), els.resolvePlayBtn);
+    applyEvent(activeGame(), { type: "resolve_play" });
+  });
 
   els.opponentOutcomeButtons.forEach((button) => {
-    button.addEventListener("click", () => applyEvent(activeGame(), { type: "resolve_play", result: button.dataset.opponentResult }));
+    button.addEventListener("pointerdown", handleActionFeedbackPointerDown);
+    button.addEventListener("click", () => {
+      triggerActionFeedback(actionFeedbackForButton(button), button);
+      applyEvent(activeGame(), { type: "resolve_play", result: button.dataset.opponentResult });
+    });
   });
 
   [els.opponentInput, els.gameLionsSideInput, els.gameDateInput, els.gameTimeInput, els.gameLocationInput, els.gameNotesInput]
@@ -3625,6 +3700,7 @@ function bindEvents() {
   window.addEventListener("online", () => {
     render();
     requestCompletedGameSyncRetry("online");
+    requestLiveGameSnapshotSync("online-live-game");
     requestSupabaseRefresh("online", { force: true, skipWhenHidden: false });
   });
   window.addEventListener("offline", render);
@@ -6664,7 +6740,13 @@ function scoreableGames(excludeGameId = "") {
 }
 
 function inProgressGames() {
-  return scoreableGames().filter((game) => gameLifecycle(game) === "active");
+  return scoreableGames()
+    .filter((game) => gameLifecycle(game) === "active")
+    .sort((left, right) => {
+      if (left.id === state.activeGameId && right.id !== state.activeGameId) return -1;
+      if (right.id === state.activeGameId && left.id !== state.activeGameId) return 1;
+      return 0;
+    });
 }
 
 function moveActiveGameOffFinal(finalGameId = "") {
@@ -7325,14 +7407,164 @@ function clearPitchFeedback(feedbackId = null) {
   syncPitchFeedbackButtonState();
 }
 
+function triggerHaptic(pattern = 20) {
+  try {
+    if (
+      typeof navigator !== "undefined"
+      && typeof navigator.vibrate === "function"
+    ) {
+      navigator.vibrate(pattern);
+    }
+  } catch (error) {
+    // Haptics are optional; visual feedback remains the source of truth.
+  }
+}
+
 function triggerPitchFeedback(type, sourceButton = null) {
   if (!["ball", "strike"].includes(type)) return;
+  triggerHaptic();
   if (pitchFeedbackTimer) clearTimeout(pitchFeedbackTimer);
   lastPitchFeedback = { type, id: ++pitchFeedbackSequence };
   renderPitchFeedbackLayer();
   syncPitchFeedbackButtonState(sourceButton);
   const feedbackId = lastPitchFeedback.id;
   pitchFeedbackTimer = setTimeout(() => clearPitchFeedback(feedbackId), PITCH_FEEDBACK_DURATION_MS);
+}
+
+const actionFeedbackColors = {
+  inplay: { color: "#f5bd21", rgb: "245, 189, 33" },
+  foul: { color: "#f59e0b", rgb: "245, 158, 11" },
+  out: { color: "#ef4444", rgb: "239, 68, 68" },
+  single: { color: "#22c55e", rgb: "34, 197, 94" },
+  double: { color: "#38bdf8", rgb: "56, 189, 248" },
+  triple: { color: "#818cf8", rgb: "129, 140, 248" },
+  homer: { color: "#f5bd21", rgb: "245, 189, 33" },
+  run: { color: "#facc15", rgb: "250, 204, 21" },
+  undo: { color: "#94a3b8", rgb: "148, 163, 184" },
+  neutral: { color: "#cbd5e1", rgb: "203, 213, 225" }
+};
+
+function makeActionFeedback(type, label) {
+  const tone = actionFeedbackColors[type] || actionFeedbackColors.neutral;
+  return {
+    type,
+    label,
+    color: tone.color,
+    rgb: tone.rgb
+  };
+}
+
+function actionFeedbackForPitchOutcome(outcome) {
+  if (outcome === "in_play") return makeActionFeedback("inplay", "IN PLAY");
+  if (outcome === "foul") return makeActionFeedback("foul", "FOUL");
+  return null;
+}
+
+function actionFeedbackForResult(result) {
+  const normalized = normalizeBallInPlayOutcome(result || "");
+  if (normalized === "1B") return makeActionFeedback("single", "1B");
+  if (normalized === "2B") return makeActionFeedback("double", "2B");
+  if (normalized === "3B") return makeActionFeedback("triple", "3B");
+  if (normalized === "HR") return makeActionFeedback("homer", "HR");
+  if (["OUT", "GO", "FO", "LO", "FC", "DP", "SAC", "K", "CS", "PO"].includes(normalized)) return makeActionFeedback("out", "OUT");
+  if (normalized === "BB") return makeActionFeedback("single", "BB");
+  if (normalized === "HBP") return makeActionFeedback("foul", "HBP");
+  if (normalized === "ROE") return makeActionFeedback("foul", "E");
+  return makeActionFeedback("neutral", normalized || "PLAY");
+}
+
+function actionFeedbackForSpecialAction(action, target = "") {
+  if (action === "steal") return target === "home" ? makeActionFeedback("run", "RUN") : makeActionFeedback("double", "SB");
+  if (["caught_stealing", "pickoff"].includes(action)) return makeActionFeedback("out", action === "caught_stealing" ? "CS" : "PO");
+  if (action === "tag_up") return target === "home" ? makeActionFeedback("run", "RUN") : makeActionFeedback("single", baseLabel(target));
+  if (action === "non_runner") return makeActionFeedback("neutral", "NR");
+  return makeActionFeedback("neutral", "PLAY");
+}
+
+function actionFeedbackForRunnerChoice(choice) {
+  if (choice === "home") return makeActionFeedback("run", "RUN");
+  if (choice === "out") return makeActionFeedback("out", "OUT");
+  if (choice === "first") return makeActionFeedback("single", "1B");
+  if (choice === "second") return makeActionFeedback("double", "2B");
+  if (choice === "third") return makeActionFeedback("triple", "3B");
+  return makeActionFeedback("neutral", "HOLD");
+}
+
+function actionFeedbackForButton(button) {
+  if (!button) return null;
+  if (button.id === "panelUndoPitchBtn") return makeActionFeedback("undo", "UNDO");
+  if (button.id === "dockUndoLastPlayBtn") return makeActionFeedback("undo", "UNDO PLAY");
+  if (button.dataset.stepPitch) return actionFeedbackForPitchOutcome(button.dataset.stepPitch);
+  if (button.dataset.stepAutoResult) return actionFeedbackForResult(button.dataset.stepAutoResult);
+  if (button.dataset.specialAction) return actionFeedbackForSpecialAction(button.dataset.specialAction, button.dataset.specialTarget);
+  if (button.dataset.runnerAction) {
+    const base = selectedFieldRunnerBase;
+    const target = button.dataset.runnerAction === "pickoff" ? base : nextBaseForRunner(base);
+    return actionFeedbackForSpecialAction(button.dataset.runnerAction, target);
+  }
+  if (button.dataset.runnerReplacementId) return makeActionFeedback("neutral", "NR");
+  if (button.dataset.stepOutcome) return actionFeedbackForResult(button.dataset.stepOutcome);
+  if (button.dataset.outType) return actionFeedbackForResult(button.dataset.outType);
+  if (button.dataset.outFielder) return actionFeedbackForResult(pendingOutType || "OUT");
+  if (button.dataset.runnerOutBase) return makeActionFeedback("out", "OUT");
+  if (button.dataset.runnerChoice) return actionFeedbackForRunnerChoice(button.dataset.runnerChoice);
+  if (button.dataset.confirmPlay !== undefined) return makeActionFeedback("neutral", "PLAY");
+  if (button.dataset.resolvePlay !== undefined) return makeActionFeedback("neutral", "PLAY");
+  if (button.dataset.opponentResult) return actionFeedbackForResult(button.dataset.opponentResult);
+  if (button.dataset.choiceGroup === "result") return actionFeedbackForResult(button.dataset.choiceValue);
+  return null;
+}
+
+function renderActionFeedbackLayer() {
+  if (!els.actionFeedbackLayer) return;
+  if (!actionFeedback) {
+    els.actionFeedbackLayer.innerHTML = "";
+    els.actionFeedbackLayer.removeAttribute("data-feedback-type");
+    return;
+  }
+  els.actionFeedbackLayer.dataset.feedbackType = actionFeedback.type;
+  els.actionFeedbackLayer.innerHTML = `<div class="action-feedback" style="--action-feedback-color: ${actionFeedback.color}; --action-feedback-rgb: ${actionFeedback.rgb};" data-feedback-id="${actionFeedback.id}">${escapeHtml(actionFeedback.label)}</div>`;
+}
+
+function clearActionFeedback(feedbackId = null) {
+  if (feedbackId && actionFeedback?.id !== feedbackId) return;
+  actionFeedback = null;
+  if (actionFeedbackTimer) {
+    clearTimeout(actionFeedbackTimer);
+    actionFeedbackTimer = null;
+  }
+  renderActionFeedbackLayer();
+}
+
+function syncActionFeedbackButtonState(sourceButton, feedback) {
+  if (!sourceButton || !feedback) return;
+  sourceButton.style.setProperty("--action-feedback-color", feedback.color);
+  sourceButton.style.setProperty("--action-feedback-rgb", feedback.rgb);
+  sourceButton.classList.remove("action-button--feedback");
+  void sourceButton.offsetWidth;
+  sourceButton.classList.add("action-button--feedback");
+  window.setTimeout(() => {
+    sourceButton.classList.remove("action-button--feedback");
+  }, 420);
+}
+
+function triggerActionFeedback(feedback, sourceButton = null) {
+  if (!feedback?.label) return;
+  triggerHaptic();
+  if (actionFeedbackTimer) clearTimeout(actionFeedbackTimer);
+  actionFeedback = { ...feedback, id: ++actionFeedbackSequence };
+  renderActionFeedbackLayer();
+  syncActionFeedbackButtonState(sourceButton, actionFeedback);
+  const feedbackId = actionFeedback.id;
+  actionFeedbackTimer = setTimeout(() => clearActionFeedback(feedbackId), ACTION_FEEDBACK_DURATION_MS);
+}
+
+function handleActionFeedbackPointerDown(event) {
+  const button = event.target.closest("button");
+  if (!button || button.disabled) return;
+  const feedback = actionFeedbackForButton(button);
+  if (!feedback) return;
+  syncActionFeedbackButtonState(button, feedback);
 }
 
 function handleScoringPanelClick(event) {
@@ -7361,10 +7593,12 @@ function handleScoringPanelClick(event) {
     }
     const feedbackType = pitchFeedbackTypeForOutcome(button.dataset.stepPitch);
     if (feedbackType) triggerPitchFeedback(feedbackType, button);
+    else triggerActionFeedback(actionFeedbackForButton(button), button);
     applyEvent(activeGame(), { type: "pitch", outcome: button.dataset.stepPitch });
     return;
   }
   if (button.dataset.stepAutoResult) {
+    triggerActionFeedback(actionFeedbackForButton(button), button);
     applyEvent(activeGame(), { type: "resolve_play", result: button.dataset.stepAutoResult });
     return;
   }
@@ -7374,9 +7608,11 @@ function handleScoringPanelClick(event) {
   }
   if (button.dataset.specialAction) {
     if (button.dataset.specialAction === "non_runner") {
+      triggerActionFeedback(actionFeedbackForButton(button), button);
       openNonRunnerSelect(button.dataset.specialTarget || selectedFieldRunnerBase);
       return;
     }
+    triggerActionFeedback(actionFeedbackForButton(button), button);
     applyEvent(activeGame(), {
       type: "special_action",
       action: button.dataset.specialAction,
@@ -7385,6 +7621,7 @@ function handleScoringPanelClick(event) {
     return;
   }
   if (button.dataset.runnerReplacementId) {
+    triggerActionFeedback(actionFeedbackForButton(button), button);
     assignNonRunner(button.dataset.runnerReplacementId);
     return;
   }
@@ -7393,10 +7630,12 @@ function handleScoringPanelClick(event) {
     return;
   }
   if (button.dataset.stepOutcome) {
+    triggerActionFeedback(actionFeedbackForButton(button), button);
     applyEvent(activeGame(), { type: "ball_in_play", outcome: button.dataset.stepOutcome });
     return;
   }
   if (button.dataset.outType) {
+    triggerActionFeedback(actionFeedbackForButton(button), button);
     pendingOutType = button.dataset.outType;
     pendingOutFielder = "";
     scoringStep = "out_fielder";
@@ -7404,11 +7643,13 @@ function handleScoringPanelClick(event) {
     return;
   }
   if (button.dataset.outFielder) {
+    triggerActionFeedback(actionFeedbackForButton(button), button);
     pendingOutFielder = button.dataset.outFielder;
     applyEvent(activeGame(), { type: "ball_in_play", outcome: pendingOutType || "GO", fieldedBy: pendingOutFielder });
     return;
   }
   if (button.dataset.runnerChoiceBase) {
+    triggerActionFeedback(actionFeedbackForButton(button), button);
     const choice = button.dataset.runnerChoice;
     applyEvent(activeGame(), {
       type: choice === "out" ? "runner_out" : "runner_advance",
@@ -7418,10 +7659,12 @@ function handleScoringPanelClick(event) {
     return;
   }
   if (button.dataset.confirmPlay !== undefined) {
+    triggerActionFeedback(actionFeedbackForButton(button), button);
     applyEvent(activeGame(), { type: "resolve_play" });
     return;
   }
   if (button.dataset.opponentResult) {
+    triggerActionFeedback(actionFeedbackForButton(button), button);
     applyEvent(activeGame(), { type: "resolve_play", result: button.dataset.opponentResult });
   }
 }
@@ -8047,6 +8290,13 @@ function restorePendingScoringSnapshot(snapshot = {}) {
   scoringStep = snapshot.scoringStep || "pitch";
   selectedFieldRunnerBase = snapshot.selectedFieldRunnerBase || "";
   pendingRunnerReplacementBase = snapshot.pendingRunnerReplacementBase || "";
+}
+
+function restoreActiveGamePendingScoringState(game = activeScoreGame()) {
+  if (!game?.pendingScoring) return false;
+  restorePendingScoringSnapshot(game.pendingScoring);
+  syncGameCurrent(game);
+  return true;
 }
 
 function gameSnapshotForPlayHistory(game = activeGame()) {

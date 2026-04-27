@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
 Last updated: 2026-04-27
-Current commit: `b6b7608`
+Current commit: `a65dcf9`
 Current app version: `v.1.1.0`
-Current asset build markers: `2026.04.27-build-152`
+Current asset build markers: `2026.04.27-build-155`
 
 ## Project Overview
 
@@ -98,7 +98,7 @@ Offline admin behavior:
 
 The app is still in a hybrid state:
 - shared reads/writes use Supabase-backed sync foundations
-- live scoring remains local-first on the device
+- live scoring remains local-first on the device, with debounced Supabase resume checkpoints for active games when an admin is online
 - roster now has a dedicated `public.roster_players` Supabase table
 - `app_state.roster` is still written as a compatibility fallback during the migration
 
@@ -113,18 +113,19 @@ Important current note:
 
 Current intended workflow:
 1. score the game locally on the iPad/PWA
-2. stay offline if needed during the game
-3. complete the game locally
-4. reconnect later
-5. sync/publish the completed game back to the shared site
+2. when online as admin, active-game checkpoints are debounced into Supabase so the game can be resumed after reloads or from another admin browser
+3. stay offline if needed during the game; local scoring continues to work
+4. complete the game locally
+5. reconnect later if needed
+6. sync/publish the completed game back to the shared site
 
 ### Sync philosophy
 
-We intentionally moved away from mid-game syncing as the primary flow.
+Live scoring still treats the local iPad/PWA as the source of truth during field work. Mid-game Supabase writes are resume checkpoints, not the final publishing workflow.
 
 Why:
 - cleaner field workflow
-- less risk of partial sync states
+- reduced risk of losing the active game after refresh, browser restart, or switching QA/prod sessions
 - better fit for real baseball scorekeeping
 
 ## Key Functional Areas
@@ -140,8 +141,11 @@ Current state:
 - top scoring header/status bar includes a selectable Pitcher section for eligible Lions pitching changes, preserving the current game situation and recording the substitution for undo/history
 - the live scoring dock is split by batting side: Lions batting shows COUNT / AT BAT / SEASON / View Lineup, while opponent batting shows COUNT / PITCHER / AT BAT
 - Pitch Mode has separate Undo Pitch and Undo Play controls; Undo Play restores completed plays from a pre-play full-game snapshot stack, including half-inning changes
+- Score Game action buttons outside BALL/STRIKE use a shared `actionFeedback` animation layer for quick press/glow/floating-label confirmation
+- Score Game feedback now includes optional `navigator.vibrate` haptics as progressive enhancement only; CSS/JS visual feedback remains the primary confirmation and unsupported devices behave normally
 - selected base-runner actions include `NR` for assigning a non-runner from the Lions lineup; later steals, caught stealing, pickoffs, and runs score to the NR runner on base
 - Home next-game card gives admins a direct `Start Game` action for scheduled games and `Score Game` action for already-live games
+- active games are included in shared Supabase snapshots with `app_state.active_game_id`; `saveState()` stores pending scoring checkpoints and debounces live-game sync so reloads can resume the current inning/count/bases/batter/pending flow
 
 Important current note:
 - the local working tree contains an in-progress score-game presentation redesign

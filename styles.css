@@ -17971,6 +17971,82 @@ label {
   }
 }
 
+#scoreView .action-feedback-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: none;
+}
+
+#scoreView .action-feedback {
+  margin-top: 26px;
+  color: var(--action-feedback-color, #cbd5e1);
+  font-size: 1.45rem;
+  font-weight: 1000;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px currentColor;
+  animation: actionFeedbackFloat 600ms ease-out forwards;
+}
+
+#scoreView .action-button--feedback {
+  animation: actionButtonConfirm 360ms ease-out;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 0 3px rgba(var(--action-feedback-rgb, 203, 213, 225), 0.24),
+    0 0 24px rgba(var(--action-feedback-rgb, 203, 213, 225), 0.36);
+}
+
+@keyframes actionFeedbackFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+
+  22% {
+    opacity: 1;
+    transform: translateY(0) scale(1.04);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-28px) scale(1);
+  }
+}
+
+@keyframes actionButtonConfirm {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+
+  42% {
+    transform: scale(0.97);
+    filter: brightness(1.14);
+  }
+
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #scoreView .action-feedback,
+  #scoreView .action-button--feedback {
+    animation: none;
+  }
+
+  #scoreView .action-feedback {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 #scoreView .pitch-choice-icon,
 #scoreView .pitch-secondary-icon {
   display: inline-grid;
