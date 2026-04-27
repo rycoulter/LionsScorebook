@@ -18047,6 +18047,159 @@ label {
   }
 }
 
+#scoreView .run-score-feedback-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 34;
+  display: grid;
+  place-items: center;
+  padding: clamp(16px, 4vw, 42px);
+  pointer-events: none;
+}
+
+#scoreView .run-score-feedback {
+  --run-score-color: var(--lion-gold);
+  --run-score-rgb: 245, 189, 33;
+  --run-score-secondary: #08204a;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-width: min(72%, 360px);
+  padding: 18px 24px 20px;
+  border: 1px solid rgba(var(--run-score-rgb), 0.42);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(var(--run-score-rgb), 0.28), transparent 54%),
+    linear-gradient(145deg, rgba(5, 12, 30, 0.94), rgba(6, 13, 29, 0.86)),
+    var(--run-score-secondary);
+  color: var(--white);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 34px rgba(var(--run-score-rgb), 0.42),
+    0 22px 54px rgba(0, 0, 0, 0.42);
+  text-align: center;
+  animation: runScoreOverlay 1500ms ease-out forwards;
+}
+
+#scoreView .run-score-feedback-logo-wrap {
+  display: grid;
+  place-items: center;
+  width: 86px;
+  height: 86px;
+  border: 2px solid rgba(var(--run-score-rgb), 0.58);
+  border-radius: 50%;
+  background: rgba(2, 8, 20, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 24px rgba(var(--run-score-rgb), 0.38);
+  animation: runScoreLogoPop 1500ms ease-out forwards;
+}
+
+#scoreView .run-score-feedback-logo {
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.38));
+}
+
+#scoreView .run-score-feedback-team {
+  color: var(--run-score-color);
+  font-size: clamp(1rem, 2.1vw, 1.42rem);
+  font-weight: 1000;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(var(--run-score-rgb), 0.52);
+  animation: runScoreTextRise 1500ms ease-out forwards;
+}
+
+#scoreView .run-score-feedback-runs {
+  color: var(--white);
+  font-size: clamp(1.55rem, 4vw, 2.75rem);
+  font-weight: 1000;
+  letter-spacing: 0;
+  line-height: 1;
+  text-shadow: 0 0 22px rgba(var(--run-score-rgb), 0.54);
+  animation: runScoreTextRise 1500ms ease-out forwards;
+}
+
+@keyframes runScoreLogoPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.75);
+  }
+
+  18% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  34% {
+    transform: scale(1);
+  }
+
+  82% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes runScoreTextRise {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  78% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes runScoreOverlay {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  14% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  78% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.99);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #scoreView .run-score-feedback,
+  #scoreView .run-score-feedback-logo-wrap,
+  #scoreView .run-score-feedback-team,
+  #scoreView .run-score-feedback-runs {
+    animation: none;
+  }
+}
+
 #scoreView .pitch-choice-icon,
 #scoreView .pitch-secondary-icon {
   display: inline-grid;

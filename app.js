@@ -577,6 +577,7 @@ const shownLineupPreviewKeys = new Set();
 const shownBatterIntroKeys = new Set();
 const BATTER_INTRO_DURATION_MS = 3000;
 let batterIntroTimer = null;
+let pendingBatterIntroKey = "";
 let visibleBatterIntroKey = "";
 let gameSummaryId = "";
 const ROSTER_SILHOUETTE_ASSETS = {
@@ -640,6 +641,9 @@ let pitchFeedbackSequence = 0;
 let actionFeedback = null;
 let actionFeedbackTimer = null;
 let actionFeedbackSequence = 0;
+let runScoreFeedback = null;
+let runScoreFeedbackTimer = null;
+let runScoreFeedbackSequence = 0;
 let pitcherSelectLastFocus = null;
 const pendingSharedGameIds = new Set();
 const pendingDeletedSharedGameIds = new Set();
@@ -648,6 +652,7 @@ const SUPABASE_REFRESH_THROTTLE_MS = 15000;
 const PLAY_HISTORY_LIMIT = 25;
 const PITCH_FEEDBACK_DURATION_MS = 700;
 const ACTION_FEEDBACK_DURATION_MS = 600;
+const RUN_SCORE_FEEDBACK_DURATION_MS = 1500;
 const LIVE_GAME_SYNC_DEBOUNCE_MS = 900;
 
 const els = {
@@ -748,6 +753,7 @@ const els = {
   sprayChart: document.getElementById("sprayChart"),
   sprayMarkers: document.getElementById("sprayMarkers"),
   runnerFieldMarkers: document.getElementById("runnerFieldMarkers"),
+  runScoreFeedbackLayer: document.getElementById("runScoreFeedbackLayer"),
   sprayFilter: document.getElementById("sprayFilter"),
   sprayHint: document.getElementById("sprayHint"),
   abCard: document.getElementById("abCard"),
@@ -1363,10 +1369,13 @@ function scoreForSide(game, side) {
 }
 
 function addRunsForBattingTeam(game, runs = 0) {
-  if (!runs) return;
-  if (isLionsAtBat(game)) game.score.lions += runs;
-  else game.score.opponent += runs;
+  const runsAdded = Number(runs) || 0;
+  if (!runsAdded) return;
+  const feedback = runScoreFeedbackForBattingTeam(game, runsAdded);
+  if (isLionsAtBat(game)) game.score.lions += runsAdded;
+  else game.score.opponent += runsAdded;
   syncScoreBySide(game);
+  triggerRunScoreFeedback(feedback);
 }
 
 function displayTeamName(name) {
@@ -5126,6 +5135,10 @@ function clearBatterIntroTimer() {
   batterIntroTimer = null;
 }
 
+function clearPendingBatterIntro() {
+  pendingBatterIntroKey = "";
+}
+
 function syncBatterIntroLockState(isVisible) {
   els.abCard?.classList.toggle("is-batter-intro", Boolean(isVisible));
   els.scoringStepPanel?.classList.toggle("is-batter-intro-locked", Boolean(isVisible));
@@ -5286,6 +5299,7 @@ function dismissBatterIntro(game = activeGame(), options = {}) {
   const key = visibleBatterIntroKey || currentBatterIntroKey(game);
   if (markShown && key) shownBatterIntroKeys.add(key);
   clearBatterIntroTimer();
+  clearPendingBatterIntro();
   visibleBatterIntroKey = "";
   if (els.batterIntroCard) {
     els.batterIntroCard.hidden = true;
@@ -5308,6 +5322,18 @@ function renderBatterIntro(game = activeGame()) {
     }
     return;
   }
+  if (runScoreFeedback) {
+    pendingBatterIntroKey = introKey;
+    clearBatterIntroTimer();
+    visibleBatterIntroKey = "";
+    if (els.batterIntroCard) {
+      els.batterIntroCard.hidden = true;
+      els.batterIntroCard.classList.remove("is-visible");
+    }
+    syncBatterIntroLockState(false);
+    return;
+  }
+  clearPendingBatterIntro();
   els.batterIntroName.textContent = intro?.name || "Current batter";
   els.batterIntroMeta.textContent = intro?.meta || "";
   els.batterIntroList.innerHTML = "";
@@ -7060,6 +7086,41 @@ function scoreboardTeamLogo(teamName, side, game = activeGame()) {
   return window.MatchupImages?.getTeamLogo?.(teamName, teamKey) || "assets/team-logos/lions.png";
 }
 
+const opponentRunScoreThemes = {
+  eagles: { primary: "#22c55e", rgb: "34, 197, 94", secondary: "#052e16" },
+  ducks: { primary: "#f97316", rgb: "249, 115, 22", secondary: "#14532d" },
+  devils: { primary: "#ef4444", rgb: "239, 68, 68", secondary: "#450a0a" },
+  turtles: { primary: "#84cc16", rgb: "132, 204, 22", secondary: "#1f3d14" },
+  d2: { primary: "#38bdf8", rgb: "56, 189, 248", secondary: "#082f49" },
+  bandidos: { primary: "#f59e0b", rgb: "245, 158, 11", secondary: "#431407" }
+};
+
+function runScoreFeedbackTheme(teamId, teamName = "") {
+  if (teamId === "lions") {
+    return { primary: "#f5bd21", rgb: "245, 189, 33", secondary: "#08204a" };
+  }
+  const key = window.MatchupImages?.opponentImageKey?.(teamName)
+    || window.MatchupImages?.normalizeOpponentName?.(teamName)
+    || "";
+  return opponentRunScoreThemes[key] || { primary: "#38bdf8", rgb: "56, 189, 248", secondary: "#07172d" };
+}
+
+function runScoreFeedbackForBattingTeam(game, runs = 0) {
+  const battingSide = sideForHalf(game);
+  const teamId = battingSide === lionsSide(game) ? "lions" : "opponent";
+  const teamName = battingSide === "away" ? awayTeamName(game) : homeTeamName(game);
+  const theme = runScoreFeedbackTheme(teamId, teamName);
+  return {
+    teamId,
+    teamName,
+    logoUrl: scoreboardTeamLogo(teamName, battingSide, game),
+    runs: Number(runs) || 0,
+    color: theme.primary,
+    rgb: theme.rgb,
+    secondary: theme.secondary
+  };
+}
+
 function renderScoreboard() {
   const game = activeGame();
   if (!game.atBat) game.atBat = makeAtBat();
@@ -7557,6 +7618,54 @@ function triggerActionFeedback(feedback, sourceButton = null) {
   syncActionFeedbackButtonState(sourceButton, actionFeedback);
   const feedbackId = actionFeedback.id;
   actionFeedbackTimer = setTimeout(() => clearActionFeedback(feedbackId), ACTION_FEEDBACK_DURATION_MS);
+}
+
+function renderRunScoreFeedbackLayer() {
+  if (!els.runScoreFeedbackLayer) return;
+  if (!runScoreFeedback) {
+    els.runScoreFeedbackLayer.innerHTML = "";
+    els.runScoreFeedbackLayer.removeAttribute("data-feedback-team");
+    return;
+  }
+  const runs = Number(runScoreFeedback.runs || 0);
+  const scoredLabel = runScoreFeedback.teamId === "lions"
+    ? "LIONS SCORED"
+    : `${runScoreFeedback.teamName || "Team"} scored`.toUpperCase();
+  const runsLabel = `+${runs} ${runs === 1 ? "RUN" : "RUNS"}`;
+  els.runScoreFeedbackLayer.dataset.feedbackTeam = runScoreFeedback.teamId;
+  els.runScoreFeedbackLayer.innerHTML = `
+    <div class="run-score-feedback" style="--run-score-color: ${runScoreFeedback.color}; --run-score-rgb: ${runScoreFeedback.rgb}; --run-score-secondary: ${runScoreFeedback.secondary};" data-feedback-id="${runScoreFeedback.id}">
+      <span class="run-score-feedback-logo-wrap" aria-hidden="true">
+        <img class="run-score-feedback-logo" src="${escapeHtml(runScoreFeedback.logoUrl)}" alt="">
+      </span>
+      <span class="run-score-feedback-team">${escapeHtml(scoredLabel)}</span>
+      <strong class="run-score-feedback-runs">${escapeHtml(runsLabel)}</strong>
+    </div>`;
+}
+
+function clearRunScoreFeedback(feedbackId = null) {
+  if (feedbackId && runScoreFeedback?.id !== feedbackId) return;
+  const delayedBatterIntroKey = pendingBatterIntroKey;
+  runScoreFeedback = null;
+  if (runScoreFeedbackTimer) {
+    clearTimeout(runScoreFeedbackTimer);
+    runScoreFeedbackTimer = null;
+  }
+  renderRunScoreFeedbackLayer();
+  if (delayedBatterIntroKey) {
+    clearPendingBatterIntro();
+    renderBatterIntro(activeGame());
+  }
+}
+
+function triggerRunScoreFeedback(feedback) {
+  const runs = Number(feedback?.runs || 0);
+  if (!runs) return;
+  if (runScoreFeedbackTimer) clearTimeout(runScoreFeedbackTimer);
+  runScoreFeedback = { ...feedback, runs, id: ++runScoreFeedbackSequence };
+  renderRunScoreFeedbackLayer();
+  const feedbackId = runScoreFeedback.id;
+  runScoreFeedbackTimer = setTimeout(() => clearRunScoreFeedback(feedbackId), RUN_SCORE_FEEDBACK_DURATION_MS);
 }
 
 function handleActionFeedbackPointerDown(event) {
