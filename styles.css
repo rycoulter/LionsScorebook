@@ -5854,14 +5854,6 @@ button:focus-visible {
   padding: 0;
 }
 
-#statsView .stats-snapshot-swipe-note {
-  display: none;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.88rem;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
 #statsView .stats-snapshot-grid {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
@@ -5938,14 +5930,6 @@ button:focus-visible {
 
 #statsView .stats-leaders-head .stats-subhead {
   padding: 0;
-}
-
-#statsView .stats-leaders-swipe-note {
-  display: none;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.88rem;
-  font-weight: 800;
-  white-space: nowrap;
 }
 
 #statsView .stats-mode-tabs {
@@ -6094,19 +6078,14 @@ button:focus-visible {
     padding: 14px 14px 0;
   }
 
-  #statsView .stats-snapshot-swipe-note {
-    display: inline-flex;
-    align-items: center;
-  }
-
   #statsView .stats-snapshot-grid {
     display: flex;
     gap: 12px;
-    padding: 8px 14px 14px;
+    padding: 8px 18px 14px;
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
-    scroll-padding-inline: 14px;
+    scroll-padding-inline: 18px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -6117,10 +6096,11 @@ button:focus-visible {
 
   #statsView .stats-snapshot-slide {
     display: grid;
-    flex: 0 0 calc(100% - 2px);
-    width: 100%;
+    flex: 0 0 calc(100% - 64px);
+    width: calc(100% - 64px);
     grid-template-columns: repeat(2, minmax(0, 1fr));
     scroll-snap-align: start;
+    scroll-snap-stop: always;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.03);
@@ -6160,11 +6140,6 @@ button:focus-visible {
 
   #statsView .stats-leaders-head {
     padding: 12px 12px 0;
-  }
-
-  #statsView .stats-leaders-swipe-note {
-    display: inline-flex;
-    align-items: center;
   }
 
   #statsView .stats-leader-grid {
@@ -6674,6 +6649,10 @@ button:focus-visible {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.stats-mobile-pill.is-leader small {
+  color: var(--lion-gold);
 }
 
 .stats-mobile-pill strong {

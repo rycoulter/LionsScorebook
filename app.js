@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.29";
+const APP_VERSION = "v.1.1.31";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -14722,6 +14722,7 @@ function renderSeasonStats() {
   }
   renderMobileStatsFilters();
   const mobileHittingRows = getMobileHittingRows(mobileHitPlayerFilter, mobileHitGameFilter);
+  const mobileHittingLeaders = mobileHittingLeaderMap(getMobileHittingRows("all", mobileHitGameFilter));
   if (els.mobileHittingStatsList) {
     els.mobileHittingStatsList.innerHTML = mobileHittingRows.length
       ? mobileHittingRows.map(({ player, hit, gp }) => {
@@ -14733,21 +14734,22 @@ function renderSeasonStats() {
             ${statsEditButtonMarkup(player)}
           </div>
           <div class="stats-mobile-pill-grid">
-            ${mobileStatPill("GP", gp)}
-            ${mobileStatPill("PA", hit.pa)}
-            ${mobileStatPill("AVG", formatRate(hit.avg))}
-            ${mobileStatPill("H", hit.h)}
-            ${mobileStatPill("OPS", formatRate(hit.ops))}
-            ${mobileStatPill("RBI", hit.rbi)}
-            ${mobileStatPill("RISP", formatRispRate(hit))}
-            ${mobileStatPill("SB", hit.sb)}
-            ${mobileStatPill("K", hit.k)}
+            ${mobileStatPill("GP", gp, mobileStatIsLeader(mobileHittingLeaders, "gp", player.id))}
+            ${mobileStatPill("PA", hit.pa, mobileStatIsLeader(mobileHittingLeaders, "pa", player.id))}
+            ${mobileStatPill("AVG", formatRate(hit.avg), mobileStatIsLeader(mobileHittingLeaders, "avg", player.id))}
+            ${mobileStatPill("H", hit.h, mobileStatIsLeader(mobileHittingLeaders, "h", player.id))}
+            ${mobileStatPill("OPS", formatRate(hit.ops), mobileStatIsLeader(mobileHittingLeaders, "ops", player.id))}
+            ${mobileStatPill("RBI", hit.rbi, mobileStatIsLeader(mobileHittingLeaders, "rbi", player.id))}
+            ${mobileStatPill("RISP", formatRispRate(hit), mobileStatIsLeader(mobileHittingLeaders, "risp", player.id))}
+            ${mobileStatPill("SB", hit.sb, mobileStatIsLeader(mobileHittingLeaders, "sb", player.id))}
+            ${mobileStatPill("K", hit.k, mobileStatIsLeader(mobileHittingLeaders, "k", player.id))}
           </div>
         </article>`;
       }).join("")
       : `<p class="stats-mobile-empty">No batting stats yet.</p>`;
   }
   const mobilePitchingRows = getMobilePitchingRows(mobilePitPlayerFilter, mobilePitGameFilter);
+  const mobilePitchingLeaders = mobilePitchingLeaderMap(getMobilePitchingRows("all", mobilePitGameFilter));
   if (els.mobilePitchingStatsList) {
     els.mobilePitchingStatsList.innerHTML = mobilePitchingRows.length
       ? mobilePitchingRows.map(({ player, pit }) => {
@@ -14759,14 +14761,14 @@ function renderSeasonStats() {
             ${pitchingStatsEditButtonMarkup(player)}
           </div>
           <div class="stats-mobile-pill-grid">
-            ${mobileStatPill("W-L", `${pit.wins}-${pit.losses}`)}
-            ${mobileStatPill("IP", formatInnings(pit.outs))}
-            ${mobileStatPill("ERA", formatEra(pit.era))}
-            ${mobileStatPill("K", pit.k)}
-            ${mobileStatPill("BB", pit.bb)}
-            ${mobileStatPill("WHIP", pit.whip.toFixed(2))}
-            ${mobileStatPill("Str%", `${Math.round(pit.strikeRate * 100)}%`)}
-            ${mobileStatPill("BB%", `${Math.round(pit.bbRate * 100)}%`)}
+            ${mobileStatPill("W-L", `${pit.wins}-${pit.losses}`, mobileStatIsLeader(mobilePitchingLeaders, "record", player.id))}
+            ${mobileStatPill("IP", formatInnings(pit.outs), mobileStatIsLeader(mobilePitchingLeaders, "outs", player.id))}
+            ${mobileStatPill("ERA", formatEra(pit.era), mobileStatIsLeader(mobilePitchingLeaders, "era", player.id))}
+            ${mobileStatPill("K", pit.k, mobileStatIsLeader(mobilePitchingLeaders, "k", player.id))}
+            ${mobileStatPill("BB", pit.bb, mobileStatIsLeader(mobilePitchingLeaders, "bb", player.id))}
+            ${mobileStatPill("WHIP", pit.whip.toFixed(2), mobileStatIsLeader(mobilePitchingLeaders, "whip", player.id))}
+            ${mobileStatPill("Str%", `${Math.round(pit.strikeRate * 100)}%`, mobileStatIsLeader(mobilePitchingLeaders, "strikeRate", player.id))}
+            ${mobileStatPill("BB%", `${Math.round(pit.bbRate * 100)}%`, mobileStatIsLeader(mobilePitchingLeaders, "bbRate", player.id))}
           </div>
         </article>`;
       }).join("")
@@ -15466,8 +15468,59 @@ function updateSortIndicators() {
   });
 }
 
-function mobileStatPill(label, value) {
-  return `<span class="stats-mobile-pill"><small>${escapeHtml(label)}</small><strong>${escapeHtml(String(value))}</strong></span>`;
+function mobileStatPill(label, value, isLeader = false) {
+  return `<span class="stats-mobile-pill${isLeader ? " is-leader" : ""}"><small>${escapeHtml(label)}</small><strong>${escapeHtml(String(value))}</strong></span>`;
+}
+
+function mobileStatIsLeader(leaderMap, key, playerId) {
+  return Boolean(leaderMap?.[key]?.has(playerId));
+}
+
+function mobileHittingLeaderMap(rows = []) {
+  return mobileLeaderMap(rows, [
+    { key: "gp", value: (row) => row.gp, eligible: (row) => row.gp > 0 },
+    { key: "pa", value: (row) => row.hit.pa, eligible: (row) => row.hit.pa > 0 },
+    { key: "avg", value: (row) => row.hit.avg, eligible: (row) => row.hit.ab > 0 },
+    { key: "h", value: (row) => row.hit.h, eligible: (row) => row.hit.h > 0 },
+    { key: "ops", value: (row) => row.hit.ops, eligible: (row) => row.hit.pa > 0 },
+    { key: "rbi", value: (row) => row.hit.rbi, eligible: (row) => row.hit.rbi > 0 },
+    { key: "risp", value: (row) => row.hit.risp, eligible: (row) => row.hit.rispAB > 0 },
+    { key: "sb", value: (row) => row.hit.sb, eligible: (row) => row.hit.sb > 0 },
+    { key: "k", value: (row) => row.hit.k, eligible: (row) => row.hit.pa > 0, lowWins: true }
+  ]);
+}
+
+function mobilePitchingLeaderMap(rows = []) {
+  return mobileLeaderMap(rows, [
+    { key: "record", value: (row) => row.pit.wins - row.pit.losses, eligible: (row) => row.pit.wins > 0 },
+    { key: "outs", value: (row) => row.pit.outs, eligible: (row) => row.pit.outs > 0 },
+    { key: "era", value: (row) => row.pit.era, eligible: (row) => row.pit.outs > 0, lowWins: true },
+    { key: "k", value: (row) => row.pit.k, eligible: (row) => row.pit.k > 0 },
+    { key: "bb", value: (row) => row.pit.bb, eligible: (row) => row.pit.outs > 0, lowWins: true },
+    { key: "whip", value: (row) => row.pit.whip, eligible: (row) => row.pit.outs > 0, lowWins: true },
+    { key: "strikeRate", value: (row) => row.pit.strikeRate, eligible: (row) => row.pit.pitches > 0 },
+    { key: "bbRate", value: (row) => row.pit.bbRate, eligible: (row) => row.pit.batters > 0, lowWins: true }
+  ]);
+}
+
+function mobileLeaderMap(rows = [], metrics = []) {
+  return metrics.reduce((map, metric) => {
+    const eligibleRows = rows
+      .map((row) => ({ row, value: Number(metric.value(row)) }))
+      .filter(({ row, value }) => Number.isFinite(value) && (!metric.eligible || metric.eligible(row)));
+    if (!eligibleRows.length) {
+      map[metric.key] = new Set();
+      return map;
+    }
+    const values = eligibleRows.map((item) => item.value);
+    const best = metric.lowWins ? Math.min(...values) : Math.max(...values);
+    map[metric.key] = new Set(
+      eligibleRows
+        .filter((item) => Math.abs(item.value - best) <= 0.0000001)
+        .map((item) => item.row.player.id)
+    );
+    return map;
+  }, {});
 }
 
 function mobileHittingSortLabel() {

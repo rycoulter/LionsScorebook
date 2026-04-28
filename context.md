@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
-Last updated: 2026-04-27
-Current commit: `18551d1` plus uncommitted Team News mobile/article update
-Current app version: `v.1.1.29`
-Current asset build markers: `2026.04.28-build-193`
+Last updated: 2026-04-28
+Current commit: `89d5a5d` plus uncommitted mobile Stats leader highlight and carousel updates
+Current app version: `v.1.1.31`
+Current asset build markers: `2026.04.28-build-195`
 
 ## Project Overview
 
@@ -204,6 +204,8 @@ Recent stat logic:
 - the game-level stat editor also stores manual spray dots per player/game with edit-only result choices (`1B`, `2B`, `3B`, `HR`, `GO`, `LO`, `FO`) so the season spray chart is derived from edited spray locations when present
 - the player stats spray chart uses the same 4:3 field geometry and contained `assets/updated-field.png` coordinate space as Score Game, so historical hit markers align with where they were recorded
 - Pitching Stats rows now expose a game-level stat editor for admins; saved edits live on `game.pitchingStatEdits`, replace that pitcher's scored defensive events for the selected game, and feed season ERA/WHIP/rate recalculation from IP, pitch count, BF, runs, ER, and decision inputs
+- mobile Stats player cards mark tied leaders by turning the displayed stat label gold for each best-in-category value in the selected game/season context
+- mobile Team Stats Snapshot uses a peek carousel that leaves the second card visible, matching the Leaders carousel pattern without separate swipe helper text
 
 ### Schedule & Scores / Game Archive / Box Score
 
