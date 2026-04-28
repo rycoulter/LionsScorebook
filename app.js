@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.27";
+const APP_VERSION = "v.1.1.29";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -3616,6 +3616,7 @@ function bindEvents() {
   els.homeTeamNewsLink?.addEventListener("click", () => {
     selectedNewsArticleId = "";
     newsLayoutMode = "latest";
+    renderTeamNews();
     switchView("news");
   });
   els.homeRecentResultBody?.addEventListener("click", (event) => {
@@ -3632,6 +3633,7 @@ function bindEvents() {
     if (!button) return;
     selectedNewsArticleId = button.dataset.homeNewsId || "";
     newsLayoutMode = "article";
+    renderTeamNews();
     switchView("news");
   });
   els.newsCategoryFilters?.addEventListener("click", (event) => {
@@ -7763,7 +7765,6 @@ function renderFeaturedNewsStory(article) {
       <span class="news-category-pill">${escapeHtml(article.category)}</span>
       <h3>${escapeHtml(article.title)}</h3>
       <span class="news-feature-date">${escapeHtml(newsArticleDateLabel(article))}</span>
-      <p>${escapeHtml(article.summary)}</p>
       ${article.bodyHtml ? `<div class="news-article-body">${sanitizeNewsBodyHtml(article.bodyHtml)}</div>` : ""}
     </div>
   </article>`;

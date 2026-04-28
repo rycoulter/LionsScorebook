@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
 Last updated: 2026-04-27
-Current commit: `10565f1` plus uncommitted Highlights management and Team News work
-Current app version: `v.1.1.27`
-Current asset build markers: `2026.04.28-build-191`
+Current commit: `18551d1` plus uncommitted Team News mobile/article update
+Current app version: `v.1.1.29`
+Current asset build markers: `2026.04.28-build-193`
 
 ## Project Overview
 
@@ -224,7 +224,9 @@ Current state:
 - desktop Team News uses a two-column layout
 - public Team News renders manual article records from `state.newsArticles`
 - the All Articles column is a compact selector that shows thumbnail, title, summary, and a Read More action; the selected article renders in full in the featured/detail panel
-- on mobile, `View All News` places Latest above the article detail, while direct article taps place the selected article above Latest
+- on mobile, `View All News` places Latest above the article detail, while direct article taps immediately render the selected article above Latest
+- the full article/detail pane renders title, game/date label, and article body without repeating the card summary
+- the full article/detail copy sits on a dark filled reading panel so it remains legible over the site background
 - admins manage those records in the News Editor tab with title, summary, rich body, image upload/preview, category, optional linked game, edit, and delete
 - `Generate from Game` in News Editor can prefill a recap or preview draft, but all fields stay editable before saving
 - manual news article saves/deletes go directly to Supabase `news_articles` rows instead of syncing the full app-state metadata blob
