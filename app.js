@@ -581,16 +581,16 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.20";
+const APP_VERSION = "v.1.1.26";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 const GA_MEASUREMENT_ID = "G-JWRVWJ9XYP";
 const ACCESS_MODE_STORAGE_KEY = "oakmont-lions-access-mode-v1";
 const ADMIN_EMAIL_STORAGE_KEY = "oakmont-lions-admin-email-v1";
-const PUBLIC_TAB_VIEWS = new Set(["home", "games", "roster", "stats", "archive"]);
-const PUBLIC_READ_VIEWS = new Set(["home", "games", "roster", "stats", "archive", "scorebook", "boxscore"]);
-const ADMIN_TAB_VIEWS = new Set(["home", "score", "games", "lineup", "roster", "stats", "scouting", "archive", "analysis"]);
+const PUBLIC_TAB_VIEWS = new Set(["home", "news", "games", "roster", "stats", "archive"]);
+const PUBLIC_READ_VIEWS = new Set(["home", "news", "games", "roster", "stats", "archive", "scorebook", "boxscore"]);
+const ADMIN_TAB_VIEWS = new Set(["home", "news", "newsEditor", "score", "games", "lineup", "roster", "stats", "highlights", "scouting", "archive", "analysis"]);
 const supabaseStorage = window.ScorebookSupabaseStorage || null;
 
 const FIELD_LOCATIONS = [
@@ -627,6 +627,10 @@ let statEditSprays = [];
 let statEditSprayMode = "1B";
 let pitchingStatEditPlayerId = "";
 let pitchingStatEditGameId = "";
+let highlightEditId = "";
+let highlightModalGameId = "";
+let newsEditId = "";
+let newsEditorImageDataUrl = "";
 let quickScoreGameId = "";
 let rosterFilter = "active";
 let rosterSearchQuery = "";
@@ -682,6 +686,8 @@ let scheduleSeasonFilter = String(currentLeagueSeason());
 let scheduleCalendarMonth = todayValue().slice(0, 7);
 let archiveSeasonFilter = String(currentLeagueSeason());
 let statsSeasonFilter = String(currentLeagueSeason());
+let newsCategoryFilter = "all";
+let selectedNewsArticleId = "";
 let statsPlayerFocus = "all";
 let activeCustomSubSelect = null;
 let statsMode = "hitting";
@@ -790,8 +796,8 @@ const els = {
   homePitchingLeaders: document.getElementById("homePitchingLeaders"),
   homePitchingLeadersLink: document.getElementById("homePitchingLeadersLink"),
   homeRecentResultBody: document.getElementById("homeRecentResultBody"),
-  homeRecentGamesBody: document.getElementById("homeRecentGamesBody"),
-  homeRecentGamesLink: document.getElementById("homeRecentGamesLink"),
+  homeTeamNewsBody: document.getElementById("homeTeamNewsBody"),
+  homeTeamNewsLink: document.getElementById("homeTeamNewsLink"),
   homeLeagueStandings: document.getElementById("homeLeagueStandings"),
   homeUpcomingGames: document.getElementById("homeUpcomingGames"),
   homePastGames: document.getElementById("homePastGames"),
@@ -1161,6 +1167,42 @@ const els = {
   statEditSprayMarkers: document.getElementById("statEditSprayMarkers"),
   statEditSprayList: document.getElementById("statEditSprayList"),
   statEditSprayModeButtons: [...document.querySelectorAll("[data-stat-edit-spray-mode]")],
+  highlightsGameSelect: document.getElementById("highlightsGameSelect"),
+  highlightUrlInput: document.getElementById("highlightUrlInput"),
+  highlightTitleInput: document.getElementById("highlightTitleInput"),
+  highlightDescriptionInput: document.getElementById("highlightDescriptionInput"),
+  highlightInningInput: document.getElementById("highlightInningInput"),
+  highlightPlayTypeInput: document.getElementById("highlightPlayTypeInput"),
+  highlightPlayersSelect: document.getElementById("highlightPlayersSelect"),
+  highlightForm: document.getElementById("highlightForm"),
+  highlightFormTitle: document.getElementById("highlightFormTitle"),
+  highlightSaveBtn: document.getElementById("highlightSaveBtn"),
+  highlightResetBtn: document.getElementById("highlightResetBtn"),
+  highlightsList: document.getElementById("highlightsList"),
+  highlightsStatus: document.getElementById("highlightsStatus"),
+  gameHighlightsModal: document.getElementById("gameHighlightsModal"),
+  gameHighlightsTitle: document.getElementById("gameHighlightsTitle"),
+  gameHighlightsMeta: document.getElementById("gameHighlightsMeta"),
+  gameHighlightsBody: document.getElementById("gameHighlightsBody"),
+  closeGameHighlightsBtn: document.getElementById("closeGameHighlightsBtn"),
+  newsCategoryFilters: document.getElementById("newsCategoryFilters"),
+  newsFeaturedStory: document.getElementById("newsFeaturedStory"),
+  newsArticleList: document.getElementById("newsArticleList"),
+  newsArticleCount: document.getElementById("newsArticleCount"),
+  newsEditorForm: document.getElementById("newsEditorForm"),
+  newsEditorTitle: document.getElementById("newsEditorTitle"),
+  newsEditorResetBtn: document.getElementById("newsEditorResetBtn"),
+  newsEditorGameSelect: document.getElementById("newsEditorGameSelect"),
+  newsGenerateFromGameBtn: document.getElementById("newsGenerateFromGameBtn"),
+  newsEditorCategory: document.getElementById("newsEditorCategory"),
+  newsEditorTitleInput: document.getElementById("newsEditorTitleInput"),
+  newsEditorSummaryInput: document.getElementById("newsEditorSummaryInput"),
+  newsEditorImageInput: document.getElementById("newsEditorImageInput"),
+  newsEditorImagePreview: document.getElementById("newsEditorImagePreview"),
+  newsEditorBodyInput: document.getElementById("newsEditorBodyInput"),
+  newsEditorSaveBtn: document.getElementById("newsEditorSaveBtn"),
+  newsEditorList: document.getElementById("newsEditorList"),
+  newsEditorStatus: document.getElementById("newsEditorStatus"),
   pitchingStatEditGameSelectModal: document.getElementById("pitchingStatEditGameSelectModal"),
   pitchingStatEditGameSelectTitle: document.getElementById("pitchingStatEditGameSelectTitle"),
   pitchingStatEditGameSelectHint: document.getElementById("pitchingStatEditGameSelectHint"),
@@ -1767,6 +1809,8 @@ function seedState() {
     lineup: defaultRoster.filter((player) => player.active).map((player) => player.id),
     completedGameSyncQueue: [],
     deletedGameTombstones: {},
+    highlights: [],
+    newsArticles: [],
     games: [],
     activeGameId: ""
   };
@@ -1868,10 +1912,87 @@ function normalizeState(nextState) {
     .filter((game) => !isLegacySeedGame(game));
   nextState.deletedGameTombstones = normalizeDeletedGameTombstones(nextState.deletedGameTombstones, nextState.games);
   nextState.completedGameSyncQueue = normalizeCompletedGameSyncQueue(nextState.completedGameSyncQueue, nextState.games);
+  nextState.highlights = normalizeHighlights(nextState.highlights, nextState.games);
+  nextState.newsArticles = normalizeNewsArticles(nextState.newsArticles, nextState.games);
   if (rosterWasReplaced) {
     nextState.games.forEach((game) => resetGameAwayLineupToRoster(game, nextState));
   }
   return nextState;
+}
+
+function normalizeNewsArticle(article = {}, games = state?.games || []) {
+  const title = String(article.title || "").trim();
+  const summary = String(article.summary || "").trim();
+  const bodyHtml = sanitizeNewsBodyHtml(article.bodyHtml || article.body_html || article.body || "");
+  if (!title && !summary && !bodyHtml) return null;
+  const validGameIds = new Set((Array.isArray(games) ? games : []).map((game) => game?.id).filter(Boolean));
+  const requestedGameId = String(article.gameId || article.game_id || "").trim();
+  const gameId = requestedGameId && (!validGameIds.size || validGameIds.has(requestedGameId)) ? requestedGameId : "";
+  const linkedGame = gameId ? (Array.isArray(games) ? games : []).find((game) => game?.id === gameId) : null;
+  const createdAt = article.createdAt || article.created_at || new Date().toISOString();
+  return {
+    id: String(article.id || createId("news")).trim(),
+    title,
+    summary,
+    bodyHtml,
+    category: normalizeNewsCategory(article.category),
+    gameId,
+    date: String(article.date || article.gameDate || article.game_date || linkedGame?.date || createdAt.slice(0, 10) || todayValue()).trim(),
+    imageDataUrl: validNewsImageDataUrl(article.imageDataUrl || article.image_data_url || article.image || ""),
+    createdAt,
+    updatedAt: article.updatedAt || article.updated_at || createdAt || new Date().toISOString()
+  };
+}
+
+function normalizeNewsArticles(articles = [], games = state?.games || []) {
+  return (Array.isArray(articles) ? articles : [])
+    .map((article) => normalizeNewsArticle(article, games))
+    .filter((article) => article?.id)
+    .sort(sortNewsArticlesNewestFirst);
+}
+
+function normalizeNewsCategory(category = "") {
+  const value = String(category || "").trim();
+  const allowed = new Set(["Game Recap", "Player News", "Team News", "Game Preview"]);
+  return allowed.has(value) ? value : "Team News";
+}
+
+function sortNewsArticlesNewestFirst(left, right) {
+  const dateCompare = teamNewsSortValue(right) - teamNewsSortValue(left);
+  if (dateCompare) return dateCompare;
+  return String(left.title || "").localeCompare(String(right.title || ""));
+}
+
+function normalizeHighlight(highlight = {}, games = state?.games || []) {
+  const gameId = String(highlight.gameId || highlight.game_id || "").trim();
+  if (!gameId) return null;
+  const gameIds = new Set((Array.isArray(games) ? games : []).map((game) => game?.id).filter(Boolean));
+  if (gameIds.size && !gameIds.has(gameId)) return null;
+  const youtubeUrl = String(highlight.youtubeUrl || highlight.youtube_url || "").trim();
+  const youtubeVideoId = String(highlight.youtubeVideoId || highlight.youtube_video_id || youtubeVideoIdFromUrl(youtubeUrl) || "").trim();
+  const playerIds = Array.isArray(highlight.playerIds || highlight.player_ids)
+    ? (highlight.playerIds || highlight.player_ids).map((id) => String(id || "").trim()).filter(Boolean)
+    : [];
+  return {
+    id: String(highlight.id || createId("highlight")).trim(),
+    gameId,
+    youtubeUrl,
+    youtubeVideoId,
+    title: String(highlight.title || "").trim(),
+    description: String(highlight.description || "").trim(),
+    inning: String(highlight.inning || "").trim(),
+    playType: String(highlight.playType || highlight.play_type || "").trim(),
+    playerIds,
+    createdAt: highlight.createdAt || highlight.created_at || new Date().toISOString(),
+    updatedAt: highlight.updatedAt || highlight.updated_at || highlight.createdAt || highlight.created_at || new Date().toISOString()
+  };
+}
+
+function normalizeHighlights(highlights = [], games = state?.games || []) {
+  return (Array.isArray(highlights) ? highlights : [])
+    .map((highlight) => normalizeHighlight(highlight, games))
+    .filter((highlight) => highlight?.id)
+    .sort(sortHighlightsNewestFirst);
 }
 
 function normalizeRoster(roster = []) {
@@ -2450,6 +2571,8 @@ function hasMeaningfulSupabaseSnapshot(snapshot) {
   if (!snapshot) return false;
   if (Array.isArray(snapshot.games) && snapshot.games.length) return true;
   if (Array.isArray(snapshot.rosterPlayers) && snapshot.rosterPlayers.length) return true;
+  if (Array.isArray(snapshot.highlights) && snapshot.highlights.length) return true;
+  if (Array.isArray(snapshot.newsArticles) && snapshot.newsArticles.length) return true;
   const appState = snapshot.appState;
   if (!appState || typeof appState !== "object") return false;
   if (Array.isArray(appState.roster) && appState.roster.length) return true;
@@ -2591,7 +2714,14 @@ async function refreshSupabaseState(reason = "refresh", options = {}) {
         return null;
       }
       const merged = overlaySessionSharedChanges(
-        supabaseStorage.mergeRemoteSnapshot(state, data.appState, data.games, data.rosterPlayers),
+        supabaseStorage.mergeRemoteSnapshot(
+          state,
+          data.appState,
+          data.games,
+          data.rosterPlayers,
+          data.highlights,
+          data.newsArticlesMissingTable ? undefined : data.newsArticles
+        ),
         state
       );
       state = normalizeState(merged);
@@ -2737,7 +2867,9 @@ async function syncSharedSnapshot(reason = "manual", options = {}) {
                 sourceState,
                 remoteBootstrap.data.appState,
                 remoteBootstrap.data.games,
-                remoteBootstrap.data.rosterPlayers
+                remoteBootstrap.data.rosterPlayers,
+                remoteBootstrap.data.highlights,
+                remoteBootstrap.data.newsArticlesMissingTable ? undefined : remoteBootstrap.data.newsArticles
               )
             ),
             sourceState
@@ -3480,16 +3612,56 @@ function bindEvents() {
   els.homeScoutingBtn?.addEventListener("click", openNextGameScouting);
   els.homeBattingLeadersLink?.addEventListener("click", () => switchView("stats"));
   els.homePitchingLeadersLink?.addEventListener("click", () => switchView("stats"));
-  els.homeRecentGamesLink?.addEventListener("click", () => switchView("archive"));
+  els.homeTeamNewsLink?.addEventListener("click", () => switchView("news"));
   els.homeRecentResultBody?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-game-action]")) {
+      handleGameActionClick(event);
+      return;
+    }
     const button = event.target.closest("[data-home-box-score-game]");
     if (!button) return;
     openBoxScore(button.dataset.homeBoxScoreGame);
   });
-  els.homeRecentGamesBody?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-home-box-score-game]");
+  els.homeTeamNewsBody?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-home-news-id]");
     if (!button) return;
-    openBoxScore(button.dataset.homeBoxScoreGame);
+    selectedNewsArticleId = button.dataset.homeNewsId || "";
+    switchView("news");
+  });
+  els.newsCategoryFilters?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-news-category]");
+    if (!button) return;
+    newsCategoryFilter = button.dataset.newsCategory || "all";
+    selectedNewsArticleId = "";
+    if (els.newsFeaturedStory) els.newsFeaturedStory.scrollIntoView({ behavior: "smooth", block: "start" });
+    renderTeamNews();
+  });
+  els.newsArticleList?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-news-read]");
+    if (!button) return;
+    selectedNewsArticleId = button.dataset.newsRead || "";
+    renderTeamNews();
+    els.newsFeaturedStory?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  els.newsEditorForm?.addEventListener("submit", saveNewsArticle);
+  els.newsEditorResetBtn?.addEventListener("click", resetNewsEditorForm);
+  els.newsGenerateFromGameBtn?.addEventListener("click", generateNewsFromSelectedGame);
+  els.newsEditorImageInput?.addEventListener("change", handleNewsImageUpload);
+  els.newsEditorForm?.addEventListener("click", (event) => {
+    const commandButton = event.target.closest("[data-news-command]");
+    if (!commandButton) return;
+    applyNewsEditorCommand(commandButton.dataset.newsCommand);
+  });
+  els.newsEditorList?.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-news-edit]");
+    if (editButton) {
+      editNewsArticle(editButton.dataset.newsEdit);
+      return;
+    }
+    const deleteButton = event.target.closest("[data-news-delete]");
+    if (deleteButton) {
+      deleteNewsArticle(deleteButton.dataset.newsDelete);
+    }
   });
   els.homeUpcomingGames?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-home-scout-opponent]");
@@ -3667,7 +3839,7 @@ function bindEvents() {
     const button = event.target.closest("[data-game-action]");
     if (!button) return;
     const action = button.dataset.gameAction;
-    if (["summary", "scorebook", "stats", "boxscore", "sync", "quick-score"].includes(action)) {
+    if (["summary", "scorebook", "stats", "boxscore", "sync", "quick-score", "highlights"].includes(action)) {
       handleGameActionClick(event);
       return;
     }
@@ -4226,6 +4398,21 @@ window.addEventListener("resize", () => {
   els.statsPitchingExportBtn?.addEventListener("click", () => {
     exportStatsTable("pitching");
   });
+  els.highlightForm?.addEventListener("submit", saveHighlightRecord);
+  els.highlightResetBtn?.addEventListener("click", resetHighlightForm);
+  els.highlightsGameSelect?.addEventListener("change", renderHighlightsManager);
+  els.highlightsList?.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-highlight-edit]");
+    if (editButton) {
+      beginHighlightEdit(editButton.dataset.highlightEdit);
+      return;
+    }
+    const deleteButton = event.target.closest("[data-highlight-delete]");
+    if (deleteButton) {
+      deleteHighlightRecord(deleteButton.dataset.highlightDelete);
+    }
+  });
+  els.closeGameHighlightsBtn?.addEventListener("click", closeGameHighlightsModal);
 
   document.addEventListener("click", (event) => {
     if (event.target.closest(".sub-custom-select")) return;
@@ -4251,6 +4438,10 @@ window.addEventListener("resize", () => {
     }
     if (els.pitchingStatEditGameSelectModal && !els.pitchingStatEditGameSelectModal.hidden) {
       closePitchingStatEditGameSelectModal();
+      return;
+    }
+    if (els.gameHighlightsModal && !els.gameHighlightsModal.hidden) {
+      closeGameHighlightsModal();
       return;
     }
     closeCustomSubSelects();
@@ -6609,6 +6800,7 @@ function handleGameActionClick(event) {
   if (button.dataset.gameAction === "scorebook") openGameScorebook(gameId);
   if (button.dataset.gameAction === "stats") openGameStats(gameId);
   if (button.dataset.gameAction === "boxscore") openBoxScore(gameId);
+  if (button.dataset.gameAction === "highlights") openGameHighlights(gameId);
   if (button.dataset.gameAction === "quick-score") openQuickScoreModal(gameId);
   if (button.dataset.gameAction === "sync") {
     syncCompletedGame(gameId).catch((error) => {
@@ -7097,6 +7289,8 @@ function render() {
   }
   renderRoster();
   renderArchive();
+  renderTeamNews();
+  renderNewsEditor();
   renderAnalysis();
   renderBoxScore();
   renderGameSetupPreview();
@@ -7105,6 +7299,8 @@ function render() {
   renderGameSummary();
   renderSeasonStats();
   renderLeaders();
+  renderHighlightsManager();
+  renderGameHighlightsModal();
   renderLineupBuilder();
   renderStatsSprayControls();
   renderScoutingReport();
@@ -7191,8 +7387,8 @@ function renderHome() {
   if (els.homeRecentResultBody) {
     els.homeRecentResultBody.innerHTML = renderHomeLastGameResultCard(recentFinals[0] || null);
   }
-  if (els.homeRecentGamesBody) {
-    els.homeRecentGamesBody.innerHTML = renderHomeRecentGamesList(recentFinals.slice(1, 5));
+  if (els.homeTeamNewsBody) {
+    els.homeTeamNewsBody.innerHTML = renderHomeTeamNewsCard(teamNewsArticles().slice(0, 4));
   }
   hydrateHomeWeather(upcoming);
 
@@ -7463,6 +7659,7 @@ function renderHomeLastGameResultCard(game) {
         <span>View Box Score</span>
         <span aria-hidden="true">></span>
       </button>
+      ${renderGameHighlightsAction(game, "home-highlight-link")}
     </div>
   </article>`;
 }
@@ -7490,6 +7687,400 @@ function renderHomeRecentGamesRow(game) {
   </button>`;
 }
 
+function teamNewsArticles() {
+  return normalizeNewsArticles(state.newsArticles || [], state.games);
+}
+
+function latestCompletedGameDate() {
+  return completedGames(1)[0]?.date || "";
+}
+
+function teamNewsSortValue(article) {
+  const raw = String(article?.date || "");
+  const parsed = raw ? Date.parse(`${raw}T12:00:00`) : 0;
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function filteredTeamNewsArticles() {
+  const articles = teamNewsArticles();
+  if (newsCategoryFilter === "all") return articles;
+  return articles.filter((article) => article.category === newsCategoryFilter);
+}
+
+function renderHomeTeamNewsCard(articles) {
+  const items = Array.isArray(articles) ? articles.slice(0, 4) : [];
+  if (!items.length) return `<div class="upcoming-empty">Team news will appear here soon.</div>`;
+  return `<div class="home-team-news-list">
+    ${items.map(renderHomeTeamNewsItem).join("")}
+  </div>`;
+}
+
+function renderHomeTeamNewsItem(article) {
+  return `<button class="home-team-news-item" type="button" data-home-news-id="${escapeHtml(article.id)}">
+    <img class="home-team-news-thumb" src="${escapeHtml(newsArticleImage(article))}" alt="" loading="lazy" decoding="async">
+    <span class="home-team-news-copy">
+      <span class="home-team-news-meta">${escapeHtml(article.category)} | ${escapeHtml(formatShortMonthDay(article.date))}</span>
+      <strong>${escapeHtml(article.title)}</strong>
+    </span>
+    <span class="home-team-news-arrow" aria-hidden="true">></span>
+  </button>`;
+}
+
+function renderTeamNews() {
+  if (!els.newsFeaturedStory || !els.newsArticleList) return;
+  const articles = filteredTeamNewsArticles();
+  const featured = articles.find((article) => article.id === selectedNewsArticleId) || articles[0] || null;
+  selectedNewsArticleId = featured?.id || "";
+  els.newsFeaturedStory.innerHTML = featured
+    ? renderFeaturedNewsStory(featured)
+    : `<div class="upcoming-empty">No articles in this category yet.</div>`;
+  els.newsArticleList.innerHTML = articles.length
+    ? articles.map((article) => renderNewsArticleCard(article, article.id === selectedNewsArticleId)).join("")
+    : `<div class="upcoming-empty">No articles in this category yet.</div>`;
+  if (els.newsArticleCount) {
+    els.newsArticleCount.textContent = `${articles.length} ${articles.length === 1 ? "article" : "articles"}`;
+  }
+  els.newsCategoryFilters?.querySelectorAll("[data-news-category]").forEach((button) => {
+    const active = button.dataset.newsCategory === newsCategoryFilter;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+  });
+}
+
+function renderFeaturedNewsStory(article) {
+  return `<article class="news-feature-card">
+    <img class="news-feature-image" src="${escapeHtml(newsArticleImage(article))}" alt="" loading="lazy" decoding="async">
+    <div class="news-feature-copy">
+      <span class="news-category-pill">${escapeHtml(article.category)}</span>
+      <h3>${escapeHtml(article.title)}</h3>
+      <p>${escapeHtml(article.summary)}</p>
+      ${article.bodyHtml ? `<div class="news-article-body">${sanitizeNewsBodyHtml(article.bodyHtml)}</div>` : ""}
+      <span class="player-meta">${escapeHtml(formatGameDateDisplay(article.date))}</span>
+    </div>
+  </article>`;
+}
+
+function renderNewsArticleCard(article, active = false) {
+  return `<article class="news-article-card${active ? " is-active" : ""}">
+    <img class="news-article-thumb" src="${escapeHtml(newsArticleImage(article))}" alt="" loading="lazy" decoding="async">
+    <div class="news-article-copy">
+      <h3>${escapeHtml(article.title)}</h3>
+      <p>${escapeHtml(article.summary)}</p>
+      <div class="news-article-card-footer">
+        <span class="player-meta">${escapeHtml(formatGameDateDisplay(article.date))}</span>
+        <button class="secondary-action compact-action news-read-more-btn" type="button" data-news-read="${escapeHtml(article.id)}">
+          Read More
+        </button>
+      </div>
+    </div>
+  </article>`;
+}
+
+function newsArticleImage(article) {
+  if (validNewsImageDataUrl(article?.imageDataUrl)) return article.imageDataUrl;
+  const game = article?.gameId ? state.games.find((item) => item.id === article.gameId) : null;
+  if (game) return getMatchupImage(game.opponent, lionsSide(game));
+  return "new-lion.png";
+}
+
+function validNewsImageDataUrl(value = "") {
+  const text = String(value || "");
+  return /^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(text) ? text : "";
+}
+
+function sanitizeNewsBodyHtml(input = "") {
+  const allowedTags = new Set(["B", "BR", "DIV", "EM", "I", "LI", "OL", "P", "STRONG", "UL"]);
+  const template = document.createElement("template");
+  template.innerHTML = String(input || "");
+  template.content.querySelectorAll("script, style, iframe, object, embed").forEach((node) => node.remove());
+  [...template.content.querySelectorAll("*")].forEach((node) => {
+    if (!allowedTags.has(node.tagName)) {
+      node.replaceWith(document.createTextNode(node.textContent || ""));
+      return;
+    }
+    [...node.attributes].forEach((attribute) => node.removeAttribute(attribute.name));
+  });
+  return template.innerHTML.trim();
+}
+
+function renderNewsEditor() {
+  if (!els.newsEditorForm || !els.newsEditorList) return;
+  const games = [...state.games].sort(sortGamesNewestFirst);
+  if (els.newsEditorGameSelect) {
+    const current = els.newsEditorGameSelect.value || "";
+    els.newsEditorGameSelect.innerHTML = [
+      `<option value="">No linked game</option>`,
+      ...games.map((game) => `<option value="${escapeHtml(game.id)}">${escapeHtml(`${formatGameDateDisplay(game.date)} | ${gameMatchupLabel(game)} | ${gameStatusLabel(game)}`)}</option>`)
+    ].join("");
+    if (games.some((game) => game.id === current)) els.newsEditorGameSelect.value = current;
+  }
+  const articles = teamNewsArticles();
+  if (els.newsEditorStatus) {
+    els.newsEditorStatus.textContent = `${articles.length} ${articles.length === 1 ? "article" : "articles"}`;
+  }
+  els.newsEditorList.innerHTML = articles.length
+    ? articles.map(renderNewsEditorListItem).join("")
+    : `<div class="upcoming-empty">No manual news articles yet.</div>`;
+  renderNewsEditorImagePreview();
+}
+
+function renderNewsEditorListItem(article) {
+  const game = article.gameId ? state.games.find((item) => item.id === article.gameId) : null;
+  return `<article class="news-editor-list-item">
+    <img class="news-editor-list-thumb" src="${escapeHtml(newsArticleImage(article))}" alt="" loading="lazy" decoding="async">
+    <div class="news-editor-list-copy">
+      <span class="news-category-pill">${escapeHtml(article.category)}</span>
+      <h3>${escapeHtml(article.title)}</h3>
+      <p>${escapeHtml(article.summary)}</p>
+      <span class="player-meta">${escapeHtml(game ? gameMatchupLabel(game) : "No linked game")}</span>
+    </div>
+    <div class="news-editor-list-actions">
+      <button type="button" class="secondary-action compact-action" data-news-edit="${escapeHtml(article.id)}">Edit</button>
+      <button type="button" class="secondary-action compact-action danger-action" data-news-delete="${escapeHtml(article.id)}">Delete</button>
+    </div>
+  </article>`;
+}
+
+function resetNewsEditorForm() {
+  newsEditId = "";
+  newsEditorImageDataUrl = "";
+  if (els.newsEditorTitle) els.newsEditorTitle.textContent = "New Article";
+  if (els.newsEditorForm) els.newsEditorForm.reset();
+  if (els.newsEditorCategory) els.newsEditorCategory.value = "Game Recap";
+  if (els.newsEditorBodyInput) els.newsEditorBodyInput.innerHTML = "";
+  renderNewsEditorImagePreview();
+}
+
+function renderNewsEditorImagePreview() {
+  if (!els.newsEditorImagePreview) return;
+  els.newsEditorImagePreview.innerHTML = newsEditorImageDataUrl
+    ? `<img src="${escapeHtml(newsEditorImageDataUrl)}" alt="Article image preview">`
+    : `<span>No image selected</span>`;
+}
+
+function editNewsArticle(articleId) {
+  if (!requireAdminAccess("Admin sign-in required to edit news.")) return;
+  const article = teamNewsArticles().find((item) => item.id === articleId);
+  if (!article) return;
+  newsEditId = article.id;
+  newsEditorImageDataUrl = article.imageDataUrl || "";
+  if (els.newsEditorTitle) els.newsEditorTitle.textContent = "Edit Article";
+  if (els.newsEditorGameSelect) els.newsEditorGameSelect.value = article.gameId || "";
+  if (els.newsEditorCategory) els.newsEditorCategory.value = article.category || "Team News";
+  if (els.newsEditorTitleInput) els.newsEditorTitleInput.value = article.title || "";
+  if (els.newsEditorSummaryInput) els.newsEditorSummaryInput.value = article.summary || "";
+  if (els.newsEditorBodyInput) els.newsEditorBodyInput.innerHTML = article.bodyHtml || "";
+  renderNewsEditorImagePreview();
+  els.newsEditorTitleInput?.focus();
+}
+
+async function deleteNewsArticle(articleId) {
+  if (!requireAdminAccess("Admin sign-in required to delete news.")) return;
+  const article = teamNewsArticles().find((item) => item.id === articleId);
+  if (!article) return;
+  if (!window.confirm(`Delete "${article.title || "this article"}"?`)) return;
+  state.newsArticles = (state.newsArticles || []).filter((item) => item.id !== article.id);
+  if (newsEditId === article.id) resetNewsEditorForm();
+  await persistNewsArticles("news-delete", { deleteArticleId: article.id });
+}
+
+async function saveNewsArticle(event) {
+  event?.preventDefault?.();
+  if (!requireAdminAccess("Admin sign-in required to save news.")) return;
+  const title = String(els.newsEditorTitleInput?.value || "").trim();
+  const summary = String(els.newsEditorSummaryInput?.value || "").trim();
+  const bodyHtml = sanitizeNewsBodyHtml(els.newsEditorBodyInput?.innerHTML || "");
+  if (!title) {
+    window.alert("Add a title before saving this article.");
+    els.newsEditorTitleInput?.focus();
+    return;
+  }
+  if (!summary) {
+    window.alert("Add a summary before saving this article.");
+    els.newsEditorSummaryInput?.focus();
+    return;
+  }
+  const previous = (state.newsArticles || []).find((item) => item.id === newsEditId);
+  const article = normalizeNewsArticle({
+    id: newsEditId || createId("news"),
+    title,
+    summary,
+    bodyHtml,
+    category: els.newsEditorCategory?.value || "Team News",
+    gameId: els.newsEditorGameSelect?.value || "",
+    imageDataUrl: newsEditorImageDataUrl,
+    createdAt: previous?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }, state.games);
+  if (!article) return;
+  state.newsArticles = [
+    ...(state.newsArticles || []).filter((item) => item.id !== article.id),
+    article
+  ].sort(sortNewsArticlesNewestFirst);
+  resetNewsEditorForm();
+  await persistNewsArticles("news-save", { article });
+}
+
+function sharedNewsSyncUnavailableError() {
+  if (!supabaseStorage?.isReady?.()) {
+    return new Error("Supabase is not ready on this device, so the news article table was not updated.");
+  }
+  if (!supabaseAdminEmail) {
+    return new Error("Admin sign-in is not active, so the news article table was not updated. Sign out and sign back in as an approved admin.");
+  }
+  return null;
+}
+
+async function syncSharedNewsArticle(article, reason = "news-save") {
+  const unavailableError = sharedNewsSyncUnavailableError();
+  if (unavailableError) return { data: null, error: unavailableError };
+  const response = await supabaseStorage.upsertNewsArticle(article);
+  if (response?.data) {
+    const normalizedArticle = normalizeNewsArticle(response.data, state.games);
+    if (normalizedArticle) {
+      state.newsArticles = [
+        ...(state.newsArticles || []).filter((item) => item.id !== normalizedArticle.id),
+        normalizedArticle
+      ].sort(sortNewsArticlesNewestFirst);
+      saveState({ markLiveGamesDirty: false, capturePendingScoring: false });
+      render();
+    }
+  }
+  if (response?.missingTable) {
+    return {
+      data: response.data,
+      error: new Error("The news_articles table is not available to the app yet. Run supabase-schema.sql in QA/Production or refresh the Supabase API schema cache.")
+    };
+  }
+  return response;
+}
+
+async function deleteSharedNewsArticle(articleId, reason = "news-delete") {
+  const unavailableError = sharedNewsSyncUnavailableError();
+  if (unavailableError) return { data: null, error: unavailableError };
+  const response = await supabaseStorage.deleteNewsArticle(articleId);
+  if (response?.missingTable) {
+    return {
+      data: response.data,
+      error: new Error("The news_articles table is not available to the app yet. Run supabase-schema.sql in QA/Production or refresh the Supabase API schema cache.")
+    };
+  }
+  return response;
+}
+
+async function persistNewsArticles(reason = "news-change", options = {}) {
+  saveState({ markLiveGamesDirty: false, capturePendingScoring: false });
+  render();
+  const response = options.deleteArticleId
+    ? await deleteSharedNewsArticle(options.deleteArticleId, reason)
+    : await syncSharedNewsArticle(options.article, reason);
+  if (response?.error) {
+    console.warn(`Shared news sync failed (${reason}).`, response.error);
+    window.alert([
+      response.error.message || "The news article was saved locally, but could not sync to Supabase yet.",
+      "",
+      "Refresh, sign in again as admin, and try saving again before relying on QA or production."
+    ].join("\n"));
+  }
+}
+
+function applyNewsEditorCommand(command) {
+  if (!els.newsEditorBodyInput) return;
+  els.newsEditorBodyInput.focus();
+  document.execCommand(command, false, null);
+}
+
+function newsArticleDraftFromGame(game) {
+  if (!game) return null;
+  const opponentName = homeOpponentName(game);
+  const lionsScore = Number(game?.score?.lions || 0);
+  const opponentScore = Number(game?.score?.opponent || 0);
+  const completed = gameIsFinal(game);
+  const result = completed ? gameResultLabel(game) : "";
+  const recapVerb = lionsScore > opponentScore ? "top" : lionsScore < opponentScore ? "fall to" : "tie";
+  if (!completed) {
+    return {
+      category: "Game Preview",
+      title: `Next up: ${gameMatchupLabel(game)}`,
+      summary: `${homeNextGameWhenLabel(game)}${gameLocationLabel(game) ? ` at ${gameLocationLabel(game)}` : ""}.`,
+      bodyHtml: `<p>The Lions are set for ${escapeHtml(gameMatchupLabel(game))}${gameLocationLabel(game) ? ` at ${escapeHtml(gameLocationLabel(game))}` : ""}.</p>`
+    };
+  }
+  return {
+    category: "Game Recap",
+    title: `Lions ${recapVerb} ${opponentName}, ${lionsScore}-${opponentScore}`,
+    summary: `${result} | ${gameMatchupLabel(game)} finished ${lionsScore}-${opponentScore}${gameLocationLabel(game) ? ` at ${gameLocationLabel(game)}` : ""}.`,
+    bodyHtml: `<p>The Lions finished ${escapeHtml(gameMatchupLabel(game))} with a ${escapeHtml(`${lionsScore}-${opponentScore}`)} final score.</p><p>Use this draft as a starting point, then add the story details before publishing.</p>`
+  };
+}
+
+function generateNewsFromSelectedGame() {
+  if (!requireAdminAccess("Admin sign-in required to generate news drafts.")) return;
+  const gameId = els.newsEditorGameSelect?.value || "";
+  const game = state.games.find((item) => item.id === gameId);
+  if (!game) {
+    window.alert("Choose a game before generating article copy.");
+    els.newsEditorGameSelect?.focus();
+    return;
+  }
+  const draft = newsArticleDraftFromGame(game);
+  if (!draft) return;
+  if (els.newsEditorCategory) els.newsEditorCategory.value = draft.category;
+  if (els.newsEditorTitleInput) els.newsEditorTitleInput.value = draft.title;
+  if (els.newsEditorSummaryInput) els.newsEditorSummaryInput.value = draft.summary;
+  if (els.newsEditorBodyInput) els.newsEditorBodyInput.innerHTML = draft.bodyHtml;
+  if (!newsEditorImageDataUrl) {
+    newsEditorImageDataUrl = getMatchupImage(game.opponent, lionsSide(game));
+    renderNewsEditorImagePreview();
+  }
+}
+
+async function handleNewsImageUpload(event) {
+  const file = event?.target?.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    window.alert("Choose an image file for the article preview.");
+    return;
+  }
+  try {
+    newsEditorImageDataUrl = await resizeNewsImageFile(file);
+    renderNewsEditorImagePreview();
+  } catch (error) {
+    console.warn("Unable to load article image.", error);
+    window.alert("Unable to load that image. Try a smaller image file.");
+  }
+}
+
+function resizeNewsImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error("Unable to read image."));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("Unable to decode image."));
+      image.onload = () => {
+        const maxWidth = 900;
+        const maxHeight = 620;
+        const ratio = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+        const width = Math.max(1, Math.round(image.width * ratio));
+        const height = Math.max(1, Math.round(image.height * ratio));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          resolve(String(reader.result || ""));
+          return;
+        }
+        context.drawImage(image, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      image.src = String(reader.result || "");
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function renderUpcomingGameCard(game) {
   return `<article class="upcoming-game-card">
     <img src="${escapeHtml(getMatchupImage(game.opponent, lionsSide(game)))}" alt="${escapeHtml(gameMatchupLabel(game))} matchup">
@@ -7515,6 +8106,7 @@ function renderPastGameCard(game) {
         <button type="button" class="secondary-action" data-game-action="summary" data-game-id="${escapeHtml(game.id)}">View Summary</button>
         <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">Box Score</button>
         <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">Scorebook</button>
+        ${renderGameHighlightsAction(game)}
       </div>
     </div>
   </article>`;
@@ -11089,6 +11681,7 @@ function renderArchiveCard(game) {
     <div class="archive-card-actions ${isAdmin ? "archive-card-actions-admin" : "archive-card-actions-public"}">
       <button type="button" class="secondary-action archive-card-action" data-game-action="summary" data-game-id="${escapeHtml(game.id)}">View Summary</button>
       <button type="button" class="secondary-action archive-card-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
+      ${renderGameHighlightsAction(game, "archive-card-action")}
       ${syncButton}
     </div>
   </article>`;
@@ -11121,6 +11714,7 @@ function renderGameSummary() {
     <div class="button-row">
       <button type="button" class="primary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">View Scorebook</button>
       <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
+      ${renderGameHighlightsAction(game)}
     </div>
   </div>
   ${renderGameSummaryMobile(game, summary)}`;
@@ -11213,6 +11807,7 @@ function renderGameSummaryMobile(game, summary) {
 
     <div class="game-summary-mobile-actions">
       <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
+      ${renderGameHighlightsAction(game)}
     </div>
   </div>`;
 }
@@ -11940,6 +12535,7 @@ function renderScheduleResultRow(game) {
     </div>
     <div class="schedule-result-actions">
       <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
+      ${renderGameHighlightsAction(game)}
       ${syncButton}
     </div>
   </article>`;
@@ -11959,6 +12555,307 @@ function renderScheduleMetaItem(type, text) {
 function renderQuickScoreAction(game, className = "schedule-quick-score-action") {
   if (!isAdminMode() || !game?.id || gameIsFinal(game)) return "";
   return `<button type="button" class="secondary-action ${escapeHtml(className)}" data-game-action="quick-score" data-game-id="${escapeHtml(game.id)}">Quick Score</button>`;
+}
+
+function renderGameHighlightsAction(game, className = "") {
+  if (!game?.id || !gameIsFinal(game) || !highlightCountForGame(game.id)) return "";
+  const extraClass = className ? ` ${escapeHtml(className)}` : "";
+  return `<button type="button" class="secondary-action${extraClass}" data-game-action="highlights" data-game-id="${escapeHtml(game.id)}">Game Highlights</button>`;
+}
+
+function highlightCountForGame(gameId) {
+  return highlightsForGame(gameId).length;
+}
+
+function highlightsForGame(gameId) {
+  const id = String(gameId || "").trim();
+  return normalizeHighlights(state.highlights || [], state.games)
+    .filter((highlight) => highlight.gameId === id)
+    .sort(sortHighlightsNewestFirst);
+}
+
+function sortHighlightsNewestFirst(left, right) {
+  const updatedCompare = String(right?.createdAt || right?.updatedAt || "").localeCompare(String(left?.createdAt || left?.updatedAt || ""));
+  if (updatedCompare) return updatedCompare;
+  return String(right?.title || "").localeCompare(String(left?.title || ""));
+}
+
+function completedGamesForHighlights() {
+  return state.games
+    .filter(gameIsFinal)
+    .sort(sortGamesNewestFirst);
+}
+
+function youtubeVideoIdFromUrl(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const fallbackMatch = raw.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{6,})/);
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    if (host === "youtu.be") return url.pathname.split("/").filter(Boolean)[0] || "";
+    if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com")) {
+      const v = url.searchParams.get("v");
+      if (v) return v;
+      const parts = url.pathname.split("/").filter(Boolean);
+      const marker = parts.findIndex((part) => ["embed", "shorts", "live"].includes(part));
+      if (marker >= 0 && parts[marker + 1]) return parts[marker + 1];
+    }
+  } catch (error) {
+    // Fall through to the regex parser for pasted share fragments.
+  }
+  return fallbackMatch?.[1] || "";
+}
+
+function youtubeEmbedUrl(videoId = "") {
+  const id = String(videoId || "").trim();
+  return id ? `https://www.youtube.com/embed/${encodeURIComponent(id)}` : "";
+}
+
+function highlightPlayerNames(highlight) {
+  const names = (highlight?.playerIds || [])
+    .map((playerId) => state.roster.find((player) => player.id === playerId))
+    .filter(Boolean)
+    .map((player) => `#${player.number || "--"} ${player.name}`);
+  return names.join(", ");
+}
+
+function highlightTagText(highlight) {
+  return [
+    highlight?.inning ? `Inning ${highlight.inning}` : "",
+    highlight?.playType || "",
+    highlightPlayerNames(highlight)
+  ].filter(Boolean).join(" | ");
+}
+
+function renderHighlightEmbed(highlight) {
+  const embedUrl = youtubeEmbedUrl(highlight.youtubeVideoId || youtubeVideoIdFromUrl(highlight.youtubeUrl));
+  if (!embedUrl) return `<a class="secondary-action" href="${escapeHtml(highlight.youtubeUrl)}" target="_blank" rel="noopener">Open YouTube</a>`;
+  return `<div class="highlight-video-frame">
+    <iframe
+      src="${escapeHtml(embedUrl)}"
+      title="${escapeHtml(highlight.title || "Game highlight")}"
+      loading="lazy"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowfullscreen></iframe>
+  </div>`;
+}
+
+function renderHighlightsManager() {
+  if (!els.highlightsGameSelect || !els.highlightsList) return;
+  const games = completedGamesForHighlights();
+  const currentGameId = els.highlightsGameSelect.value || games[0]?.id || "";
+  els.highlightsGameSelect.innerHTML = games.length
+    ? games.map((game) => `<option value="${escapeHtml(game.id)}" ${game.id === currentGameId ? "selected" : ""}>${escapeHtml(formatGameDateWithYear(game.date || ""))} | ${escapeHtml(gameMatchupLabel(game))}</option>`).join("")
+    : `<option value="">No completed games</option>`;
+  if (els.highlightsGameSelect.value !== currentGameId && games.some((game) => game.id === currentGameId)) {
+    els.highlightsGameSelect.value = currentGameId;
+  }
+
+  const selectedPlayerIds = new Set([...els.highlightPlayersSelect?.selectedOptions || []].map((option) => option.value));
+  if (els.highlightPlayersSelect) {
+    els.highlightPlayersSelect.innerHTML = state.roster
+      .filter((player) => player.active !== false)
+      .map((player) => `<option value="${escapeHtml(player.id)}" ${selectedPlayerIds.has(player.id) ? "selected" : ""}>#${escapeHtml(player.number || "--")} ${escapeHtml(player.name)}</option>`)
+      .join("");
+  }
+
+  const gameId = els.highlightsGameSelect.value || "";
+  const highlights = highlightsForGame(gameId);
+  if (els.highlightsStatus) {
+    els.highlightsStatus.textContent = games.length
+      ? `${highlights.length} ${highlights.length === 1 ? "highlight" : "highlights"} for the selected game.`
+      : "Complete a game before adding highlights.";
+  }
+  if (els.highlightSaveBtn) els.highlightSaveBtn.disabled = !games.length;
+  els.highlightsList.innerHTML = highlights.length
+    ? highlights.map(renderHighlightManagerCard).join("")
+    : `<p class="player-meta highlights-empty">No highlights saved for this game yet.</p>`;
+}
+
+function renderHighlightManagerCard(highlight) {
+  const tag = highlightTagText(highlight);
+  return `<article class="highlight-admin-card">
+    <div class="highlight-admin-copy">
+      <h3>${escapeHtml(highlight.title || "Untitled highlight")}</h3>
+      ${tag ? `<p class="player-meta">${escapeHtml(tag)}</p>` : ""}
+      ${highlight.description ? `<p>${escapeHtml(highlight.description)}</p>` : ""}
+      <a href="${escapeHtml(highlight.youtubeUrl)}" target="_blank" rel="noopener">Open YouTube URL</a>
+    </div>
+    <div class="highlight-admin-actions">
+      <button type="button" class="secondary-action compact-action" data-highlight-edit="${escapeHtml(highlight.id)}">Edit</button>
+      <button type="button" class="secondary-action compact-action danger-action" data-highlight-delete="${escapeHtml(highlight.id)}">Delete</button>
+    </div>
+  </article>`;
+}
+
+function resetHighlightForm() {
+  highlightEditId = "";
+  if (els.highlightFormTitle) els.highlightFormTitle.textContent = "Add Highlight";
+  if (els.highlightUrlInput) els.highlightUrlInput.value = "";
+  if (els.highlightTitleInput) els.highlightTitleInput.value = "";
+  if (els.highlightDescriptionInput) els.highlightDescriptionInput.value = "";
+  if (els.highlightInningInput) els.highlightInningInput.value = "";
+  if (els.highlightPlayTypeInput) els.highlightPlayTypeInput.value = "";
+  if (els.highlightPlayersSelect) [...els.highlightPlayersSelect.options].forEach((option) => { option.selected = false; });
+  if (els.highlightSaveBtn) els.highlightSaveBtn.textContent = "Save Highlight";
+}
+
+function beginHighlightEdit(highlightId) {
+  if (!requireAdminAccess("Admin sign-in required to edit highlights.")) return;
+  const highlight = (state.highlights || []).find((item) => item.id === highlightId);
+  if (!highlight) return;
+  highlightEditId = highlight.id;
+  if (els.highlightsGameSelect) els.highlightsGameSelect.value = highlight.gameId;
+  if (els.highlightFormTitle) els.highlightFormTitle.textContent = "Edit Highlight";
+  if (els.highlightUrlInput) els.highlightUrlInput.value = highlight.youtubeUrl || "";
+  if (els.highlightTitleInput) els.highlightTitleInput.value = highlight.title || "";
+  if (els.highlightDescriptionInput) els.highlightDescriptionInput.value = highlight.description || "";
+  if (els.highlightInningInput) els.highlightInningInput.value = highlight.inning || "";
+  if (els.highlightPlayTypeInput) els.highlightPlayTypeInput.value = highlight.playType || "";
+  if (els.highlightPlayersSelect) {
+    const selected = new Set(highlight.playerIds || []);
+    [...els.highlightPlayersSelect.options].forEach((option) => { option.selected = selected.has(option.value); });
+  }
+  if (els.highlightSaveBtn) els.highlightSaveBtn.textContent = "Update Highlight";
+  els.highlightUrlInput?.focus();
+}
+
+async function saveHighlightRecord(event) {
+  event?.preventDefault?.();
+  if (!requireAdminAccess("Admin sign-in required to manage highlights.")) return;
+  if (!supabaseStorage?.isReady?.()) {
+    window.alert("Supabase is not ready yet on this device.");
+    return;
+  }
+  if (!supabaseAdminEmail) {
+    openAdminAuthModal("Sign in as an approved admin before managing highlights.");
+    return;
+  }
+  const gameId = els.highlightsGameSelect?.value || "";
+  const game = state.games.find((item) => item.id === gameId);
+  if (!game || !gameIsFinal(game)) {
+    window.alert("Choose a completed game before saving a highlight.");
+    return;
+  }
+  const youtubeUrl = String(els.highlightUrlInput?.value || "").trim();
+  const youtubeVideoId = youtubeVideoIdFromUrl(youtubeUrl);
+  if (!youtubeVideoId) {
+    window.alert("Paste a valid YouTube URL before saving.");
+    els.highlightUrlInput?.focus();
+    return;
+  }
+  const title = String(els.highlightTitleInput?.value || "").trim();
+  if (!title) {
+    window.alert("Add a highlight title before saving.");
+    els.highlightTitleInput?.focus();
+    return;
+  }
+  const highlight = normalizeHighlight({
+    id: highlightEditId || createId("highlight"),
+    gameId,
+    youtubeUrl,
+    youtubeVideoId,
+    title,
+    description: els.highlightDescriptionInput?.value || "",
+    inning: els.highlightInningInput?.value || "",
+    playType: els.highlightPlayTypeInput?.value || "",
+    playerIds: [...els.highlightPlayersSelect?.selectedOptions || []].map((option) => option.value),
+    createdAt: (state.highlights || []).find((item) => item.id === highlightEditId)?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }, state.games);
+  if (!highlight) return;
+
+  if (els.highlightSaveBtn) {
+    els.highlightSaveBtn.disabled = true;
+    els.highlightSaveBtn.textContent = highlightEditId ? "Updating..." : "Saving...";
+  }
+  try {
+    const gameResult = await supabaseStorage.upsertGames([game]);
+    if (gameResult?.error) throw gameResult.error;
+    const { data, error } = await supabaseStorage.upsertHighlight(highlight);
+    if (error) throw error;
+    const saved = normalizeHighlight(data || highlight, state.games);
+    state.highlights = [
+      ...(state.highlights || []).filter((item) => item.id !== saved.id),
+      saved
+    ].sort(sortHighlightsNewestFirst);
+    saveState({ markLiveGamesDirty: false, capturePendingScoring: false });
+    resetHighlightForm();
+    render();
+    requestSupabaseRefresh("highlight-save", { force: true, skipWhenHidden: false, invalidateBaseline: false });
+  } catch (error) {
+    console.warn("Unable to save highlight.", error);
+    window.alert(error?.message || "Unable to save this highlight.");
+  } finally {
+    if (els.highlightSaveBtn) {
+      els.highlightSaveBtn.disabled = false;
+      els.highlightSaveBtn.textContent = highlightEditId ? "Update Highlight" : "Save Highlight";
+    }
+  }
+}
+
+async function deleteHighlightRecord(highlightId) {
+  if (!requireAdminAccess("Admin sign-in required to delete highlights.")) return;
+  if (!supabaseStorage?.isReady?.()) {
+    window.alert("Supabase is not ready yet on this device.");
+    return;
+  }
+  const highlight = (state.highlights || []).find((item) => item.id === highlightId);
+  if (!highlight) return;
+  if (!window.confirm(`Delete "${highlight.title || "this highlight"}"?`)) return;
+  try {
+    const { error } = await supabaseStorage.deleteHighlight(highlight.id);
+    if (error) throw error;
+    state.highlights = (state.highlights || []).filter((item) => item.id !== highlight.id);
+    if (highlightEditId === highlight.id) resetHighlightForm();
+    saveState({ markLiveGamesDirty: false, capturePendingScoring: false });
+    render();
+    requestSupabaseRefresh("highlight-delete", { force: true, skipWhenHidden: false, invalidateBaseline: false });
+  } catch (error) {
+    console.warn("Unable to delete highlight.", error);
+    window.alert(error?.message || "Unable to delete this highlight.");
+  }
+}
+
+function openGameHighlights(gameId) {
+  const game = state.games.find((item) => item.id === gameId);
+  if (!game || !highlightCountForGame(game.id)) return;
+  highlightModalGameId = game.id;
+  renderGameHighlightsModal();
+  if (els.gameHighlightsModal) {
+    els.gameHighlightsModal.hidden = false;
+    window.setTimeout(() => els.closeGameHighlightsBtn?.focus(), 0);
+  }
+}
+
+function closeGameHighlightsModal() {
+  highlightModalGameId = "";
+  if (els.gameHighlightsModal) els.gameHighlightsModal.hidden = true;
+}
+
+function renderGameHighlightsModal() {
+  if (!els.gameHighlightsModal || !els.gameHighlightsBody) return;
+  const game = state.games.find((item) => item.id === highlightModalGameId);
+  const highlights = highlightsForGame(highlightModalGameId);
+  if (!game || !highlights.length) {
+    els.gameHighlightsBody.innerHTML = "";
+    if (els.gameHighlightsModal) els.gameHighlightsModal.hidden = true;
+    return;
+  }
+  if (els.gameHighlightsTitle) els.gameHighlightsTitle.textContent = "Game Highlights";
+  if (els.gameHighlightsMeta) els.gameHighlightsMeta.textContent = `${gameMatchupLabel(game)} | ${formatGameDateWithYear(game.date || "")}`;
+  els.gameHighlightsBody.innerHTML = highlights.map((highlight) => {
+    const tag = highlightTagText(highlight);
+    return `<article class="game-highlight-card">
+      ${renderHighlightEmbed(highlight)}
+      <div class="game-highlight-copy">
+        <h3>${escapeHtml(highlight.title || "Game highlight")}</h3>
+        ${tag ? `<p class="player-meta">${escapeHtml(tag)}</p>` : ""}
+        ${highlight.description ? `<p>${escapeHtml(highlight.description)}</p>` : ""}
+      </div>
+    </article>`;
+  }).join("");
 }
 
 function renderScheduleWeatherItem(game) {
@@ -12045,6 +12942,7 @@ function renderScheduleGameCard(game, activeId = "") {
     ? `<button type="button" class="secondary-action" data-game-action="sync" data-game-id="${game.id}" ${!canSyncGame(game) ? "disabled" : ""}>${escapeHtml(completedGameSyncButtonLabel(syncState))}</button>`
     : "";
   const quickScoreAction = renderQuickScoreAction(game, "schedule-quick-score-card");
+  const highlightsAction = renderGameHighlightsAction(game);
   const primaryAction = admin
     ? (lifecycle === "active"
       ? `<button type="button" class="primary-action" data-game-action="score" data-game-id="${game.id}">${actualActive ? (game.id === activeId ? "Continue Scoring" : "Open In Progress") : "Start Live Game"}</button>`
@@ -12055,7 +12953,8 @@ function renderScheduleGameCard(game, activeId = "") {
   const publicActions = lifecycle === "completed"
     ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${game.id}">View Summary</button>
        <button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${game.id}">View Box Score</button>
-       <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${game.id}">View Scorebook</button>`
+       <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${game.id}">View Scorebook</button>
+       ${highlightsAction}`
     : lifecycle === "active"
       ? `<button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${game.id}">View Box Score</button>
          <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${game.id}">View Scorebook</button>`
@@ -12077,6 +12976,7 @@ function renderScheduleGameCard(game, activeId = "") {
       ${admin
         ? `${quickScoreAction}
            ${completed ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${game.id}">View Summary</button>` : ""}
+           ${highlightsAction}
            ${completedSyncButton}
            <button type="button" class="secondary-action" data-game-action="edit" data-game-id="${game.id}" ${locked ? "disabled" : ""}>Edit</button>
            <button type="button" class="secondary-action" data-game-action="complete" data-game-id="${game.id}" ${canComplete ? "" : "disabled"}>Mark Final</button>

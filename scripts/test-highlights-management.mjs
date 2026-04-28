@@ -1,0 +1,73 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
+const appJs = readFileSync(join(rootDir, "app.js"), "utf8");
+const indexHtml = readFileSync(join(rootDir, "index.html"), "utf8");
+const supabaseStorageJs = readFileSync(join(rootDir, "supabase-storage.js"), "utf8");
+const supabaseSchemaSql = readFileSync(join(rootDir, "supabase-schema.sql"), "utf8");
+
+function mustMatch(source, pattern, label) {
+  assert.match(source, pattern, label);
+}
+
+function functionBody(source, functionName) {
+  const start = source.indexOf(`function ${functionName}`);
+  assert.notEqual(start, -1, `${functionName} should exist`);
+  const nextFunction = source.indexOf("\nfunction ", start + 1);
+  return nextFunction === -1 ? source.slice(start) : source.slice(start, nextFunction);
+}
+
+const publicViews = appJs.match(/const PUBLIC_TAB_VIEWS = new Set\(\[[^\]]+\]\);/)?.[0] || "";
+const adminViews = appJs.match(/const ADMIN_TAB_VIEWS = new Set\(\[[^\]]+\]\);/)?.[0] || "";
+
+mustMatch(adminViews, /"highlights"/, "Highlights should be an admin tab");
+assert.doesNotMatch(publicViews, /"highlights"/, "Highlights should not be a public tab");
+mustMatch(indexHtml, /<button class="tab" data-view="highlights" hidden>Highlights<\/button>/, "Admin nav should include the hidden Highlights tab");
+mustMatch(indexHtml, /id="highlightsView"[\s\S]*data-panel="highlights"/, "Highlights view should be present");
+mustMatch(indexHtml, /id="highlightForm"/, "Highlights management form should be present");
+mustMatch(indexHtml, /id="highlightsGameSelect"/, "Highlights form should select a completed game");
+mustMatch(indexHtml, /YouTube URL[\s\S]*id="highlightUrlInput"/, "Highlights form should collect a YouTube URL");
+mustMatch(indexHtml, /id="highlightTitleInput"/, "Highlights form should collect a title");
+mustMatch(indexHtml, /id="highlightDescriptionInput"/, "Highlights form should collect a description");
+mustMatch(indexHtml, /id="highlightInningInput"[\s\S]*id="highlightPlayTypeInput"[\s\S]*id="highlightPlayersSelect"/, "Highlights form should support optional tags");
+mustMatch(indexHtml, /id="gameHighlightsModal"/, "Public game highlights modal should be present");
+
+mustMatch(appJs, /highlights:\s*\[\]/, "Seed state should include highlights");
+mustMatch(appJs, /nextState\.highlights = normalizeHighlights\(nextState\.highlights, nextState\.games\)/, "State normalization should normalize highlights");
+mustMatch(appJs, /fetchBootstrap\(\)[\s\S]*data\.highlights/, "Supabase bootstrap should merge highlight rows");
+mustMatch(appJs, /remoteBootstrap\.data\.highlights/, "Sync baseline should merge highlight rows");
+
+const actionBody = functionBody(appJs, "renderGameHighlightsAction");
+mustMatch(actionBody, /gameIsFinal\(game\)/, "Game Highlights button should be limited to completed games");
+mustMatch(actionBody, /highlightCountForGame\(game\.id\)/, "Game Highlights button should require saved highlights");
+mustMatch(actionBody, /data-game-action="highlights"/, "Game Highlights button should route through game actions");
+
+const saveBody = functionBody(appJs, "saveHighlightRecord");
+mustMatch(saveBody, /requireAdminAccess\("Admin sign-in required to manage highlights\."\)/, "Highlight writes should require admin access in the UI");
+mustMatch(saveBody, /supabaseStorage\.upsertGames\(\[game\]\)/, "Saving highlights should ensure the completed game exists remotely");
+mustMatch(saveBody, /supabaseStorage\.upsertHighlight\(highlight\)/, "Saving highlights should write to the highlight table");
+mustMatch(saveBody, /youtubeVideoIdFromUrl\(youtubeUrl\)/, "Saving highlights should validate YouTube URLs");
+
+const deleteBody = functionBody(appJs, "deleteHighlightRecord");
+mustMatch(deleteBody, /requireAdminAccess\("Admin sign-in required to delete highlights\."\)/, "Highlight deletes should require admin access in the UI");
+mustMatch(deleteBody, /supabaseStorage\.deleteHighlight\(highlight\.id\)/, "Deleting highlights should delete the Supabase record");
+
+mustMatch(functionBody(appJs, "youtubeEmbedUrl"), /youtube\.com\/embed/, "Highlights should render embedded YouTube players");
+mustMatch(functionBody(appJs, "renderHighlightEmbed"), /<iframe/, "Highlight cards should include an iframe embed");
+mustMatch(functionBody(appJs, "handleGameActionClick"), /gameAction === "highlights"[\s\S]*openGameHighlights\(gameId\)/, "Completed game highlight buttons should open the modal");
+
+mustMatch(supabaseStorageJs, /function fetchHighlights/, "Supabase storage should fetch highlights");
+mustMatch(supabaseStorageJs, /\.from\("game_highlights"\)/, "Supabase storage should target game_highlights");
+mustMatch(supabaseStorageJs, /function upsertHighlight/, "Supabase storage should upsert highlight records");
+mustMatch(supabaseStorageJs, /function deleteHighlight/, "Supabase storage should delete highlight records");
+mustMatch(supabaseStorageJs, /Supabase game_highlights table is not available to the app/, "Missing highlight table should produce an actionable error");
+
+mustMatch(supabaseSchemaSql, /create table if not exists public\.game_highlights/i, "Schema should create game_highlights");
+mustMatch(supabaseSchemaSql, /alter table public\.game_highlights enable row level security/i, "game_highlights should have RLS enabled");
+mustMatch(supabaseSchemaSql, /Public read game_highlights/i, "game_highlights should have a public read policy");
+mustMatch(supabaseSchemaSql, /Authenticated write game_highlights[\s\S]*public\.app_admins/i, "game_highlights writes should be restricted to app admins");
+
+console.log("Highlights management checks passed.");

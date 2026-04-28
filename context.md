@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
 Last updated: 2026-04-27
-Current commit: post-v1.1.17 working tree with iPad scoring tap reliability and spray chart geometry fixes in progress
-Current app version: `v.1.1.20`
-Current asset build markers: `2026.04.27-build-184`
+Current commit: `10565f1` plus uncommitted Highlights management and Team News work
+Current app version: `v.1.1.26`
+Current asset build markers: `2026.04.28-build-190`
 
 ## Project Overview
 
@@ -40,6 +40,7 @@ Normal working pattern:
 
 Public users can view:
 - Home
+- Team News
 - Schedule & Scores
 - Roster
 - Stats
@@ -57,9 +58,12 @@ Public users cannot:
 ### Admin mode
 
 Admin users can access:
+- Team News
+- News Editor
 - Score Game
 - Lineup Lab
 - Roster management
+- Highlights management
 - Scouting Report
 - Analysis
 - create, edit, sync, and complete game workflows
@@ -74,6 +78,7 @@ Supabase is configured for:
 - admin sign-in
 - shared games and app state
 - public read + admin write model
+- completed-game highlight records
 
 Current project URL:
 - `https://oxtikmowvunvicgvvdqa.supabase.co`
@@ -102,14 +107,18 @@ The app is still in a hybrid state:
 - local persistence is moving from full-state `localStorage` writes to IndexedDB via the local Dexie-backed `db.js` layer
 - `localStorage` is reserved for tiny metadata such as `currentGameId` / `activeGameId`, with legacy full-state keys migrated into IndexedDB and removed after a successful load
 - roster now has a dedicated `public.roster_players` Supabase table
+- highlights now have a dedicated `public.game_highlights` Supabase table for YouTube-link metadata only
+- Team News articles now have a dedicated `public.news_articles` Supabase table so article edits are row-level and visible across devices
 - `app_state.roster` is still written as a compatibility fallback during the migration
 
 Important current note:
 - `supabase-schema.sql` creates and backfills `public.roster_players` from the existing `app_state.roster` JSON
+- `supabase-schema.sql` also creates `public.game_highlights` with public read and admin-only write RLS through `public.app_admins`
+- `supabase-schema.sql` also creates and backfills `public.news_articles` from legacy `app_state.metadata.news_articles`, with public read and admin-only write RLS through `public.app_admins`
 - the app prefers `roster_players` during Supabase bootstrap when rows exist
 - roster add/edit/remove/toggle flows still mutate local `state.roster`, then shared sync writes both `roster_players` and the fallback `app_state` row
 - roster add/edit/remove/toggle flows now await the shared roster sync and alert admins if Supabase/table/auth rejects the write instead of failing silently
-- run the updated schema in each Supabase environment before expecting table writes to persist there
+- run the updated schema in each Supabase environment before expecting roster, highlight, or news article table writes to persist there
 
 ### Live game workflow
 
@@ -203,6 +212,30 @@ Current state:
 - mobile completed-games view shows all completed games instead of a short "last 3" slice
 - box score return copy uses `Back to Archive`
 - `View Full Stats` from box score carries the selected game into Stats
+- completed game cards show `Game Highlights` only when a completed game has one or more `game_highlights` rows
+- `Game Highlights` opens a modal with embedded YouTube videos; videos are linked from YouTube and are not stored in Supabase Storage
+
+### Team News
+
+Current state:
+- Home replaces the former Recent Games card with a compact Team News card showing up to four recent items
+- `View All News` opens a dedicated Team News page
+- Team News is a public read view with a featured story, full article list, and category filters
+- desktop Team News uses a two-column layout
+- public Team News renders manual article records from `state.newsArticles`
+- the All Articles column is a compact selector that shows title, summary, and a Read More action; the selected article renders in full in the featured/detail panel
+- admins manage those records in the News Editor tab with title, summary, rich body, image upload/preview, category, optional linked game, edit, and delete
+- `Generate from Game` in News Editor can prefill a recap or preview draft, but all fields stay editable before saving
+- manual news article saves/deletes go directly to Supabase `news_articles` rows instead of syncing the full app-state metadata blob
+
+### Highlights
+
+Current state:
+- admin users have a dedicated Highlights tab
+- highlight records are selected against completed games
+- records store YouTube URL/video ID, title, description, optional inning, optional play type, and optional tagged Lions players
+- writes go through Supabase `game_highlights` and should be blocked by RLS unless the signed-in user is present in `public.app_admins`
+- public users can view highlight embeds from completed game cards when records exist
 
 ### Matchup Artwork and Logos
 
@@ -275,14 +308,22 @@ At the time of this update, the local workspace has uncommitted changes in:
 - `app.js`
 - `index.html`
 - `styles.css`
+- `service-worker.js`
+- `scripts/test-team-news-page.mjs`
+- `scripts/test-themed-dropdowns.mjs`
+- `scripts/test-highlights-management.mjs`
+- `scripts/test-roster-db-sync.mjs`
+- `scripts/test-storage-quota-safe.mjs`
 - `supabase-storage.js`
-- `assets/updated-field.png`
-- `assets/win-animation/`
+- `supabase-schema.sql`
 
 Those local changes are primarily tied to:
-- ongoing Score Game shell/layout refinement
-- field sizing/alignment work
-- win animation assets/presentation
+- admin-only Highlights management
+- Supabase `game_highlights` persistence and RLS
+- Supabase `news_articles` persistence, migration, and RLS
+- completed-game highlight viewing from public game cards
+- public Team News home card/page and admin News Editor
+- app/cache build bump for the next QA/prod refresh
 
 ## Current Priorities
 

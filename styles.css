@@ -612,6 +612,128 @@ textarea:disabled {
   grid-column: 1 / -1;
 }
 
+.highlights-admin-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.highlight-form,
+.highlights-list-shell {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.highlight-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--white);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.highlight-form input,
+.highlight-form select,
+.highlight-form textarea {
+  width: 100%;
+}
+
+.highlight-form textarea {
+  resize: vertical;
+}
+
+.highlight-tag-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.45fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.highlights-list {
+  display: grid;
+  gap: 12px;
+}
+
+.highlight-admin-card,
+.game-highlight-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(7, 16, 29, 0.72);
+}
+
+.highlight-admin-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.highlight-admin-copy,
+.game-highlight-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.highlight-admin-copy h3,
+.game-highlight-copy h3 {
+  margin: 0;
+  color: var(--white);
+}
+
+.highlight-admin-copy p,
+.game-highlight-copy p {
+  margin: 0;
+}
+
+.highlight-admin-copy a {
+  color: var(--lion-gold);
+  font-weight: 850;
+}
+
+.highlight-admin-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.game-highlights-modal-card {
+  width: min(100%, 920px);
+  display: grid;
+  gap: 16px;
+}
+
+.game-highlights-body {
+  display: grid;
+  gap: 16px;
+  max-height: min(72vh, 760px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.highlight-video-frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(245, 189, 33, 0.24);
+  border-radius: 8px;
+  aspect-ratio: 16 / 9;
+  background: #020617;
+}
+
+.highlight-video-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 .mark {
   display: grid;
   width: 44px;
@@ -875,7 +997,8 @@ main {
   grid-area: recent;
 }
 
-.home-recent-games-panel {
+.home-recent-games-panel,
+.home-team-news-panel {
   grid-area: games;
 }
 
@@ -981,7 +1104,8 @@ main {
 }
 
 .home-recent-result-panel,
-.home-recent-games-panel {
+.home-recent-games-panel,
+.home-team-news-panel {
   min-height: 254px;
 }
 
@@ -1504,6 +1628,415 @@ main {
 
 .home-recent-games-arrow {
   color: rgba(255, 255, 255, 0.68);
+}
+
+.home-team-news-body {
+  display: grid;
+  margin-top: 8px;
+}
+
+.home-team-news-list {
+  display: grid;
+  gap: 0;
+}
+
+.home-team-news-item {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--white);
+  text-align: left;
+}
+
+.home-team-news-item:last-child {
+  border-bottom: 0;
+}
+
+.home-team-news-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.home-team-news-thumb {
+  width: 58px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.home-team-news-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.home-team-news-copy strong {
+  color: var(--white);
+  font-size: 0.98rem;
+  font-weight: 850;
+  line-height: 1.18;
+}
+
+.home-team-news-meta,
+.home-team-news-arrow {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.home-team-news-arrow {
+  text-align: center;
+}
+
+.news-page-head {
+  align-items: flex-start;
+}
+
+.news-category-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.team-news-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.92fr) minmax(0, 1.08fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.news-featured-story,
+.news-list-shell {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.news-feature-card,
+.news-article-card {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.news-feature-image {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.news-feature-copy,
+.news-article-copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.news-feature-copy h3,
+.news-article-copy h3 {
+  margin: 0;
+  color: var(--white);
+  line-height: 1.12;
+}
+
+.news-feature-copy h3 {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+}
+
+.news-article-copy h3 {
+  font-size: 1.1rem;
+}
+
+.news-feature-copy p,
+.news-article-copy p {
+  margin: 0;
+  color: var(--text-soft);
+  line-height: 1.45;
+}
+
+.news-category-pill {
+  justify-self: start;
+  border: 1px solid rgba(245, 189, 33, 0.26);
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: rgba(245, 189, 33, 0.1);
+  color: var(--lion-gold);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.news-article-list {
+  display: grid;
+  gap: 12px;
+}
+
+.news-article-card {
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: start;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(7, 16, 29, 0.62);
+}
+
+.news-article-card.is-active {
+  border-color: rgba(245, 189, 33, 0.42);
+  background:
+    linear-gradient(180deg, rgba(245, 189, 33, 0.09), rgba(7, 16, 29, 0.68));
+}
+
+.news-article-thumb {
+  width: 88px;
+  height: 74px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.news-article-body {
+  display: grid;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.48;
+}
+
+.news-article-body p,
+.news-article-body ul,
+.news-article-body ol {
+  margin: 0;
+}
+
+.news-article-body ul,
+.news-article-body ol {
+  padding-left: 1.2rem;
+}
+
+.news-article-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.news-read-more-btn {
+  justify-self: end;
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+}
+
+.news-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.news-editor-form,
+.news-editor-list-shell {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.news-editor-form label,
+.news-editor-label {
+  display: grid;
+  gap: 7px;
+  color: var(--white);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.news-editor-form input,
+.news-editor-form select,
+.news-editor-form textarea {
+  width: 100%;
+}
+
+.news-editor-form textarea {
+  resize: vertical;
+}
+
+.news-editor-generate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.news-editor-image-preview {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  overflow: hidden;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(7, 16, 29, 0.62);
+  color: var(--text-soft);
+  font-weight: 800;
+}
+
+.news-editor-image-preview img {
+  width: 100%;
+  height: 100%;
+  max-height: 260px;
+  object-fit: cover;
+}
+
+.news-editor-body-shell {
+  display: grid;
+  gap: 8px;
+}
+
+.news-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.news-rich-editor {
+  min-height: 180px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(3, 10, 24, 0.62);
+  color: var(--white);
+  line-height: 1.45;
+  outline: none;
+}
+
+.news-rich-editor:focus {
+  border-color: rgba(245, 189, 33, 0.48);
+  box-shadow: 0 0 0 3px rgba(245, 189, 33, 0.11);
+}
+
+.news-rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(255, 255, 255, 0.46);
+}
+
+.news-editor-list {
+  display: grid;
+  gap: 12px;
+}
+
+.news-editor-list-item {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(7, 16, 29, 0.62);
+}
+
+.news-editor-list-thumb {
+  width: 92px;
+  height: 70px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.news-editor-list-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.news-editor-list-copy h3,
+.news-editor-list-copy p {
+  margin: 0;
+}
+
+.news-editor-list-copy h3 {
+  color: var(--white);
+  font-size: 1.06rem;
+  line-height: 1.15;
+}
+
+.news-editor-list-copy p {
+  color: var(--text-soft);
+}
+
+.news-editor-list-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .team-news-layout,
+  .news-editor-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .news-category-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .news-article-card {
+    grid-template-columns: 72px minmax(0, 1fr);
+    padding: 10px;
+  }
+
+  .news-article-thumb {
+    width: 72px;
+    height: 62px;
+  }
+
+  .news-feature-copy h3 {
+    font-size: 1.55rem;
+  }
+
+  .home-team-news-item {
+    grid-template-columns: 52px minmax(0, 1fr) 14px;
+    gap: 10px;
+    padding: 11px 0;
+  }
+
+  .home-team-news-thumb {
+    width: 52px;
+    height: 40px;
+  }
+
+  .home-team-news-copy strong {
+    font-size: 0.9rem;
+  }
+
+  .news-editor-generate-row,
+  .news-editor-list-item {
+    grid-template-columns: 1fr;
+  }
+
+  .news-editor-list-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1180px) {
@@ -2085,7 +2618,8 @@ main {
 
 .schedule-season-select option,
 .schedule-calendar-month-select option {
-  color: #101722;
+  background: #151a2d;
+  color: var(--white);
 }
 
 .schedule-dashboard {
@@ -9118,7 +9652,8 @@ label {
   .home-batting-leaders-panel,
   .home-recent-result-panel,
   .home-pitching-leaders-panel,
-  .home-recent-games-panel {
+  .home-recent-games-panel,
+  .home-team-news-panel {
     grid-column: auto;
     height: 100%;
   }
@@ -9133,7 +9668,8 @@ label {
 
   .home-hero-panel,
   .home-recent-result-panel,
-  .home-recent-games-panel {
+  .home-recent-games-panel,
+  .home-team-news-panel {
     padding: 18px;
     gap: 14px;
   }
@@ -13463,13 +13999,7 @@ label {
   font-size: 1rem;
 }
 
-#rosterView select,
-#statsView .stats-mobile-controls select,
-#statsView .stats-spray-shell select,
-.stats-spray-modal-card select,
-#scoreView .sub-panel select,
-#scorebookView select,
-#boxScoreView select {
+select:not(.schedule-season-select):not(.schedule-calendar-month-select) {
   border-color: rgba(255, 255, 255, 0.16);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05)),
@@ -13479,14 +14009,35 @@ label {
   color-scheme: dark;
 }
 
-#rosterView select option,
-#statsView .stats-mobile-controls select option,
-#statsView .stats-spray-shell select option,
-.stats-spray-modal-card select option,
-#scoreView .sub-panel select option,
-#scorebookView select option,
-#boxScoreView select option {
+select:not([multiple]):not(.schedule-season-select):not(.schedule-calendar-month-select) {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 38px;
+  background:
+    linear-gradient(45deg, transparent 50%, rgba(245, 189, 33, 0.94) 50%) calc(100% - 18px) 50% / 6px 6px no-repeat,
+    linear-gradient(135deg, rgba(245, 189, 33, 0.94) 50%, transparent 50%) calc(100% - 13px) 50% / 6px 6px no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05)),
+    rgba(3, 10, 36, 0.82);
+}
+
+select:not(.schedule-season-select):not(.schedule-calendar-month-select):hover {
+  border-color: rgba(245, 189, 33, 0.46);
+  box-shadow: 0 0 0 1px rgba(245, 189, 33, 0.08);
+}
+
+select:not(.schedule-season-select):not(.schedule-calendar-month-select):disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+select option,
+select optgroup {
   background: #151a2d;
+  color: var(--white);
+}
+
+select option:checked {
+  background: #263250;
   color: var(--white);
 }
 
@@ -14792,7 +15343,8 @@ label {
   .home-batting-leaders-panel,
   .home-pitching-leaders-panel,
   .home-recent-result-panel,
-  .home-recent-games-panel {
+  .home-recent-games-panel,
+  .home-team-news-panel {
     grid-column: auto;
     width: 100%;
   }
@@ -14813,7 +15365,8 @@ label {
     order: 4;
   }
 
-  .home-recent-games-panel {
+  .home-recent-games-panel,
+  .home-team-news-panel {
     order: 5;
   }
 
@@ -14957,7 +15510,8 @@ label {
   }
 
   .home-recent-result-panel,
-  .home-recent-games-panel {
+  .home-recent-games-panel,
+  .home-team-news-panel {
     min-height: 0;
     padding: 14px;
   }
@@ -14965,20 +15519,23 @@ label {
   .home-batting-leaders-panel .home-dashboard-head,
   .home-pitching-leaders-panel .home-dashboard-head,
   .home-recent-result-panel .home-dashboard-head,
-  .home-recent-games-panel .home-dashboard-head {
+  .home-recent-games-panel .home-dashboard-head,
+  .home-team-news-panel .home-dashboard-head {
     margin-bottom: 12px;
   }
 
   .home-batting-leaders-panel .home-dashboard-head h3,
   .home-pitching-leaders-panel .home-dashboard-head h3,
   .home-recent-result-panel .home-dashboard-head h3,
-  .home-recent-games-panel .home-dashboard-head h3 {
+  .home-recent-games-panel .home-dashboard-head h3,
+  .home-team-news-panel .home-dashboard-head h3 {
     font-size: 0.9rem;
   }
 
   .home-batting-leaders-panel .home-dashboard-link,
   .home-pitching-leaders-panel .home-dashboard-link,
-  .home-recent-games-panel .home-dashboard-link {
+  .home-recent-games-panel .home-dashboard-link,
+  .home-team-news-panel .home-dashboard-link {
     font-size: 0.88rem;
   }
 
@@ -15369,9 +15926,14 @@ label {
 }
 
 #scoreView .spray-panel select {
-  border-color: rgba(16, 33, 43, 0.18);
-  background: rgba(255, 255, 255, 0.9);
-  color: #10212b;
+  border-color: rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(45deg, transparent 50%, rgba(245, 189, 33, 0.94) 50%) calc(100% - 18px) 50% / 6px 6px no-repeat,
+    linear-gradient(135deg, rgba(245, 189, 33, 0.94) 50%, transparent 50%) calc(100% - 13px) 50% / 6px 6px no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06)),
+    rgba(3, 10, 36, 0.9);
+  color: var(--white);
+  color-scheme: dark;
 }
 
 #scoreView .position-marker-layer {
@@ -15729,6 +16291,21 @@ label {
 }
 
 @media (max-width: 760px) {
+  .highlights-admin-grid,
+  .highlight-tag-grid,
+  .highlight-admin-card {
+    grid-template-columns: 1fr;
+  }
+
+  .highlight-admin-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game-highlights-modal-card {
+    width: min(100%, calc(100vw - 18px));
+  }
+
   #statsSprayModal .stats-spray-modal-card {
     width: min(392px, calc(100% - 16px));
     gap: 10px;
@@ -16601,7 +17178,11 @@ label {
 
   #scoreView .game-pitcher-card select {
     border-color: rgba(255, 255, 255, 0.14);
-    background: rgba(255, 255, 255, 0.08);
+    background:
+      linear-gradient(45deg, transparent 50%, rgba(245, 189, 33, 0.94) 50%) calc(100% - 18px) 50% / 6px 6px no-repeat,
+      linear-gradient(135deg, rgba(245, 189, 33, 0.94) 50%, transparent 50%) calc(100% - 13px) 50% / 6px 6px no-repeat,
+      linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05)),
+      rgba(3, 10, 36, 0.82);
     color: var(--white);
   }
 

@@ -49,7 +49,7 @@ mustMatch(mergeBody, /if \(!rosterFromRows\.length && Array\.isArray\(appStateRo
 
 mustMatch(appJs, /Array\.isArray\(snapshot\.rosterPlayers\) && snapshot\.rosterPlayers\.length/, "Meaningful snapshot detection should include roster rows");
 mustMatch(appJs, /rosterRowsMissing[\s\S]*appStateRosterMissing[\s\S]*rosterMissing = rosterRowsMissing && appStateRosterMissing/, "Shared roster missing check should accept either table rows or app-state fallback");
-mustMatch(appJs, /mergeRemoteSnapshot\(state, data\.appState, data\.games, data\.rosterPlayers\)/, "Refresh should merge roster rows");
+mustMatch(appJs, /mergeRemoteSnapshot\(\s*state,\s*data\.appState,\s*data\.games,\s*data\.rosterPlayers,\s*data\.highlights,/, "Refresh should merge roster rows");
 mustMatch(appJs, /remoteBootstrap\.data\.rosterPlayers/, "Sync baseline merge should include roster rows");
 mustMatch(appJs, /supabaseStorage\.upsertRosterPlayers\(snapshot\.roster, snapshot\.rosterVersion\)/, "Shared sync should write roster_players");
 mustMatch(appJs, /function sharedRosterSyncUnavailableError/, "Roster writes should check Supabase/admin readiness before claiming sync");

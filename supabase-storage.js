@@ -128,13 +128,92 @@
     };
   }
 
-  function mergeRemoteSnapshot(baseState, appStateRow, gamesRows, rosterRows = []) {
+  function highlightFromRow(row) {
+    if (!row?.id || !row?.game_id) return null;
+    const playerIds = Array.isArray(row.player_ids)
+      ? row.player_ids.map((id) => String(id || "").trim()).filter(Boolean)
+      : [];
+    return {
+      id: String(row.id || "").trim(),
+      gameId: String(row.game_id || "").trim(),
+      youtubeUrl: String(row.youtube_url || "").trim(),
+      youtubeVideoId: String(row.youtube_video_id || "").trim(),
+      title: String(row.title || "").trim(),
+      description: String(row.description || "").trim(),
+      inning: String(row.inning || "").trim(),
+      playType: String(row.play_type || "").trim(),
+      playerIds,
+      createdAt: row.created_at || "",
+      updatedAt: row.updated_at || ""
+    };
+  }
+
+  function buildHighlightRow(highlight) {
+    return {
+      id: String(highlight?.id || "").trim(),
+      game_id: String(highlight?.gameId || highlight?.game_id || "").trim(),
+      youtube_url: String(highlight?.youtubeUrl || highlight?.youtube_url || "").trim(),
+      youtube_video_id: String(highlight?.youtubeVideoId || highlight?.youtube_video_id || "").trim(),
+      title: String(highlight?.title || "").trim(),
+      description: String(highlight?.description || "").trim(),
+      inning: String(highlight?.inning || "").trim(),
+      play_type: String(highlight?.playType || highlight?.play_type || "").trim(),
+      player_ids: Array.isArray(highlight?.playerIds)
+        ? highlight.playerIds.map((id) => String(id || "").trim()).filter(Boolean)
+        : [],
+      metadata: {
+        updated_from: "scorebook-app"
+      }
+    };
+  }
+
+  function newsArticleFromRow(row) {
+    if (!row?.id) return null;
+    return {
+      id: String(row.id || "").trim(),
+      title: String(row.title || "").trim(),
+      summary: String(row.summary || "").trim(),
+      bodyHtml: String(row.body_html || "").trim(),
+      category: String(row.category || "Team News").trim(),
+      gameId: String(row.game_id || "").trim(),
+      date: row.article_date || "",
+      imageDataUrl: String(row.image_data_url || "").trim(),
+      createdAt: row.created_at || "",
+      updatedAt: row.updated_at || ""
+    };
+  }
+
+  function buildNewsArticleRow(article) {
+    const articleDate = String(article?.date || article?.article_date || "").trim();
+    return {
+      id: String(article?.id || "").trim(),
+      title: String(article?.title || "").trim(),
+      summary: String(article?.summary || "").trim(),
+      body_html: String(article?.bodyHtml || article?.body_html || "").trim(),
+      category: String(article?.category || "Team News").trim(),
+      game_id: String(article?.gameId || article?.game_id || "").trim(),
+      article_date: articleDate || null,
+      image_data_url: String(article?.imageDataUrl || article?.image_data_url || "").trim(),
+      metadata: {
+        updated_from: "scorebook-app"
+      }
+    };
+  }
+
+  function mergeRemoteSnapshot(baseState, appStateRow, gamesRows, rosterRows = [], highlightRows = [], newsRows = undefined) {
     const nextState = deepClone(baseState || {});
     const remoteMetadata = appStateRow?.metadata && typeof appStateRow.metadata === "object" ? appStateRow.metadata : {};
     const remoteDeletedGameTombstones = remoteMetadata.deleted_game_tombstones && typeof remoteMetadata.deleted_game_tombstones === "object"
       ? deepClone(remoteMetadata.deleted_game_tombstones)
       : {};
     nextState.deletedGameTombstones = deepClone(remoteDeletedGameTombstones);
+    if (Array.isArray(newsRows)) {
+      nextState.newsArticles = newsRows.map(newsArticleFromRow).filter((article) => article?.id);
+    } else {
+      nextState.newsArticles = Array.isArray(remoteMetadata.news_articles)
+        ? deepClone(remoteMetadata.news_articles)
+        : deepClone(nextState.newsArticles || []);
+    }
     const rosterFromRows = Array.isArray(rosterRows)
       ? rosterRows.map(rosterPlayerFromRow).filter((player) => player?.id)
       : [];
@@ -209,6 +288,9 @@
       });
       nextState.games = mergedGames;
     }
+    if (Array.isArray(highlightRows)) {
+      nextState.highlights = highlightRows.map(highlightFromRow).filter((highlight) => highlight?.id);
+    }
     return nextState;
   }
 
@@ -249,19 +331,53 @@
     return response;
   }
 
+  async function fetchHighlights() {
+    const client = getClient();
+    if (!client) return { data: [], error: new Error("Supabase client not ready.") };
+    const response = await client
+      .from("game_highlights")
+      .select("*")
+      .order("game_id", { ascending: true })
+      .order("created_at", { ascending: false });
+    if (isMissingTableError(response.error, "game_highlights")) {
+      return { data: [], error: null, missingTable: true };
+    }
+    return response;
+  }
+
+  async function fetchNewsArticles() {
+    const client = getClient();
+    if (!client) return { data: [], error: new Error("Supabase client not ready.") };
+    const response = await client
+      .from("news_articles")
+      .select("*")
+      .order("article_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+    if (isMissingTableError(response.error, "news_articles")) {
+      return { data: [], error: null, missingTable: true };
+    }
+    return response;
+  }
+
   async function fetchBootstrap() {
-    const [appStateResponse, rosterPlayersResponse, gamesResponse] = await Promise.all([
+    const [appStateResponse, rosterPlayersResponse, gamesResponse, highlightsResponse, newsArticlesResponse] = await Promise.all([
       fetchAppState(),
       fetchRosterPlayers(),
-      fetchGames()
+      fetchGames(),
+      fetchHighlights(),
+      fetchNewsArticles()
     ]);
-    const error = appStateResponse.error || rosterPlayersResponse.error || gamesResponse.error || null;
+    const error = appStateResponse.error || rosterPlayersResponse.error || gamesResponse.error || highlightsResponse.error || newsArticlesResponse.error || null;
     return {
       data: {
         appState: appStateResponse.data || null,
         rosterPlayers: rosterPlayersResponse.data || [],
         rosterPlayersMissingTable: Boolean(rosterPlayersResponse.missingTable),
-        games: gamesResponse.data || []
+        games: gamesResponse.data || [],
+        highlights: highlightsResponse.data || [],
+        highlightsMissingTable: Boolean(highlightsResponse.missingTable),
+        newsArticles: newsArticlesResponse.data || [],
+        newsArticlesMissingTable: Boolean(newsArticlesResponse.missingTable)
       },
       error
     };
@@ -383,6 +499,92 @@
       .select("id");
   }
 
+  async function upsertHighlight(highlight) {
+    const client = getClient();
+    if (!client) return { data: null, error: new Error("Supabase client not ready.") };
+    const row = buildHighlightRow(highlight);
+    if (!row.id || !row.game_id) return { data: null, error: new Error("Highlight is missing an id or game id.") };
+    const response = await client
+      .from("game_highlights")
+      .upsert(row, { onConflict: "id" })
+      .select("*")
+      .single();
+    if (isMissingTableError(response.error, "game_highlights")) {
+      return {
+        data: null,
+        error: new Error("Supabase game_highlights table is not available to the app. Run supabase-schema.sql in this environment or refresh the Supabase API schema cache."),
+        missingTable: true
+      };
+    }
+    return {
+      ...response,
+      data: highlightFromRow(response.data)
+    };
+  }
+
+  async function deleteHighlight(highlightId) {
+    const client = getClient();
+    if (!client) return { data: [], error: new Error("Supabase client not ready.") };
+    const id = String(highlightId || "").trim();
+    if (!id) return { data: [], error: null };
+    const response = await client
+      .from("game_highlights")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    if (isMissingTableError(response.error, "game_highlights")) {
+      return {
+        data: [],
+        error: new Error("Supabase game_highlights table is not available to the app. Run supabase-schema.sql in this environment or refresh the Supabase API schema cache."),
+        missingTable: true
+      };
+    }
+    return response;
+  }
+
+  async function upsertNewsArticle(article) {
+    const client = getClient();
+    if (!client) return { data: null, error: new Error("Supabase client not ready.") };
+    const row = buildNewsArticleRow(article);
+    if (!row.id || !row.title) return { data: null, error: new Error("News article is missing an id or title.") };
+    const response = await client
+      .from("news_articles")
+      .upsert(row, { onConflict: "id" })
+      .select("*")
+      .single();
+    if (isMissingTableError(response.error, "news_articles")) {
+      return {
+        data: null,
+        error: new Error("Supabase news_articles table is not available to the app. Run supabase-schema.sql in this environment or refresh the Supabase API schema cache."),
+        missingTable: true
+      };
+    }
+    return {
+      ...response,
+      data: newsArticleFromRow(response.data)
+    };
+  }
+
+  async function deleteNewsArticle(articleId) {
+    const client = getClient();
+    if (!client) return { data: [], error: new Error("Supabase client not ready.") };
+    const id = String(articleId || "").trim();
+    if (!id) return { data: [], error: null };
+    const response = await client
+      .from("news_articles")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    if (isMissingTableError(response.error, "news_articles")) {
+      return {
+        data: [],
+        error: new Error("Supabase news_articles table is not available to the app. Run supabase-schema.sql in this environment or refresh the Supabase API schema cache."),
+        missingTable: true
+      };
+    }
+    return response;
+  }
+
   async function isAdminEmail(email) {
     const client = getClient();
     if (!client) return { data: false, error: new Error("Supabase client not ready.") };
@@ -404,12 +606,18 @@
     isReady,
     buildAppStateRow,
     buildGameRow,
+    buildHighlightRow,
+    buildNewsArticleRow,
     buildRosterPlayerRow,
+    highlightFromRow,
+    newsArticleFromRow,
     rosterPlayerFromRow,
     mergeRemoteSnapshot,
     fetchAppState,
     fetchRosterPlayers,
     fetchGames,
+    fetchHighlights,
+    fetchNewsArticles,
     fetchBootstrap,
     fetchLeagueStandings,
     upsertAppState,
@@ -418,6 +626,10 @@
     pushSnapshot,
     replaceGamesSnapshot,
     deleteGames,
+    upsertHighlight,
+    deleteHighlight,
+    upsertNewsArticle,
+    deleteNewsArticle,
     isAdminEmail
   };
 })(window);
