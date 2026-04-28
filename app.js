@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.26";
+const APP_VERSION = "v.1.1.27";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -688,6 +688,7 @@ let archiveSeasonFilter = String(currentLeagueSeason());
 let statsSeasonFilter = String(currentLeagueSeason());
 let newsCategoryFilter = "all";
 let selectedNewsArticleId = "";
+let newsLayoutMode = "latest";
 let statsPlayerFocus = "all";
 let activeCustomSubSelect = null;
 let statsMode = "hitting";
@@ -3612,7 +3613,11 @@ function bindEvents() {
   els.homeScoutingBtn?.addEventListener("click", openNextGameScouting);
   els.homeBattingLeadersLink?.addEventListener("click", () => switchView("stats"));
   els.homePitchingLeadersLink?.addEventListener("click", () => switchView("stats"));
-  els.homeTeamNewsLink?.addEventListener("click", () => switchView("news"));
+  els.homeTeamNewsLink?.addEventListener("click", () => {
+    selectedNewsArticleId = "";
+    newsLayoutMode = "latest";
+    switchView("news");
+  });
   els.homeRecentResultBody?.addEventListener("click", (event) => {
     if (event.target.closest("[data-game-action]")) {
       handleGameActionClick(event);
@@ -3626,6 +3631,7 @@ function bindEvents() {
     const button = event.target.closest("[data-home-news-id]");
     if (!button) return;
     selectedNewsArticleId = button.dataset.homeNewsId || "";
+    newsLayoutMode = "article";
     switchView("news");
   });
   els.newsCategoryFilters?.addEventListener("click", (event) => {
@@ -3633,6 +3639,7 @@ function bindEvents() {
     if (!button) return;
     newsCategoryFilter = button.dataset.newsCategory || "all";
     selectedNewsArticleId = "";
+    newsLayoutMode = "latest";
     if (els.newsFeaturedStory) els.newsFeaturedStory.scrollIntoView({ behavior: "smooth", block: "start" });
     renderTeamNews();
   });
@@ -3640,6 +3647,7 @@ function bindEvents() {
     const button = event.target.closest("[data-news-read]");
     if (!button) return;
     selectedNewsArticleId = button.dataset.newsRead || "";
+    newsLayoutMode = "article";
     renderTeamNews();
     els.newsFeaturedStory?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
@@ -7731,6 +7739,7 @@ function renderTeamNews() {
   const articles = filteredTeamNewsArticles();
   const featured = articles.find((article) => article.id === selectedNewsArticleId) || articles[0] || null;
   selectedNewsArticleId = featured?.id || "";
+  els.newsFeaturedStory.closest(".team-news-layout")?.classList.toggle("is-latest-first", newsLayoutMode !== "article");
   els.newsFeaturedStory.innerHTML = featured
     ? renderFeaturedNewsStory(featured)
     : `<div class="upcoming-empty">No articles in this category yet.</div>`;
@@ -7753,11 +7762,16 @@ function renderFeaturedNewsStory(article) {
     <div class="news-feature-copy">
       <span class="news-category-pill">${escapeHtml(article.category)}</span>
       <h3>${escapeHtml(article.title)}</h3>
+      <span class="news-feature-date">${escapeHtml(newsArticleDateLabel(article))}</span>
       <p>${escapeHtml(article.summary)}</p>
       ${article.bodyHtml ? `<div class="news-article-body">${sanitizeNewsBodyHtml(article.bodyHtml)}</div>` : ""}
-      <span class="player-meta">${escapeHtml(formatGameDateDisplay(article.date))}</span>
     </div>
   </article>`;
+}
+
+function newsArticleDateLabel(article) {
+  const label = article?.gameId ? "Game Date" : "Date";
+  return `${label}: ${formatGameDateDisplay(article?.date)}`;
 }
 
 function renderNewsArticleCard(article, active = false) {

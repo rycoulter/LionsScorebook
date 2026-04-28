@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-27
 Current commit: `10565f1` plus uncommitted Highlights management and Team News work
-Current app version: `v.1.1.26`
-Current asset build markers: `2026.04.28-build-190`
+Current app version: `v.1.1.27`
+Current asset build markers: `2026.04.28-build-191`
 
 ## Project Overview
 
@@ -223,7 +223,8 @@ Current state:
 - Team News is a public read view with a featured story, full article list, and category filters
 - desktop Team News uses a two-column layout
 - public Team News renders manual article records from `state.newsArticles`
-- the All Articles column is a compact selector that shows title, summary, and a Read More action; the selected article renders in full in the featured/detail panel
+- the All Articles column is a compact selector that shows thumbnail, title, summary, and a Read More action; the selected article renders in full in the featured/detail panel
+- on mobile, `View All News` places Latest above the article detail, while direct article taps place the selected article above Latest
 - admins manage those records in the News Editor tab with title, summary, rich body, image upload/preview, category, optional linked game, edit, and delete
 - `Generate from Game` in News Editor can prefill a recap or preview draft, but all fields stay editable before saving
 - manual news article saves/deletes go directly to Supabase `news_articles` rows instead of syncing the full app-state metadata blob
