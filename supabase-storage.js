@@ -83,6 +83,15 @@
       || (table && text.includes(table) && (text.includes("could not find") || text.includes("does not exist")));
   }
 
+  function isMissingRoutineError(error, routineName) {
+    if (!error) return false;
+    const text = `${error.code || ""} ${error.message || ""} ${error.details || ""}`.toLowerCase();
+    const routine = String(routineName || "").toLowerCase();
+    return text.includes("42883")
+      || text.includes("pgrst202")
+      || (routine && text.includes(routine) && (text.includes("could not find") || text.includes("does not exist")));
+  }
+
   function isFinalGameStatus(status) {
     return status === "completed" || status === "final";
   }
@@ -396,6 +405,51 @@
     return response;
   }
 
+  async function recordSiteVisit(visit = {}) {
+    const client = getClient();
+    if (!client) return { data: null, error: new Error("Supabase client not ready.") };
+    const response = await client.rpc("record_site_visit", {
+      p_visitor_id: String(visit.visitorId || visit.visitor_id || "").trim(),
+      p_session_id: String(visit.sessionId || visit.session_id || "").trim(),
+      p_page_path: String(visit.pagePath || visit.page_path || "").trim(),
+      p_view_name: String(visit.viewName || visit.view_name || "").trim(),
+      p_device_type: String(visit.deviceType || visit.device_type || "").trim(),
+      p_is_admin: Boolean(visit.isAdmin || visit.is_admin),
+      p_metadata: visit.metadata && typeof visit.metadata === "object" ? visit.metadata : {}
+    });
+    if (isMissingRoutineError(response.error, "record_site_visit")) {
+      return {
+        data: null,
+        error: new Error("Supabase record_site_visit function is not available to the app. Run supabase-schema.sql in this environment or refresh the Supabase API schema cache."),
+        missingFunction: true
+      };
+    }
+    return response;
+  }
+
+  async function fetchSiteVisitSummary() {
+    const client = getClient();
+    if (!client) return { data: null, error: new Error("Supabase client not ready.") };
+    const response = await client.rpc("get_site_visit_summary");
+    if (isMissingRoutineError(response.error, "get_site_visit_summary")) {
+      return {
+        data: null,
+        error: new Error("Supabase get_site_visit_summary function is not available to the app. Run supabase-schema.sql in this environment or refresh the Supabase API schema cache."),
+        missingFunction: true
+      };
+    }
+    const row = Array.isArray(response.data) ? response.data[0] : response.data;
+    return {
+      ...response,
+      data: row || {
+        total_visits: 0,
+        today_visits: 0,
+        unique_visitors: 0,
+        last_visit_at: null
+      }
+    };
+  }
+
   async function upsertAppState(state) {
     const client = getClient();
     if (!client) return { data: null, error: new Error("Supabase client not ready.") };
@@ -620,6 +674,8 @@
     fetchNewsArticles,
     fetchBootstrap,
     fetchLeagueStandings,
+    recordSiteVisit,
+    fetchSiteVisitSummary,
     upsertAppState,
     upsertRosterPlayers,
     upsertGames,

@@ -581,13 +581,17 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.31";
+const APP_VERSION = "v.1.1.32";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
 const GA_MEASUREMENT_ID = "G-JWRVWJ9XYP";
 const ACCESS_MODE_STORAGE_KEY = "oakmont-lions-access-mode-v1";
 const ADMIN_EMAIL_STORAGE_KEY = "oakmont-lions-admin-email-v1";
+const VISITOR_ID_STORAGE_KEY = "oakmont-lions-visitor-id-v1";
+const VISIT_SESSION_ID_STORAGE_KEY = "oakmont-lions-visit-session-id-v1";
+const VISIT_RECORDED_STORAGE_KEY = "oakmont-lions-visit-recorded-v1";
+const SITE_VISIT_SUMMARY_REFRESH_MS = 5 * 60 * 1000;
 const PUBLIC_TAB_VIEWS = new Set(["home", "news", "games", "roster", "stats", "archive"]);
 const PUBLIC_READ_VIEWS = new Set(["home", "news", "games", "roster", "stats", "archive", "scorebook", "boxscore"]);
 const ADMIN_TAB_VIEWS = new Set(["home", "news", "newsEditor", "score", "games", "lineup", "roster", "stats", "highlights", "scouting", "archive", "analysis"]);
@@ -709,6 +713,12 @@ let sharedSyncPromise = null;
 let completedGameSyncQueuePromise = null;
 let liveGameSyncTimer = null;
 let supabaseAdminEmail = "";
+let siteVisitSummary = null;
+let siteVisitSummaryState = "idle";
+let siteVisitSummaryPromise = null;
+let siteVisitSummaryLoadedAt = 0;
+let siteVisitRecordPromise = null;
+let siteVisitWarningShown = false;
 const activeCompletedGameSyncs = new Set();
 const weatherCache = {};
 const weatherRequests = {};
@@ -780,6 +790,9 @@ const els = {
   homeWinPct: document.getElementById("homeWinPct"),
   homeRunsScored: document.getElementById("homeRunsScored"),
   homeRunsAllowed: document.getElementById("homeRunsAllowed"),
+  homeVisitCounterCard: document.getElementById("homeVisitCounterCard"),
+  homeVisitTotal: document.getElementById("homeVisitTotal"),
+  homeVisitMeta: document.getElementById("homeVisitMeta"),
   homeMatchupImage: document.getElementById("homeMatchupImage"),
   homeNextGame: document.getElementById("homeNextGame"),
   homeNextGameMobileTitle: document.getElementById("homeNextGameMobileTitle"),
@@ -1305,6 +1318,7 @@ async function initializeScorebookApp() {
   initializeScoutingReport();
   restoreActiveGamePendingScoringState();
   render();
+  initializeSiteVisitTracking();
   bootstrapSupabaseState();
   initializeSupabaseAuth();
 }
@@ -2764,6 +2778,188 @@ function requestSupabaseRefresh(reason, options = {}) {
   }, 0);
 }
 
+function generateClientId(prefix = "id") {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function browserStorageArea(name) {
+  try {
+    return window?.[name] || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function getStoredClientId(storageArea, key, prefix) {
+  try {
+    const existing = String(storageArea?.getItem(key) || "").trim();
+    if (existing) return existing;
+    const next = generateClientId(prefix);
+    storageArea?.setItem(key, next);
+    return next;
+  } catch (error) {
+    return generateClientId(prefix);
+  }
+}
+
+function visitDeviceType() {
+  const userAgent = String(navigator?.userAgent || "").toLowerCase();
+  const touchPoints = Number(navigator?.maxTouchPoints || 0);
+  if (/ipad|tablet/.test(userAgent) || (touchPoints > 1 && /macintosh/.test(userAgent))) return "tablet";
+  if (/mobile|iphone|android/.test(userAgent)) return "mobile";
+  return "desktop";
+}
+
+function visitAlreadyRecorded(sessionId) {
+  try {
+    return browserStorageArea("sessionStorage")?.getItem(VISIT_RECORDED_STORAGE_KEY) === sessionId;
+  } catch (error) {
+    return false;
+  }
+}
+
+function markVisitRecorded(sessionId) {
+  try {
+    browserStorageArea("sessionStorage")?.setItem(VISIT_RECORDED_STORAGE_KEY, sessionId);
+  } catch (error) {
+    // Best effort only. Visit tracking should never affect app behavior.
+  }
+}
+
+function initializeSiteVisitTracking() {
+  recordSiteVisitOnce("app-load");
+}
+
+function recordSiteVisitOnce(reason = "visit", options = {}) {
+  if (!supabaseStorage?.recordSiteVisit || !supabaseStorage?.isReady?.()) return null;
+  const sessionId = getStoredClientId(browserStorageArea("sessionStorage"), VISIT_SESSION_ID_STORAGE_KEY, "session");
+  if (!options.force && visitAlreadyRecorded(sessionId)) return null;
+  if (siteVisitRecordPromise) return siteVisitRecordPromise;
+  const visitorId = getStoredClientId(browserStorageArea("localStorage"), VISITOR_ID_STORAGE_KEY, "visitor");
+  const pagePath = `${window.location?.pathname || "/"}${window.location?.search || ""}`;
+  siteVisitRecordPromise = supabaseStorage.recordSiteVisit({
+    visitorId,
+    sessionId,
+    pagePath,
+    viewName: currentView || "home",
+    deviceType: visitDeviceType(),
+    isAdmin: isAdminMode(),
+    metadata: {
+      appVersion: APP_VERSION,
+      environment: window.ScorebookSupabase?.environment || "",
+      reason
+    }
+  }).then((response) => {
+    if (response?.error) throw response.error;
+    markVisitRecorded(sessionId);
+    return response;
+  }).catch((error) => {
+    if (!siteVisitWarningShown) {
+      siteVisitWarningShown = true;
+      console.warn("Unable to record site visit; continuing normally.", error);
+    }
+    return { data: null, error };
+  }).finally(() => {
+    siteVisitRecordPromise = null;
+  });
+  return siteVisitRecordPromise;
+}
+
+function normalizeSiteVisitSummary(summary = {}) {
+  const totalVisits = Number(summary.totalVisits ?? summary.total_visits ?? 0) || 0;
+  const todayVisits = Number(summary.todayVisits ?? summary.today_visits ?? 0) || 0;
+  const uniqueVisitors = Number(summary.uniqueVisitors ?? summary.unique_visitors ?? 0) || 0;
+  return {
+    totalVisits,
+    todayVisits,
+    uniqueVisitors,
+    lastVisitAt: summary.lastVisitAt || summary.last_visit_at || ""
+  };
+}
+
+function formatVisitCount(value) {
+  return new Intl.NumberFormat("en-US", {
+    notation: Number(value) >= 10000 ? "compact" : "standard",
+    maximumFractionDigits: 1
+  }).format(Number(value) || 0);
+}
+
+function renderSiteVisitCounter() {
+  if (!els.homeVisitCounterCard) return;
+  const visible = isAdminMode();
+  els.homeVisitCounterCard.hidden = !visible;
+  if (!visible) return;
+  const summary = normalizeSiteVisitSummary(siteVisitSummary || {});
+  if (els.homeVisitTotal) {
+    els.homeVisitTotal.textContent = siteVisitSummaryState === "ready"
+      ? formatVisitCount(summary.totalVisits)
+      : "--";
+  }
+  if (els.homeVisitMeta) {
+    if (siteVisitSummaryState === "setup") {
+      els.homeVisitMeta.textContent = "Run schema";
+    } else if (siteVisitSummaryState === "error") {
+      els.homeVisitMeta.textContent = "Unavailable";
+    } else if (siteVisitSummaryState === "loading") {
+      els.homeVisitMeta.textContent = "Loading visits";
+    } else if (siteVisitSummaryState === "ready") {
+      els.homeVisitMeta.textContent = `${formatVisitCount(summary.todayVisits)} today | ${formatVisitCount(summary.uniqueVisitors)} visitors`;
+    } else {
+      els.homeVisitMeta.textContent = "Admin only";
+    }
+  }
+}
+
+function requestSiteVisitSummaryRefresh(reason = "home", options = {}) {
+  if (!isAdminMode()) {
+    siteVisitSummary = null;
+    siteVisitSummaryState = "idle";
+    renderSiteVisitCounter();
+    return null;
+  }
+  if (!supabaseStorage?.fetchSiteVisitSummary || !supabaseStorage?.isReady?.()) {
+    siteVisitSummaryState = "setup";
+    renderSiteVisitCounter();
+    return null;
+  }
+  const now = Date.now();
+  if (!options.force && siteVisitSummaryLoadedAt && now - siteVisitSummaryLoadedAt < SITE_VISIT_SUMMARY_REFRESH_MS) {
+    renderSiteVisitCounter();
+    return null;
+  }
+  if (siteVisitSummaryPromise) return siteVisitSummaryPromise;
+  siteVisitSummaryState = "loading";
+  renderSiteVisitCounter();
+  siteVisitSummaryPromise = supabaseStorage.fetchSiteVisitSummary()
+    .then((response) => {
+      if (response?.missingFunction) {
+        siteVisitSummary = null;
+        siteVisitSummaryState = "setup";
+        siteVisitSummaryLoadedAt = Date.now();
+        return response;
+      }
+      if (response?.error) throw response.error;
+      siteVisitSummary = normalizeSiteVisitSummary(response?.data || {});
+      siteVisitSummaryLoadedAt = Date.now();
+      siteVisitSummaryState = "ready";
+      return response;
+    })
+    .catch((error) => {
+      siteVisitSummaryState = "error";
+      siteVisitSummaryLoadedAt = Date.now();
+      console.warn(`Unable to load site visit summary (${reason}).`, error);
+      return { data: null, error };
+    })
+    .finally(() => {
+      siteVisitSummaryPromise = null;
+      renderSiteVisitCounter();
+    });
+  return siteVisitSummaryPromise;
+}
+
 function activeLiveGameForState(sourceState = state) {
   const games = Array.isArray(sourceState?.games) ? sourceState.games : [];
   const activeById = games.find((game) => game?.id === sourceState?.activeGameId && game.status === "active" && !gameIsFinal(game));
@@ -3361,6 +3557,9 @@ async function applySupabaseAdminState(user, options = {}) {
   const cachedAdminEmail = loadStoredAdminEmail();
   if (!normalizedEmail) {
     supabaseAdminEmail = "";
+    siteVisitSummary = null;
+    siteVisitSummaryState = "idle";
+    siteVisitSummaryLoadedAt = 0;
     saveStoredAdminEmail("");
     if (accessMode !== "public") {
       if (preserveModal) {
@@ -3464,6 +3663,8 @@ async function applySupabaseAdminState(user, options = {}) {
   }
   requestCompletedGameSyncRetry("admin-ready");
   requestLiveGameSnapshotSync("admin-ready-live-game");
+  recordSiteVisitOnce("admin-ready", { force: true });
+  requestSiteVisitSummaryRefresh("admin-ready", { force: true });
   return true;
 }
 
@@ -4152,6 +4353,8 @@ function bindEvents() {
   });
   window.addEventListener("online", () => {
     render();
+    recordSiteVisitOnce("online");
+    requestSiteVisitSummaryRefresh("online", { force: true });
     requestCompletedGameSyncRetry("online");
     requestLiveGameSnapshotSync("online-live-game");
     requestSupabaseRefresh("online", { force: true, skipWhenHidden: false });
@@ -4159,10 +4362,12 @@ function bindEvents() {
   window.addEventListener("offline", render);
   window.addEventListener("focus", () => {
     scheduleScoreGameRenderFlush("focus");
+    if (isAdminMode()) requestSiteVisitSummaryRefresh("focus");
     requestSupabaseRefresh("focus");
   });
 window.addEventListener("pageshow", () => {
   scheduleScoreGameRenderFlush("pageshow");
+  recordSiteVisitOnce("pageshow");
   requestSupabaseRefresh("pageshow", { force: true, skipWhenHidden: false });
 });
 
@@ -7340,6 +7545,8 @@ function renderHome() {
   if (els.homeWinPct) els.homeWinPct.textContent = winPct;
   if (els.homeRunsScored) els.homeRunsScored.textContent = String(record.runsFor);
   if (els.homeRunsAllowed) els.homeRunsAllowed.textContent = String(record.runsAgainst);
+  renderSiteVisitCounter();
+  if (isAdminMode()) requestSiteVisitSummaryRefresh("home");
   if (els.homeStartGameBtn) els.homeStartGameBtn.hidden = true;
   if (els.homeScoutingBtn) els.homeScoutingBtn.hidden = true;
   if (els.homeGamesBtn) els.homeGamesBtn.hidden = true;

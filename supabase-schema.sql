@@ -148,6 +148,20 @@ create table if not exists public.news_articles (
   updated_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists public.site_visits (
+  id uuid primary key default gen_random_uuid(),
+  visitor_id text not null,
+  session_id text not null unique,
+  page_path text not null default '',
+  view_name text not null default '',
+  device_type text not null default '',
+  is_admin boolean not null default false,
+  visit_date date not null default current_date,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
 alter table public.game_highlights
 add column if not exists game_id text not null default '',
 add column if not exists youtube_url text not null default '',
@@ -196,6 +210,30 @@ alter column metadata set default '{}'::jsonb,
 alter column created_at set default timezone('utc', now()),
 alter column updated_at set default timezone('utc', now());
 
+alter table public.site_visits
+add column if not exists visitor_id text not null default '',
+add column if not exists session_id text not null default '',
+add column if not exists page_path text not null default '',
+add column if not exists view_name text not null default '',
+add column if not exists device_type text not null default '',
+add column if not exists is_admin boolean not null default false,
+add column if not exists visit_date date not null default current_date,
+add column if not exists metadata jsonb not null default '{}'::jsonb,
+add column if not exists created_at timestamptz not null default timezone('utc', now()),
+add column if not exists updated_at timestamptz not null default timezone('utc', now());
+
+alter table public.site_visits
+alter column visitor_id set default '',
+alter column session_id set default '',
+alter column page_path set default '',
+alter column view_name set default '',
+alter column device_type set default '',
+alter column is_admin set default false,
+alter column visit_date set default current_date,
+alter column metadata set default '{}'::jsonb,
+alter column created_at set default timezone('utc', now()),
+alter column updated_at set default timezone('utc', now());
+
 create index if not exists games_status_idx on public.games (status);
 create index if not exists games_game_date_idx on public.games (game_date);
 create index if not exists games_updated_at_idx on public.games (updated_at desc);
@@ -207,6 +245,10 @@ create index if not exists game_highlights_game_idx on public.game_highlights (g
 create index if not exists game_highlights_updated_at_idx on public.game_highlights (updated_at desc);
 create index if not exists news_articles_category_date_idx on public.news_articles (category, article_date desc, created_at desc);
 create index if not exists news_articles_updated_at_idx on public.news_articles (updated_at desc);
+create unique index if not exists site_visits_session_idx on public.site_visits (session_id);
+create index if not exists site_visits_visit_date_idx on public.site_visits (visit_date desc);
+create index if not exists site_visits_created_at_idx on public.site_visits (created_at desc);
+create index if not exists site_visits_visitor_idx on public.site_visits (visitor_id);
 
 drop trigger if exists set_app_state_updated_at on public.app_state;
 create trigger set_app_state_updated_at
@@ -237,6 +279,93 @@ drop trigger if exists set_news_articles_updated_at on public.news_articles;
 create trigger set_news_articles_updated_at
 before update on public.news_articles
 for each row execute function public.set_updated_at();
+
+drop trigger if exists set_site_visits_updated_at on public.site_visits;
+create trigger set_site_visits_updated_at
+before update on public.site_visits
+for each row execute function public.set_updated_at();
+
+create or replace function public.record_site_visit(
+  p_visitor_id text,
+  p_session_id text,
+  p_page_path text default '',
+  p_view_name text default '',
+  p_device_type text default '',
+  p_is_admin boolean default false,
+  p_metadata jsonb default '{}'::jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clean_visitor_id text := left(coalesce(nullif(btrim(p_visitor_id), ''), gen_random_uuid()::text), 128);
+  clean_session_id text := left(coalesce(nullif(btrim(p_session_id), ''), gen_random_uuid()::text), 128);
+  clean_metadata jsonb := case
+    when jsonb_typeof(coalesce(p_metadata, '{}'::jsonb)) = 'object' then coalesce(p_metadata, '{}'::jsonb)
+    else '{}'::jsonb
+  end;
+begin
+  insert into public.site_visits (
+    visitor_id,
+    session_id,
+    page_path,
+    view_name,
+    device_type,
+    is_admin,
+    visit_date,
+    metadata
+  )
+  values (
+    clean_visitor_id,
+    clean_session_id,
+    left(coalesce(p_page_path, ''), 240),
+    left(coalesce(p_view_name, ''), 64),
+    left(coalesce(p_device_type, ''), 32),
+    coalesce(p_is_admin, false),
+    current_date,
+    clean_metadata || jsonb_build_object('recorded_from', 'scorebook-app')
+  )
+  on conflict (session_id) do update
+  set
+    page_path = excluded.page_path,
+    view_name = excluded.view_name,
+    device_type = excluded.device_type,
+    is_admin = public.site_visits.is_admin or excluded.is_admin,
+    metadata = public.site_visits.metadata || excluded.metadata;
+end;
+$$;
+
+create or replace function public.get_site_visit_summary()
+returns table (
+  total_visits bigint,
+  today_visits bigint,
+  unique_visitors bigint,
+  last_visit_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (
+    select 1
+    from public.app_admins admins
+    where admins.email = lower((select auth.jwt() ->> 'email'))
+  ) then
+    raise exception 'Admin access required to view site visit summary.' using errcode = '42501';
+  end if;
+
+  return query
+  select
+    count(*)::bigint as total_visits,
+    count(*) filter (where site_visits.visit_date = current_date)::bigint as today_visits,
+    count(distinct site_visits.visitor_id)::bigint as unique_visitors,
+    max(site_visits.created_at) as last_visit_at
+  from public.site_visits;
+end;
+$$;
 
 insert into public.app_state (id)
 values ('primary')
@@ -365,6 +494,7 @@ alter table public.app_admins enable row level security;
 alter table public.league_standings enable row level security;
 alter table public.game_highlights enable row level security;
 alter table public.news_articles enable row level security;
+alter table public.site_visits enable row level security;
 
 drop policy if exists "Public read app_state" on public.app_state;
 create policy "Public read app_state"
@@ -407,6 +537,19 @@ on public.news_articles
 for select
 to anon, authenticated
 using (true);
+
+drop policy if exists "Authenticated admin read site_visits" on public.site_visits;
+create policy "Authenticated admin read site_visits"
+on public.site_visits
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.app_admins admins
+    where admins.email = lower((select auth.jwt() ->> 'email'))
+  )
+);
 
 drop policy if exists "Authenticated write app_state" on public.app_state;
 create policy "Authenticated write app_state"
@@ -534,3 +677,8 @@ with check (
     where admins.email = lower((select auth.jwt() ->> 'email'))
   )
 );
+
+revoke all on function public.record_site_visit(text, text, text, text, text, boolean, jsonb) from public;
+revoke all on function public.get_site_visit_summary() from public;
+grant execute on function public.record_site_visit(text, text, text, text, text, boolean, jsonb) to anon, authenticated;
+grant execute on function public.get_site_visit_summary() to authenticated;

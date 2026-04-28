@@ -20,6 +20,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   background: var(--paper);
@@ -1096,6 +1100,42 @@ main {
 .home-panel {
   padding: 18px;
   min-height: 0;
+}
+
+.home-visit-counter-panel {
+  margin-top: 16px;
+}
+
+.home-visit-counter-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding-top: 4px;
+}
+
+.home-visit-counter-metric {
+  display: grid;
+  gap: 6px;
+}
+
+.home-visit-counter-metric strong {
+  color: var(--white);
+  font-size: clamp(1.7rem, 2vw, 2.35rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.home-visit-counter-metric span {
+  color: var(--text-soft);
+  font-weight: 700;
+}
+
+.home-visit-counter-panel .player-meta {
+  margin: 0;
+  color: rgba(245, 189, 33, 0.78);
+  font-weight: 800;
+  text-align: right;
 }
 
 .home-batting-leaders-panel,
@@ -15433,6 +15473,16 @@ select option:checked {
   .home-next-game-status {
     gap: 8px;
     font-size: 0.88rem;
+  }
+
+  .home-visit-counter-body {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .home-visit-counter-panel .player-meta {
+    text-align: left;
   }
 
   .home-next-game-status-icon,

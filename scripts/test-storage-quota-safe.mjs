@@ -121,7 +121,7 @@ assert.match(dbJs, /addGameEvent:\s*\(gameId, event\)/, "db.js should expose add
 assert.match(dbJs, /getGameEvents:\s*\(gameId\)/, "db.js should expose getGameEvents(gameId)");
 assert.match(dbJs, /saveGame:\s*\(game\)/, "db.js should expose saveGame(game)");
 assert.match(dbJs, /getGame:\s*\(gameId\)/, "db.js should expose getGame(gameId)");
-assert.match(indexHtml, /dexie\.min\.js\?v=2026\.04\.28-build-195[\s\S]*db\.js\?v=2026\.04\.28-build-195[\s\S]*storage\.js\?v=2026\.04\.28-build-195/, "Dexie, db.js, and storage.js should load in order");
+assert.match(indexHtml, /dexie\.min\.js\?v=2026\.04\.28-build-196[\s\S]*db\.js\?v=2026\.04\.28-build-196[\s\S]*storage\.js\?v=2026\.04\.28-build-196/, "Dexie, db.js, and storage.js should load in order");
 assert.match(serviceWorkerJs, /"\.\/dexie\.min\.js"[\s\S]*"\.\/db\.js"[\s\S]*"\.\/storage\.js"/, "Dexie and db.js should be cached by the service worker");
 assert.match(appJs, /let state = seedState\(\);/, "app should start with seed state until storage is ready");
 assert.match(appJs, /if \(storage\.ready\) await storage\.ready;/, "app boot should wait for IndexedDB hydration before loading state");

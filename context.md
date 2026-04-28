@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
 Last updated: 2026-04-28
-Current commit: `89d5a5d` plus uncommitted mobile Stats leader highlight and carousel updates
-Current app version: `v.1.1.31`
-Current asset build markers: `2026.04.28-build-195`
+Current commit: `12b9bbd` plus uncommitted Supabase site visit counter update
+Current app version: `v.1.1.32`
+Current asset build markers: `2026.04.28-build-196`
 
 ## Project Overview
 
@@ -232,6 +232,14 @@ Current state:
 - admins manage those records in the News Editor tab with title, summary, rich body, image upload/preview, category, optional linked game, edit, and delete
 - `Generate from Game` in News Editor can prefill a recap or preview draft, but all fields stay editable before saving
 - manual news article saves/deletes go directly to Supabase `news_articles` rows instead of syncing the full app-state metadata blob
+
+### Site Visits
+
+Current state:
+- public page sessions can record one anonymous visit per browser session through the Supabase `record_site_visit` RPC
+- the visit tracker stores a random local visitor id and random session id, page/view name, device type, admin flag, and non-sensitive app metadata in `site_visits`
+- direct table writes are not exposed to the public app; public access records through the RPC, while visit summary reads are admin-only through `get_site_visit_summary`
+- admins see a compact `Site Visits` stat on the Home overview once the schema/RPC functions are installed in that Supabase environment
 
 ### Highlights
 
