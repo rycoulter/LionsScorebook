@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-28
 Current commit: `de56f41` plus uncommitted runner decision and game-complete summary updates
-Current app version: `v.1.1.38`
-Current asset build markers: `2026.04.28-build-202`
+Current app version: `v.1.1.39`
+Current asset build markers: `2026.04.29-build-203`
 
 ## Project Overview
 

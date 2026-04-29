@@ -15558,9 +15558,10 @@ select option:checked {
   }
 
   .home-hero-head {
-    align-items: center;
-    flex-direction: row;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 8px 10px;
   }
 
   .home-hero-head .scout-kicker {
@@ -15570,6 +15571,14 @@ select option:checked {
   .home-next-game-status {
     gap: 8px;
     font-size: 0.88rem;
+    line-height: 1.25;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .home-next-game-status span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .home-visit-counter-body {
@@ -15592,6 +15601,12 @@ select option:checked {
   .home-field-image {
     height: auto;
     aspect-ratio: 16 / 9;
+  }
+
+  .home-hero-panel .home-field-image.is-no-game-hero {
+    width: 100%;
+    max-width: 100%;
+    object-fit: contain;
   }
 
   .home-next-game {

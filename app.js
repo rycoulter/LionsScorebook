@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.38";
+const APP_VERSION = "v.1.1.39";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
