@@ -581,7 +581,8 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.32";
+const APP_VERSION = "v.1.1.38";
+const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -682,6 +683,8 @@ let awaitingSprayLocation = false;
 let awaitingRunnerDecision = false;
 let scoringStep = "pitch";
 let pendingRunnerChoices = {};
+let runnerDecisionError = "";
+let scoreCompleteSummaryGameId = "";
 let pendingOutType = "";
 let pendingOutFielder = "";
 let gameFilter = "all";
@@ -744,6 +747,7 @@ const SCORING_PANEL_POINTERUP_ACTION_SELECTOR = [
   "button[data-out-fielder]",
   "button[data-runner-choice-base]",
   "button[data-confirm-play]",
+  "button[data-game-complete-action]",
   "button[data-opponent-result]"
 ].join(", ");
 let scoreGameRenderFlushTimer = null;
@@ -2423,6 +2427,7 @@ function setActiveGame(gameId) {
   const game = storage.setActiveGame(gameId);
   if (!game) return null;
   if (typeof state !== "undefined") state.activeGameId = gameId;
+  if (gameId !== scoreCompleteSummaryGameId) clearGameCompleteSummary();
   return game;
 }
 
@@ -4698,7 +4703,30 @@ function switchView(view) {
   }
 }
 
+function scoreCompleteSummaryGame() {
+  if (!scoreCompleteSummaryGameId) return null;
+  const game = state.games.find((item) => item.id === scoreCompleteSummaryGameId);
+  if (!gameIsFinal(game)) {
+    scoreCompleteSummaryGameId = "";
+    return null;
+  }
+  return game;
+}
+
+function showGameCompleteSummary(game) {
+  if (!game?.id || !gameIsFinal(game)) return false;
+  scoreCompleteSummaryGameId = game.id;
+  if (currentView !== "score" && canAccessView("score")) switchView("score");
+  return true;
+}
+
+function clearGameCompleteSummary(gameId = "") {
+  if (!gameId || scoreCompleteSummaryGameId === gameId) scoreCompleteSummaryGameId = "";
+}
+
 function activeGame() {
+  const completedScoreGame = currentView === "score" ? scoreCompleteSummaryGame() : null;
+  if (completedScoreGame) return completedScoreGame;
   let game = state.games.find((item) => item.id === state.activeGameId);
   if (!game || gameIsFinal(game) || game.status !== "active") {
     game = state.games.find((item) => item.status === "active" && !gameIsFinal(item));
@@ -4714,6 +4742,8 @@ function activeGame() {
 }
 
 function activeScoreGame() {
+  const completedScoreGame = currentView === "score" ? scoreCompleteSummaryGame() : null;
+  if (completedScoreGame) return completedScoreGame;
   const current = state.games.find((item) => item.id === state.activeGameId);
   if (current && current.status === "active" && !gameIsFinal(current)) return current;
   return state.games.find((item) => item.status === "active" && !gameIsFinal(item)) || null;
@@ -5395,7 +5425,11 @@ function advanceHalfInning(game = activeGame()) {
   game.currentPlateAppearanceId = "";
   game.atBat = makeAtBat();
   commitCurrentToLegacy(game);
-  if (gameIsFinal(game)) moveActiveGameOffFinal(game.id);
+  if (gameIsFinal(game)) {
+    markGameSyncPending(game);
+    showGameCompleteSummary(game);
+    moveActiveGameOffFinal(game.id);
+  }
   clearPendingPlayState(game, true);
   if (lionsWonGame(game)) playLionsWinAnimation(lionsWinAnimationPayloadForGame(game));
   if (!gameIsFinal(game)) playHalfInningChange(game);
@@ -5571,6 +5605,7 @@ function clearPendingPlayState(game = activeGame(), clearAtBat = false) {
   pendingSpray = null;
   pendingRunnerOutBases = [];
   pendingRunnerChoices = {};
+  runnerDecisionError = "";
   pendingOutType = "";
   pendingOutFielder = "";
   pendingRunnerReplacementBase = "";
@@ -5812,6 +5847,21 @@ function applyEvent(game = activeGame(), event = {}) {
       renderScoringStepPanel();
       return null;
     }
+    if (Object.keys(pendingRunnerChoices || {}).length) {
+      const validation = validateRunnerDecisionChoices(game, result);
+      if (!validation.valid) {
+        runnerDecisionError = validation.message;
+        awaitingSprayLocation = false;
+        awaitingRunnerDecision = true;
+        scoringStep = "runners";
+        renderAtBat();
+        renderRunnerTracker();
+        renderAutoScorePreview();
+        renderScoringStepPanel();
+        return null;
+      }
+    }
+    runnerDecisionError = "";
     awaitingSprayLocation = false;
     awaitingRunnerDecision = false;
     scoringStep = "pitch";
@@ -5857,6 +5907,7 @@ function needsRunnerDecision(game = activeGame(), result = els.resultSelect.valu
 }
 
 function setRunnerChoice(base, to) {
+  runnerDecisionError = "";
   const current = pendingRunnerChoices[base] && typeof pendingRunnerChoices[base] === "object"
     ? pendingRunnerChoices[base]
     : { to: pendingRunnerChoices[base] || "hold", automaticTo: pendingRunnerChoices[base] || "hold" };
@@ -5876,6 +5927,7 @@ function setRunnerChoice(base, to) {
 }
 
 function initializeRunnerDecisionChoices(game = activeGame(), result = els.resultSelect.value) {
+  runnerDecisionError = "";
   const batterId = currentBatterId(game);
   const bases = deepClone(game.current?.runners || game.bases || emptyBases(false));
   const defaults = getDefaultRunnerAdvances(result, { ...bases, batter: batterId });
@@ -6447,6 +6499,34 @@ function runnerChoiceDestination(base) {
   return typeof choice === "object" ? choice.to : choice;
 }
 
+function validateRunnerDecisionChoices(game = activeGame(), result = els.resultSelect.value) {
+  const bases = game.current?.runners || game.bases || emptyBases(false);
+  const assignedBases = {};
+  const addDestination = (destination, label) => {
+    if (!["first", "second", "third"].includes(destination)) return "";
+    if (!assignedBases[destination]) {
+      assignedBases[destination] = label;
+      return "";
+    }
+    return `Only one runner can end at ${baseLabel(destination)}. Adjust ${assignedBases[destination]} or ${label} before confirming.`;
+  };
+
+  for (const base of ["third", "second", "first"]) {
+    const runnerId = bases[base];
+    if (!isOccupied(runnerId)) continue;
+    const choice = runnerChoiceDestination(base) || "hold";
+    const destination = choice === "hold" ? base : choice;
+    const label = runnerName(runnerId) || `runner from ${baseLabel(base)}`;
+    const message = addDestination(destination, label);
+    if (message) return { valid: false, message };
+  }
+
+  const batterDestination = runnerChoiceDestination("batter") || defaultBatterDestination(result);
+  const batterMessage = addDestination(batterDestination, currentBatterLabel(game) || "batter");
+  if (batterMessage) return { valid: false, message: batterMessage };
+  return { valid: true, message: "" };
+}
+
 function clampNumber(value, min, max) {
   const number = Number.parseInt(value, 10);
   if (Number.isNaN(number)) return min;
@@ -6775,13 +6855,17 @@ function advanceHalf(game) {
   advanceHalfInning(game);
 }
 
-function undoLastPlay() {
+function undoLastPlay(options = {}) {
   const game = activeGame();
-  if (gameIsScoreLocked(game)) return;
+  const allowFinal = Boolean(options.allowFinal);
+  if (!allowFinal && gameIsScoreLocked(game)) return;
+  if (allowFinal && !gameIsFinal(game) && game?.status !== "active") return;
   const history = Array.isArray(game.playHistory) ? game.playHistory : [];
   const historyEntry = history[history.length - 1];
   if (!historyEntry) return;
+  const wasFinal = gameIsFinal(game);
   restorePlayHistorySnapshot(game, historyEntry, history.slice(0, -1));
+  if (wasFinal || !gameIsFinal(game)) clearGameCompleteSummary(game.id);
   saveState();
   render();
 }
@@ -7353,13 +7437,13 @@ function finishGame() {
   markSharedGamesDirty(current.id);
   markGameSyncPending(current);
   clearPendingPlayState(current, true);
+  showGameCompleteSummary(current);
   moveActiveGameOffFinal(current.id);
   saveStateWithOptions({ markLiveGamesDirty: false });
   render();
   if (lionsWonGame(current) && playLionsWinAnimation(lionsWinAnimationPayloadForGame(current, {
-    onComplete: () => openGameSummary(current.id)
+    onComplete: () => render()
   }))) return;
-  openGameSummary(current.id);
 }
 
 async function addPlayer() {
@@ -7838,9 +7922,15 @@ function getMatchupImage(opponentName, lionsHomeAway = "home") {
 
 function setHomeMatchupImage(game = null) {
   if (!els.homeMatchupImage) return;
+  els.homeMatchupImage.classList.toggle("is-no-game-hero", !game);
+  if (!game) {
+    els.homeMatchupImage.src = HOME_NO_GAME_HERO_IMAGE;
+    els.homeMatchupImage.alt = "Oakmont Lions";
+    return;
+  }
   const opponentName = game?.opponent || "";
   els.homeMatchupImage.src = getMatchupImage(opponentName, game ? lionsSide(game) : "home");
-  els.homeMatchupImage.alt = game ? `${gameMatchupLabel(game)} matchup graphic` : "Lions";
+  els.homeMatchupImage.alt = `${gameMatchupLabel(game)} matchup graphic`;
 }
 
 function gameScheduleMeta(game) {
@@ -8648,6 +8738,7 @@ function setScoreGameLocked(locked, game = activeScoreGame()) {
   document.querySelectorAll("#scoreView button, #scoreView input, #scoreView select, #scoreView textarea")
     .forEach((control) => {
       if ([els.newGameBtn, els.scoreEmptyHomeBtn, els.scoreEmptyGamesBtn].includes(control)) return;
+      if (control.matches("[data-game-complete-action]")) return;
       control.disabled = locked;
     });
   if (els.finishGameBtn) els.finishGameBtn.textContent = game && gameIsFinal(game) ? "Game Final" : "Complete Game";
@@ -8982,6 +9073,9 @@ function actionFeedbackForButton(button) {
   if (button.dataset.runnerOutBase) return makeActionFeedback("out", "OUT");
   if (button.dataset.runnerChoice) return actionFeedbackForRunnerChoice(button.dataset.runnerChoice);
   if (button.dataset.confirmPlay !== undefined) return makeActionFeedback("neutral", "PLAY");
+  if (button.dataset.gameCompleteAction === "sync") return makeActionFeedback("single", "SYNC");
+  if (button.dataset.gameCompleteAction === "undo") return makeActionFeedback("undo", "UNDO");
+  if (button.dataset.gameCompleteAction) return makeActionFeedback("neutral", "FINAL");
   if (button.dataset.resolvePlay !== undefined) return makeActionFeedback("neutral", "PLAY");
   if (button.dataset.opponentResult) return actionFeedbackForResult(button.dataset.opponentResult);
   if (button.dataset.choiceGroup === "result") return actionFeedbackForResult(button.dataset.choiceValue);
@@ -9122,6 +9216,36 @@ function handleScoringPanelPointerUpAction(event) {
   scoringStepPointerActionAt = Date.now();
 }
 
+function handleGameCompleteAction(button) {
+  const action = button?.dataset?.gameCompleteAction || "";
+  const gameId = button?.dataset?.gameCompleteGameId || scoreCompleteSummaryGameId;
+  const game = state.games.find((item) => item.id === gameId);
+  if (!game || !gameIsFinal(game)) return;
+  if (action === "boxscore") {
+    openBoxScore(game.id);
+    return;
+  }
+  if (action === "sync") {
+    syncCompletedGame(game.id).catch((error) => {
+      markGameSyncFailed(game, error);
+      saveStateWithOptions({ markLiveGamesDirty: false });
+      render();
+    });
+    render();
+    return;
+  }
+  if (action === "leave") {
+    clearGameCompleteSummary(game.id);
+    moveActiveGameOffFinal(game.id);
+    switchView("games");
+    render();
+    return;
+  }
+  if (action === "undo") {
+    undoLastPlay({ allowFinal: true });
+  }
+}
+
 function handleScoringPanelClick(event) {
   const button = closestFromEventTarget(event.target, "button");
   if (!button) return;
@@ -9136,6 +9260,11 @@ function handleScoringPanelClick(event) {
   }
   if (button.dataset.scoreStepBack !== undefined) {
     backScoringStep();
+    return;
+  }
+  if (button.dataset.gameCompleteAction) {
+    triggerActionFeedback(actionFeedbackForButton(button), button);
+    handleGameCompleteAction(button);
     return;
   }
   if (button.dataset.stepOpen) {
@@ -9612,11 +9741,16 @@ function currentLineupFocusRows(game = activeGame()) {
 }
 
 function restoreLineupFocusContent() {
-  const host = els.playFeed?.parentElement;
+  const host = document.getElementById("scoreSidePanel");
   if (!host) return;
-  if (els.liveLineup) host.insertBefore(els.liveLineup, els.playFeed);
-  if (els.subPanel) host.insertBefore(els.subPanel, els.playFeed);
-  if (els.opponentSubPanel) host.insertBefore(els.opponentSubPanel, els.playFeed);
+  const opponentEditor = els.scoreOpponentLineupInput?.closest(".opponent-lineup-editor") || null;
+  const lineupAnchor = opponentEditor || null;
+  if (els.liveLineup) host.insertBefore(els.liveLineup, lineupAnchor);
+  if (els.subPanel) host.insertBefore(els.subPanel, lineupAnchor);
+  if (els.opponentSubPanel) {
+    if (opponentEditor) opponentEditor.after(els.opponentSubPanel);
+    else host.appendChild(els.opponentSubPanel);
+  }
 }
 
 function lineupFocusTitle(game = activeGame()) {
@@ -10044,6 +10178,77 @@ function currentLineupFocusRows(game = activeGame()) {
   });
 }
 
+function gameCompleteResultLabel(game) {
+  const lions = Number(game?.score?.lions || 0);
+  const opponent = Number(game?.score?.opponent || 0);
+  if (lions > opponent) return "Lions Win";
+  if (lions < opponent) return "Game Complete";
+  return "Final Tie";
+}
+
+function gameCompleteSyncMessage(game) {
+  const online = typeof navigator === "undefined" ? true : navigator.onLine;
+  const syncState = stableGameSyncState(game, { keepActiveSync: true });
+  if (syncState.status === "syncing") return "Syncing this completed game to the shared site.";
+  if (syncState.status === "synced") {
+    return syncState.lastSyncedAt
+      ? `Synced ${formatSyncTimestamp(syncState.lastSyncedAt)}.`
+      : "Synced to the shared site.";
+  }
+  if (syncState.status === "error") {
+    return syncState.lastError ? `Sync failed: ${syncState.lastError}` : "Sync failed. Try again when online.";
+  }
+  if (!online) return "Saved offline. Sync when online.";
+  if (!isAdminMode() || !supabaseAdminEmail) return "Saved locally. Sign in as admin to sync.";
+  if (!supabaseStorage?.isReady?.()) return "Saved locally. Supabase is still loading.";
+  return "Saved locally and ready to sync.";
+}
+
+function gameCompleteSyncButtonLabel(game) {
+  const syncState = stableGameSyncState(game, { keepActiveSync: true });
+  if (syncState.status === "syncing") return "Syncing...";
+  if (syncState.status === "synced") return "Synced";
+  return "Sync Game";
+}
+
+function renderGameCompleteSummary(game) {
+  const lastPlay = latestScoringDockResult(game);
+  const finalDate = formatGameDateWithYear(game?.date || todayValue()) || "No date";
+  const innings = completedInningCount(game);
+  const undoDisabled = hasPlayHistory(game) ? "" : " disabled";
+  const syncDisabled = canSyncGame(game) ? "" : " disabled";
+  return `<section class="score-complete-summary">
+    <div class="score-complete-card">
+      <span class="score-complete-kicker">Final</span>
+      <strong>${escapeHtml(gameScoreLabel(game))}</strong>
+      <span>${escapeHtml(`${finalDate} | ${innings} ${innings === 1 ? "inning" : "innings"}`)}</span>
+    </div>
+    <div class="score-complete-details">
+      <article>
+        <span>Result</span>
+        <strong>${escapeHtml(gameCompleteResultLabel(game))}</strong>
+        <small>${escapeHtml(gameMatchupLabel(game))}</small>
+      </article>
+      <article>
+        <span>Last Play</span>
+        <strong>${escapeHtml(lastPlay.title)}</strong>
+        <small>${escapeHtml(lastPlay.meta)}</small>
+      </article>
+      <article>
+        <span>Sync Status</span>
+        <strong>${escapeHtml(gameCompleteSyncMessage(game))}</strong>
+        <small>Leaving this screen will not remove the saved final game.</small>
+      </article>
+    </div>
+    <div class="score-complete-actions">
+      <button type="button" class="primary-action" data-game-complete-action="boxscore" data-game-complete-game-id="${escapeHtml(game.id)}">View Box Score</button>
+      <button type="button" class="secondary-action" data-game-complete-action="sync" data-game-complete-game-id="${escapeHtml(game.id)}"${syncDisabled}>${escapeHtml(gameCompleteSyncButtonLabel(game))}</button>
+      <button type="button" class="secondary-action" data-game-complete-action="leave" data-game-complete-game-id="${escapeHtml(game.id)}">Leave Score Game</button>
+      <button type="button" class="secondary-action" data-game-complete-action="undo" data-game-complete-game-id="${escapeHtml(game.id)}"${undoDisabled}>Undo Last Play</button>
+    </div>
+  </section>`;
+}
+
 function renderScoringStepPanel() {
   if (!els.scoringStepPanel) return;
   const game = activeGame();
@@ -10051,10 +10256,10 @@ function renderScoringStepPanel() {
   if (gameIsFinal(game)) {
     els.scoringStepPanel.dataset.step = "final";
     els.scoringStepEyebrow.textContent = "Final";
-    els.scoringStepTitle.textContent = "Game complete";
-    els.scoringStepHint.textContent = "This game is locked. Completed games remain available in Game Archive and reports.";
+    els.scoringStepTitle.textContent = gameCompleteResultLabel(game);
+    els.scoringStepHint.textContent = "Review the final summary, sync when available, or undo the final play if it needs correction.";
     els.panelUndoPitchBtn.hidden = true;
-    els.scoringStepBody.innerHTML = `<div class="auto-score">Final score: ${escapeHtml(gameScoreLabel(game))}</div>`;
+    els.scoringStepBody.innerHTML = renderGameCompleteSummary(game);
     renderScoringDockUtilities(game);
     return;
   }
@@ -10260,7 +10465,7 @@ function scoringStepConfig(game) {
     return {
       eyebrow: "Runner Decisions",
       title: "Set Advancements",
-      hint: "Choose where each involved runner ended, then confirm.",
+      hint: runnerDecisionError || "Choose where each involved runner ended, then confirm.",
       body: `${runnerDecisionCards(game, result).map(renderRunnerDecisionCard).join("")}
         <div class="confirm-play-row">
           <button type="button" class="secondary-action" data-score-step-back>Back</button>
@@ -10446,7 +10651,7 @@ function renderOpponentScoringStepPanel(game) {
     if (!Object.keys(pendingRunnerChoices).length) initializeRunnerDecisionChoices(game, result);
     scoringStep = "runners";
     els.scoringStepPanel.dataset.step = "runners";
-    els.scoringStepHint.textContent = "Set the opponent runner destinations, then confirm the play.";
+    els.scoringStepHint.textContent = runnerDecisionError || "Set the opponent runner destinations, then confirm the play.";
     els.scoringStepBody.innerHTML = `${runnerDecisionCards(game, result).map(renderRunnerDecisionCard).join("")}
       <div class="confirm-play-row">
         <button type="button" class="secondary-action" data-score-step-back>Back</button>
@@ -10538,23 +10743,25 @@ function renderRunnerDecisionCard(card) {
 }
 
 function runnerOverrideOptions(card) {
-  const auto = card.to || card.automaticTo || "hold";
-  const options = [auto];
-  if (card.base !== "batter" && !options.includes("hold")) options.push("hold");
-  const next = nextBaseFrom(card.start);
-  if (next && !options.includes(next)) options.push(next);
-  if (!options.includes("home")) options.push("home");
-  if (!options.includes("out")) options.push("out");
-  return options.filter((option) => card.options.includes(option));
+  return (card.options || []).filter((option) => {
+    if (card.base === "batter") return option !== "hold";
+    return ["hold", ...runnerDestinationsAheadOf(card.start), "out"].includes(option);
+  });
 }
 
 function runnerOverrideLabel(card, option) {
-  const automatic = card.to || card.automaticTo || "hold";
-  if (option === automatic) return option === "out" ? "Out" : "Keep";
   if (option === "home") return "Score";
-  if (option === "out") return card.to === "home" || card.automaticTo === "home" ? "Out at Home" : "Out";
-  if (option === "hold") return "Keep";
-  return "Advance";
+  if (option === "out") return "Out";
+  if (option === "hold") return "Hold";
+  return baseLabel(option);
+}
+
+function runnerDestinationsAheadOf(start) {
+  if (start === "Batter") return ["first", "second", "third", "home"];
+  if (start === "1B") return ["second", "third", "home"];
+  if (start === "2B") return ["third", "home"];
+  if (start === "3B") return ["home"];
+  return [];
 }
 
 function nextBaseFrom(start) {
@@ -11343,6 +11550,7 @@ function applySubstitution() {
 }
 
 function renderPlayFeed() {
+  if (!els.playFeed || !els.playCount) return;
   const game = activeGame();
   const recent = [...game.events].reverse().slice(0, 12);
   els.playCount.textContent = `${game.events.length} plays`;

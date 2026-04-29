@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const appJs = readFileSync(join(rootDir, "app.js"), "utf8");
+const indexHtml = readFileSync(join(rootDir, "index.html"), "utf8");
 const stylesCss = readFileSync(join(rootDir, "styles.css"), "utf8");
 
 function functionBody(source, functionName) {
@@ -31,6 +32,19 @@ for (const renderer of ["renderScoreboard", "renderAtBat", "renderScoringStepPan
   assert.match(flushBody, new RegExp(`${renderer}\\(\\)`), `${renderer} should be refreshed during the score render flush`);
 }
 assert.match(flushBody, /forceScoreGamePaintFlush\(\)/, "score render flush should force a paint pass after DOM updates");
+
+assert.doesNotMatch(indexHtml, /Last Plays|id="playFeed"|id="playCount"/, "Score Game should not render the old Last Plays panel");
+assert.match(indexHtml, /<aside class="play-panel" id="scoreSidePanel">/, "Score side panel should keep a stable host for lineup controls");
+assert.match(
+  functionBody(appJs, "renderPlayFeed"),
+  /if \(!els\.playFeed \|\| !els\.playCount\) return;/,
+  "Play feed renderer should no-op when the visible Last Plays panel is removed"
+);
+assert.match(
+  functionBody(appJs, "restoreLineupFocusContent"),
+  /scoreSidePanel[\s\S]*scoreOpponentLineupInput/,
+  "Lineup focus restore should use the score side panel instead of the removed play feed as its anchor"
+);
 
 const paintBody = functionBody(appJs, "forceScoreGamePaintFlush");
 assert.match(paintBody, /node\.dataset\.paintFlush/, "paint flush should mutate the score view dataset");

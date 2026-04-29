@@ -23,9 +23,9 @@ function functionBody(source, functionName) {
 
 mustMatch(indexHtml, /<section class="home-panel home-visit-counter-panel" id="homeVisitCounterCard" hidden>[\s\S]*id="homeVisitTotal"[\s\S]*id="homeVisitMeta"/, "Home should include an admin-only visit counter panel at the bottom of the view");
 assert.doesNotMatch(indexHtml, /home-overview-stat home-visit-counter-stat/, "Visit counter should not be embedded in the overview stats grid");
-mustMatch(indexHtml, /app\.js\?v=2026\.04\.28-build-196/, "Visit counter release should bump the app asset marker");
+mustMatch(indexHtml, /app\.js\?v=2026\.04\.28-build-\d+/, "Visit counter release should bump the app asset marker");
 
-mustMatch(appJs, /const APP_VERSION = "v\.1\.1\.32"/, "Visit counter release should bump app version");
+mustMatch(appJs, /const APP_VERSION = "v\.1\.1\.38"/, "Visit counter release should bump app version");
 mustMatch(appJs, /VISITOR_ID_STORAGE_KEY[\s\S]*VISIT_SESSION_ID_STORAGE_KEY[\s\S]*VISIT_RECORDED_STORAGE_KEY/, "Visit tracking should use tiny local/session metadata keys");
 mustMatch(functionBody(appJs, "initializeScorebookApp"), /initializeSiteVisitTracking\(\)/, "App boot should initialize visit tracking");
 mustMatch(functionBody(appJs, "recordSiteVisitOnce"), /supabaseStorage\.recordSiteVisit[\s\S]*visitorId[\s\S]*sessionId[\s\S]*deviceType[\s\S]*metadata/, "Visit tracking should call Supabase with anonymous visitor/session metadata");

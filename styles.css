@@ -20,6 +20,18 @@
   box-sizing: border-box;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 [hidden] {
   display: none !important;
 }
@@ -73,13 +85,13 @@ textarea:disabled {
 .brand-block {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 
 .brand-copy {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: center;
   min-width: 0;
 }
 
@@ -117,9 +129,20 @@ textarea:disabled {
 }
 
 .brand-logo {
-  width: 48px;
-  height: 48px;
+  display: block;
+  width: clamp(40px, 4.5vw, 52px);
+  height: clamp(40px, 4.5vw, 52px);
   object-fit: contain;
+  border-radius: 8px;
+}
+
+.brand-wordmark {
+  display: block;
+  width: clamp(96px, 12vw, 142px);
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  transform: translateY(3px);
 }
 
 .app-version {
@@ -4569,19 +4592,6 @@ button:focus-visible {
   font-size: 0.86rem;
 }
 
-.play-feed {
-  display: grid;
-  gap: 7px;
-  max-height: 300px;
-  overflow: auto;
-}
-
-.play-item {
-  padding: 8px;
-  border-left: 4px solid var(--grass);
-  background: #f4f8f4;
-}
-
 .spray-panel .mini-head {
   position: absolute;
   left: 50%;
@@ -8641,10 +8651,6 @@ button:focus-visible {
     max-height: none;
   }
 
-  .play-feed {
-    max-height: 260px;
-  }
-
   .score-form,
   .game-form,
   .game-summary-grid,
@@ -9677,6 +9683,13 @@ label {
   object-fit: cover;
 }
 
+.home-hero-panel .home-field-image.is-no-game-hero {
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  object-position: center;
+  background: #02050d;
+}
+
 @media (min-width: 1025px) {
   .home-grid {
     grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
@@ -9721,6 +9734,10 @@ label {
 
   .home-hero-panel .home-field-image {
     aspect-ratio: 16 / 10;
+  }
+
+  .home-hero-panel .home-field-image.is-no-game-hero {
+    aspect-ratio: 16 / 9;
   }
 
   .home-next-game {
@@ -11704,6 +11721,92 @@ label {
 #scoreView .scoring-step-body {
   display: grid;
   gap: 14px;
+}
+
+#scoreView .score-complete-summary {
+  display: grid;
+  gap: 14px;
+}
+
+#scoreView .score-complete-card {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(245, 189, 33, 0.28);
+  border-radius: 8px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(245, 189, 33, 0.18), transparent 42%),
+    rgba(255, 255, 255, 0.06);
+}
+
+#scoreView .score-complete-kicker,
+#scoreView .score-complete-details span {
+  color: var(--lion-gold);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#scoreView .score-complete-card strong {
+  color: var(--white);
+  font-size: clamp(1.65rem, 2.5vw, 2.45rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+#scoreView .score-complete-card > span:last-child {
+  color: rgba(255, 255, 255, 0.74);
+  font-weight: 700;
+}
+
+#scoreView .score-complete-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+#scoreView .score-complete-details article {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(3, 10, 36, 0.42);
+}
+
+#scoreView .score-complete-details strong {
+  color: var(--white);
+  font-size: 1rem;
+  line-height: 1.18;
+}
+
+#scoreView .score-complete-details small {
+  color: rgba(255, 255, 255, 0.64);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+#scoreView .score-complete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#scoreView .score-complete-actions > button {
+  flex: 1 1 150px;
+  min-height: 44px;
+}
+
+@media (max-width: 760px) {
+  #scoreView .score-complete-details {
+    grid-template-columns: 1fr;
+  }
+
+  #scoreView .score-complete-actions > button {
+    flex-basis: 100%;
+  }
 }
 
 #scoreView .score-form[hidden] {
@@ -14168,10 +14271,6 @@ select option:checked {
     margin-bottom: 12px;
   }
 
-  #scoreView .play-feed {
-    max-height: none;
-  }
-
   #scoreView .scorer-stack {
     grid-area: main;
     display: grid;
@@ -15258,25 +15357,23 @@ select option:checked {
     grid-column: 1 / -1;
     grid-row: 1;
     justify-self: center;
-    gap: 12px;
+    gap: 8px;
     align-items: center;
     padding-inline: 48px;
   }
 
-  .brand-block h1 {
-    font-size: clamp(1.45rem, 6.5vw, 2.2rem);
-    line-height: 1.02;
-    text-align: center;
-  }
-
   .brand-logo {
-    width: 68px;
-    height: 68px;
+    width: clamp(46px, 13vw, 58px);
+    height: clamp(46px, 13vw, 58px);
   }
 
   .brand-copy {
-    justify-items: center;
-    text-align: center;
+    justify-content: center;
+  }
+
+  .brand-wordmark {
+    width: clamp(104px, 33vw, 146px);
+    transform: translateY(2px);
   }
 
   .topbar-actions {
@@ -17269,19 +17366,6 @@ select option:checked {
     grid-column: 1;
   }
 
-  #scoreView .play-panel > .mini-head:last-of-type,
-  #scoreView .play-panel > .play-feed {
-    grid-column: 2;
-  }
-
-  #scoreView .play-feed {
-    max-height: 100%;
-    min-height: 280px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.03);
-  }
 }
 
 @media (max-width: 700px) {
@@ -17358,10 +17442,6 @@ select option:checked {
     grid-template-columns: 1fr;
   }
 
-  #scoreView .play-panel > .mini-head:last-of-type,
-  #scoreView .play-panel > .play-feed {
-    grid-column: 1;
-  }
 }
 
 @media (min-width: 700px) and (max-width: 1100px) {

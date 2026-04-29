@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
 Last updated: 2026-04-28
-Current commit: `12b9bbd` plus uncommitted Supabase site visit counter update
-Current app version: `v.1.1.32`
-Current asset build markers: `2026.04.28-build-196`
+Current commit: `de56f41` plus uncommitted runner decision and game-complete summary updates
+Current app version: `v.1.1.38`
+Current asset build markers: `2026.04.28-build-202`
 
 ## Project Overview
 
@@ -157,6 +157,7 @@ Current state:
 - Score Game feedback now includes optional `navigator.vibrate` haptics as progressive enhancement only; CSS/JS visual feedback remains the primary confirmation and unsupported devices behave normally
 - Scoring runs triggers a team-branded `runScoreFeedback` field overlay with the scoring team logo and combined run count; it is visual-only and uses the already-calculated runs from the scoring path, and the next-batter intro waits until the overlay clears
 - selected base-runner actions include `NR` for assigning a non-runner from the Lions lineup; later steals, caught stealing, pickoffs, and runs score to the NR runner on base
+- ball-in-play runner decision cards now show every legal destination ahead of each runner (`Hold`, base labels, `Score`, `Out`) and validate that no two runners end on the same base before Confirm Play
 - selected base-runner SB/CS/PO actions carry the selected source base and use stable runner identity matching so scored, stolen, caught, or picked-off runners clear from the correct base even after cloned/object-shaped runner state
 - runner displays and SB/CS/PO actions reconcile stale base mirrors from the latest completed event's runner advancements before enabling or applying runner actions, which protects live games that already have a stale runner left on a base after a scoring play
 - scoring action buttons commit from `pointerup` through the same handler used by `click`, with synthetic click suppression, so iPad/Safari taps do not animate without applying the first action
@@ -165,6 +166,8 @@ Current state:
 - active games are included in shared Supabase snapshots with `app_state.active_game_id`; `saveState()` stores pending scoring checkpoints and debounces live-game sync so reloads can resume the current inning/count/bases/batter/pending flow
 - local games and scoring events are now intended to persist in IndexedDB stores (`games`, `events`, and `meta`) instead of being written as one large `localStorage` JSON blob, reducing iPad/PWA quota failures during long games
 - shared sync now treats completed/final remote games as authoritative over stale local active-game checkpoints, and Supabase game upserts skip active snapshots when the existing remote row is already final
+- when a scored play completes the game, the Score Game screen keeps that final game in focus and shows a Game Complete summary with final score, last play, sync status, View Box Score, Sync Game, Leave Score Game, and Undo Last Play actions
+- the Score Game side panel no longer shows the visible Last Plays feed at the bottom of the scoring grid; play events and play history are still retained for Undo Play, scorebook, box score, and stats
 
 Important current note:
 - the local working tree contains an in-progress score-game presentation redesign
