@@ -7714,7 +7714,7 @@ function renderHome() {
     renderHomeLeaderFeatureCard("RBI", hitterRows, (row) => row.stats.rbi, String)
   ].join("");
   els.homePitchingLeaders.innerHTML = [
-    renderHomeLeaderFeatureCard("ERA", pitcherRows, (row) => row.stats.era, formatEra, { lowWins: true, includeZero: true }),
+    renderHomeLeaderFeatureCard("ERA", pitcherRows, (row) => row.stats.era, formatEra, { lowWins: true, includeZero: true, tieBreaker: (row) => row.stats.outs }),
     renderHomeLeaderFeatureCard("K", pitcherRows, (row) => row.stats.k, String),
     renderHomeLeaderFeatureCard("Wins", pitcherRows, (row) => row.stats.wins, String)
   ].join("");
@@ -16063,14 +16063,14 @@ function leaderCard(label, rows, scorer, formatter, options = {}) {
 
 function renderHomeLeaderFeatureCard(label, rows, scorer, formatter, options = {}) {
   const normalizedOptions = typeof options === "boolean" ? { lowWins: options } : options;
-  const { lowWins = false, includeZero = false } = normalizedOptions;
+  const { lowWins = false, includeZero = false, tieBreaker = null } = normalizedOptions;
   const leader = rows
     .filter((row) => {
       const value = scorer(row);
       if (!Number.isFinite(value)) return false;
       return value > 0 || includeZero || (row.player.active && !lowWins);
     })
-    .sort((a, b) => lowWins ? scorer(a) - scorer(b) : scorer(b) - scorer(a))[0] || null;
+    .sort((a, b) => compareLeaderRows(a, b, scorer, { lowWins, tieBreaker }))[0] || null;
   if (!leader) {
     return `<article class="home-feature-leader-card is-empty"><div class="home-feature-leader-stat"><span>${escapeHtml(label)}</span><strong>--</strong></div><p class="player-meta">No data yet.</p></article>`;
   }
@@ -16086,6 +16086,21 @@ function renderHomeLeaderFeatureCard(label, rows, scorer, formatter, options = {
       <h4>${escapeHtml(player.name)}</h4>
     </div>
   </article>`;
+}
+
+function compareLeaderRows(a, b, scorer, options = {}) {
+  const { lowWins = false, tieBreaker = null } = options;
+  const valueA = Number(scorer(a));
+  const valueB = Number(scorer(b));
+  if (Math.abs(valueA - valueB) > 0.0000001) {
+    return lowWins ? valueA - valueB : valueB - valueA;
+  }
+  if (typeof tieBreaker === "function") {
+    const tieA = Number(tieBreaker(a)) || 0;
+    const tieB = Number(tieBreaker(b)) || 0;
+    if (tieA !== tieB) return tieB - tieA;
+  }
+  return String(a?.player?.name || "").localeCompare(String(b?.player?.name || ""));
 }
 
 function homeLeaderGameLine(label, row) {
