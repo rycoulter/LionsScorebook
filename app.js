@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.48";
+const APP_VERSION = "v.1.1.49";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
 const NABA_ROSTERS_CACHE_URL = "data/naba-rosters.json";
@@ -12247,7 +12247,11 @@ function renderRoster() {
       node.querySelector(".number-pill").textContent = `#${player.number || "--"}`;
       const positionsSummary = formatPositions(player.positions);
       const primaryPosition = playerPrimaryPosition(player);
-      node.querySelector("[data-player-primary-position]").textContent = primaryPosition;
+      const primaryPositionPill = node.querySelector("[data-player-primary-position]");
+      if (primaryPositionPill) {
+        primaryPositionPill.textContent = primaryPosition;
+        primaryPositionPill.classList.toggle("is-long-position", primaryPosition.length > 3);
+      }
       const positionsLabel = node.querySelector("[data-player-positions-summary]");
       if (positionsLabel) positionsLabel.textContent = positionsSummary;
         const silhouette = node.querySelector("[data-player-silhouette-image]");

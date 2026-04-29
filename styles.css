@@ -18549,6 +18549,13 @@ select option:checked {
   background: rgba(12, 18, 29, 0.98);
 }
 
+.roster-grid .player-position-pill.is-long-position {
+  padding-inline: 6px;
+  font-size: 0.95rem;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
 .roster-grid .player-card-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.12);
@@ -18831,6 +18838,11 @@ select option:checked {
     height: 58px;
     flex-basis: 58px;
     font-size: 1.32rem;
+  }
+
+  .roster-grid .player-position-pill.is-long-position {
+    padding-inline: 4px;
+    font-size: 0.74rem;
   }
 
   .roster-grid .player-card-identity {

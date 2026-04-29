@@ -2,8 +2,8 @@
 
 Last updated: 2026-04-29
 Current commit: `f921b26` plus uncommitted NABA roster import/cache updates
-Current app version: `v.1.1.48`
-Current asset build markers: `2026.04.29-build-212`
+Current app version: `v.1.1.49`
+Current asset build markers: `2026.04.29-build-213`
 
 ## Project Overview
 
