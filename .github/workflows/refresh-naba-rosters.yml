@@ -1,0 +1,43 @@
+name: Refresh NABA Rosters
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season year to refresh"
+        required: false
+        type: string
+  schedule:
+    - cron: "35 9 * * *"
+
+jobs:
+  refresh-naba-rosters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Refresh NABA rosters
+        env:
+          LEAGUE_SEASON: ${{ github.event.inputs.season }}
+        run: node ./scripts/refresh-naba-rosters.mjs
+
+      - name: Commit refreshed roster cache
+        run: |
+          if git diff --quiet -- data/naba-rosters.json data/naba-rosters-cache.js; then
+            echo "Roster cache unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/naba-rosters.json data/naba-rosters-cache.js
+          git commit -m "Refresh NABA roster cache"
+          git push

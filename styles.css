@@ -10347,6 +10347,18 @@ label {
   white-space: nowrap;
 }
 
+.opponent-lineup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.opponent-lineup-import-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .opponent-lineup-grid {
   grid-template-columns: minmax(0, 1fr) minmax(300px, 0.62fr);
 }
@@ -10366,6 +10378,13 @@ label {
   padding: 14px;
   background: rgba(255, 255, 255, 0.055);
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
+}
+
+.opponent-lineup-setup-row.is-active,
+.opponent-lineup-setup-row:focus-within {
+  border-color: rgba(245, 189, 33, 0.62);
+  background: rgba(245, 189, 33, 0.1);
+  box-shadow: 0 0 0 1px rgba(245, 189, 33, 0.2), 0 18px 46px rgba(0, 0, 0, 0.26);
 }
 
 .opponent-lineup-name,
@@ -10392,6 +10411,122 @@ label {
 
 .opponent-lineup-help {
   color: rgba(255, 255, 255, 0.72);
+}
+
+.opponent-roster-import-card {
+  display: grid;
+  gap: 12px;
+}
+
+.opponent-roster-import-head {
+  align-items: flex-start;
+}
+
+.opponent-roster-search {
+  display: grid;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.opponent-roster-search span {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.opponent-roster-search input {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(7, 17, 32, 0.72);
+  color: var(--white);
+  font-weight: 900;
+}
+
+.opponent-roster-list {
+  display: grid;
+  gap: 8px;
+  max-height: 380px;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.opponent-roster-player {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(7, 17, 32, 0.7);
+  color: var(--white);
+  text-align: left;
+  cursor: pointer;
+}
+
+.opponent-roster-player:hover,
+.opponent-roster-player:focus-visible {
+  border-color: rgba(245, 189, 33, 0.55);
+  background: rgba(245, 189, 33, 0.11);
+}
+
+.opponent-roster-player.is-added {
+  opacity: 0.66;
+}
+
+.opponent-roster-player:disabled {
+  cursor: not-allowed;
+}
+
+.opponent-roster-player:disabled:hover {
+  border-color: rgba(255, 255, 255, 0.11);
+  background: rgba(7, 17, 32, 0.7);
+}
+
+.opponent-roster-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 38px;
+  border: 1px solid rgba(245, 189, 33, 0.62);
+  border-radius: 999px;
+  color: var(--gold);
+  font-weight: 950;
+}
+
+.opponent-roster-name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.opponent-roster-name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.96rem;
+}
+
+.opponent-roster-name span,
+.opponent-roster-added {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.opponent-roster-added {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.opponent-roster-empty {
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 14px;
+  color: rgba(255, 255, 255, 0.66);
+  font-weight: 800;
 }
 
 .ready-check-card {
@@ -10531,6 +10666,15 @@ label {
   .pregame-actions,
   .bench-player-card {
     grid-template-columns: 1fr;
+  }
+
+  .opponent-lineup-actions {
+    flex-direction: column;
+  }
+
+  .opponent-lineup-actions .compact-action {
+    width: 100%;
+    justify-content: center;
   }
 
   .bench-player-card {

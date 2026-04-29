@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
 Last updated: 2026-04-29
-Current commit: `de56f41` plus uncommitted standings tab/cache refresh updates
-Current app version: `v.1.1.43`
-Current asset build markers: `2026.04.29-build-207`
+Current commit: `f921b26` plus uncommitted NABA roster import/cache updates
+Current app version: `v.1.1.47`
+Current asset build markers: `2026.04.29-build-211`
 
 ## Project Overview
 
@@ -41,6 +41,7 @@ Normal working pattern:
 Public users can view:
 - Home
 - Team News
+- Standings
 - Schedule & Scores
 - Roster
 - Stats
@@ -111,6 +112,8 @@ The app is still in a hybrid state:
 - Team News articles now have a dedicated `public.news_articles` Supabase table so article edits are row-level and visible across devices
 - Pittsburgh NABA AA standings are cached in `data/league-standings.json` and `data/league-standings-cache.js`; the script cache lets local `file://` opens render standings without relying on `fetch`
 - `.github/workflows/refresh-league-standings.yml` refreshes those standings cache files hourly and optionally mirrors rows to Supabase when standings-table secrets are available
+- Pittsburgh NABA team rosters are cached in `data/naba-rosters.json` and `data/naba-rosters-cache.js`; the opponent lineup setup can load that cache and fill batting spots from first/last name plus jersey number when available
+- `.github/workflows/refresh-naba-rosters.yml` refreshes the local NABA roster cache daily from Pittsburgh NABA roster pages
 - `app_state.roster` is still written as a compatibility fallback during the migration
 
 Important current note:
@@ -327,20 +330,18 @@ At the time of this update, the local workspace has uncommitted changes in:
 - `index.html`
 - `styles.css`
 - `service-worker.js`
-- `scripts/test-team-news-page.mjs`
-- `scripts/test-themed-dropdowns.mjs`
-- `scripts/test-highlights-management.mjs`
-- `scripts/test-roster-db-sync.mjs`
-- `scripts/test-storage-quota-safe.mjs`
-- `supabase-storage.js`
-- `supabase-schema.sql`
+- `context.md`
+- `data/naba-rosters.json`
+- `data/naba-rosters-cache.js`
+- `scripts/refresh-naba-rosters.mjs`
+- `scripts/test-naba-roster-import.mjs`
+- `scripts/test-league-standings-tab.mjs`
+- `.github/workflows/refresh-naba-rosters.yml`
 
 Those local changes are primarily tied to:
-- admin-only Highlights management
-- Supabase `game_highlights` persistence and RLS
-- Supabase `news_articles` persistence, migration, and RLS
-- completed-game highlight viewing from public game cards
-- public Team News home card/page and admin News Editor
+- importing opponent lineup names/numbers from cached Pittsburgh NABA roster pages
+- adding a local static roster cache that works from `file://` and the offline PWA
+- adding a daily GitHub Actions refresh path for NABA roster cache files
 - app/cache build bump for the next QA/prod refresh
 
 ## Current Priorities

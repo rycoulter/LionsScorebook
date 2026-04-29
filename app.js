@@ -581,9 +581,10 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.43";
+const APP_VERSION = "v.1.1.47";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
+const NABA_ROSTERS_CACHE_URL = "data/naba-rosters.json";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -647,6 +648,10 @@ let leagueStandingsRows = [];
 let leagueStandingsUpdatedLabel = "Waiting for standings cache.";
 let leagueStandingsSourceLabel = "Pittsburgh NABA AA standings";
 let leagueStandingsSourceUrl = PITTSBURGH_NABA_STANDINGS_URL;
+let nabaRosterCache = null;
+let opponentRosterSearchQuery = "";
+let opponentRosterStatusMessage = "";
+let opponentLineupActiveIndex = 0;
 let selectedScoutingTeamId = "";
 let scoutingRefreshState = "snapshot";
 let scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
@@ -991,6 +996,11 @@ const els = {
   opponentLineupContext: document.getElementById("opponentLineupContext"),
   opponentLineupRows: document.getElementById("opponentLineupRows"),
   addOpponentHitterBtn: document.getElementById("addOpponentHitterBtn"),
+  importOpponentRosterBtn: document.getElementById("importOpponentRosterBtn"),
+  opponentRosterImportPanel: document.getElementById("opponentRosterImportPanel"),
+  opponentRosterImportStatus: document.getElementById("opponentRosterImportStatus"),
+  opponentRosterSearch: document.getElementById("opponentRosterSearch"),
+  opponentRosterList: document.getElementById("opponentRosterList"),
   backToLineupBuilderBtn: document.getElementById("backToLineupBuilderBtn"),
   startFromOpponentLineupBtn: document.getElementById("startFromOpponentLineupBtn"),
   cancelLineupBuilderBtn: document.getElementById("cancelLineupBuilderBtn"),
@@ -1323,6 +1333,7 @@ async function initializeScorebookApp() {
     console.warn("Unable to finish IndexedDB startup before app boot; continuing with available local state.", error);
   }
   state = loadState();
+  nabaRosterCache = normalizeNabaRosterCache(window.ScorebookNabaRostersCache);
   populateFieldLocationSelects();
   populateOpponentSelect();
   configureGameDateInputs();
@@ -1527,13 +1538,14 @@ function parseOpponentLine(value, index = 0) {
   };
 }
 
-function normalizeOpponentLineupEntry(entry, index = 0) {
+function normalizeOpponentLineupEntry(entry, index = 0, options = {}) {
+  const preserveBlank = options.preserveBlank === true;
   if (entry && typeof entry === "object") {
     const name = String(entry.name || entry.label || entry.playerName || "").trim();
     const number = String(entry.number || entry.jerseyNumber || "").trim();
     return {
       id: entry.id || createId("opp"),
-      name: name || `Batter ${index + 1}`,
+      name: name || (preserveBlank ? "" : `Batter ${index + 1}`),
       number,
       order: entry.order || index + 1,
       active: entry.active !== false
@@ -1542,13 +1554,13 @@ function normalizeOpponentLineupEntry(entry, index = 0) {
   const parsed = parseOpponentLine(entry, index);
   return {
     ...parsed,
-    name: parsed.name || `Batter ${index + 1}`
+    name: parsed.name || (preserveBlank ? "" : `Batter ${index + 1}`)
   };
 }
 
-function opponentLineupSnapshot(entries = []) {
+function opponentLineupSnapshot(entries = [], options = {}) {
   return entries.map((entry, index) => {
-    const normalized = normalizeOpponentLineupEntry(entry, index);
+    const normalized = normalizeOpponentLineupEntry(entry, index, options);
     return {
       name: normalized.name,
       number: normalized.number
@@ -1559,6 +1571,241 @@ function opponentLineupSnapshot(entries = []) {
 function opponentBatterLabel(entry, fallbackIndex = 0) {
   const normalized = normalizeOpponentLineupEntry(entry, fallbackIndex);
   return `${normalized.number ? `#${normalized.number} ` : ""}${normalized.name || `Batter ${fallbackIndex + 1}`}`.trim();
+}
+
+function isOpponentLineupPlaceholderName(name = "") {
+  return /^batter\s+\d+$/i.test(String(name || "").trim());
+}
+
+function pregameOpponentEntryHasData(entry, index = 0) {
+  if (!entry) return false;
+  const normalized = normalizeOpponentLineupEntry(entry, index, { preserveBlank: true });
+  return Boolean(normalized.number || (normalized.name && !isOpponentLineupPlaceholderName(normalized.name)));
+}
+
+function isPregameOpponentLineupSpotOpen(entry, index = 0) {
+  return !pregameOpponentEntryHasData(entry, index);
+}
+
+function nextPregameOpponentOpenIndex(entries = [], startIndex = 0) {
+  const safeStart = Math.max(0, Number(startIndex) || 0);
+  for (let index = safeStart; index < entries.length; index += 1) {
+    if (isPregameOpponentLineupSpotOpen(entries[index], index)) return index;
+  }
+  return Math.max(0, Math.min(safeStart, Math.max(entries.length - 1, 0)));
+}
+
+const NABA_ROSTER_TEAM_ALIASES = [
+  { teamKey: "pittsburgh-d2", aliases: ["d2", "pittsburgh d2", "pittsburgh d 2"] },
+  { teamKey: "biscuitvilletownsquare-bandidos", aliases: ["bandidos", "bakery square bandidos", "biscuitville", "biscuitville townsquare bandidos"] },
+  { teamKey: "south-hills-devils", aliases: ["devils", "south hills devils"] },
+  { teamKey: "south-oakland-ducks", aliases: ["ducks", "south oakland ducks"] },
+  { teamKey: "south-side-eagles", aliases: ["eagles", "south side eagles"] },
+  { teamKey: "bauerstown-turtles", aliases: ["turtles", "bauerstown turtles"] },
+  { teamKey: "keystone-oaks", aliases: ["keystone", "keystone oaks"] },
+  { teamKey: "butler-buccos", aliases: ["butler", "buccos", "butler buccos"] },
+  { teamKey: "ross-raiders", aliases: ["ross", "raiders", "ross raiders"] },
+  { teamKey: "oakmont-lions", aliases: ["oakmont", "lions", "oakmont lions"] }
+];
+
+function normalizeNabaRosterText(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeNabaRosterPlayer(player = {}, teamKey = "", index = 0) {
+  const name = String(player.name || `${player.firstName || ""} ${player.lastName || ""}`).replace(/\s+/g, " ").trim();
+  return {
+    id: player.id || `${teamKey || "team"}-${normalizeNabaRosterText(name).replace(/\s+/g, "-") || index}`,
+    firstName: String(player.firstName || "").trim(),
+    lastName: String(player.lastName || "").trim(),
+    name,
+    number: String(player.number || "").trim(),
+    positions: String(player.positions || "").trim()
+  };
+}
+
+function normalizeNabaRosterCache(payload) {
+  if (!payload || typeof payload !== "object" || !Array.isArray(payload.teams)) return null;
+  return {
+    ...payload,
+    teams: payload.teams.map((team, teamIndex) => {
+      const teamKey = String(team.teamKey || team.id || normalizeNabaRosterText(team.teamName).replace(/\s+/g, "-") || `team-${teamIndex}`).trim();
+      return {
+        ...team,
+        teamKey,
+        teamName: String(team.teamName || team.name || `Team ${teamIndex + 1}`).trim(),
+        teamCode: String(team.teamCode || team.code || "").trim(),
+        players: Array.isArray(team.players)
+          ? team.players.map((player, index) => normalizeNabaRosterPlayer(player, teamKey, index)).filter((player) => player.name)
+          : []
+      };
+    })
+  };
+}
+
+async function fetchNabaRosterCache() {
+  const scriptCache = normalizeNabaRosterCache(window.ScorebookNabaRostersCache);
+  if (scriptCache?.teams?.length) {
+    nabaRosterCache = scriptCache;
+    return scriptCache;
+  }
+  if (nabaRosterCache?.teams?.length) return nabaRosterCache;
+  if (typeof fetch !== "function") return null;
+  try {
+    const response = await fetch(`${NABA_ROSTERS_CACHE_URL}?v=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) return null;
+    nabaRosterCache = normalizeNabaRosterCache(await response.json());
+    return nabaRosterCache;
+  } catch (error) {
+    console.warn("Unable to load NABA roster cache.", error);
+    return null;
+  }
+}
+
+function nabaRosterTeamAliases(team = {}) {
+  const aliases = [
+    team.teamName,
+    team.name,
+    team.teamKey,
+    team.teamCode,
+    team.code,
+    team.nabaKey
+  ];
+  const configured = NABA_ROSTER_TEAM_ALIASES.find((entry) => entry.teamKey === team.teamKey);
+  if (configured) aliases.push(...configured.aliases);
+  return aliases.map(normalizeNabaRosterText).filter(Boolean);
+}
+
+function findNabaRosterTeamForOpponent(opponentName = "") {
+  const normalizedOpponent = normalizeNabaRosterText(opponentName);
+  const teams = nabaRosterCache?.teams || [];
+  if (!normalizedOpponent || !teams.length) return null;
+  return teams.find((team) => {
+    const aliases = nabaRosterTeamAliases(team);
+    return aliases.some((alias) => normalizedOpponent === alias || normalizedOpponent.includes(alias) || alias.includes(normalizedOpponent));
+  }) || null;
+}
+
+function opponentRosterPlayerKey(player = {}) {
+  return `${normalizeNabaRosterText(player.name)}|${String(player.number || "").trim()}`;
+}
+
+function lineupHasRosterPlayer(entries = [], player = {}) {
+  const targetKey = opponentRosterPlayerKey(player);
+  return entries.some((entry) => {
+    if (!pregameOpponentEntryHasData(entry)) return false;
+    return opponentRosterPlayerKey(entry) === targetKey;
+  });
+}
+
+function rosterPlayerPositionLabel(player = {}) {
+  return String(player.positions || "").replace(/[|]/g, ", ").replace(/\u00c2\u00b7|\u00b7/g, ", ").replace(/\s*,\s*/g, ", ").replace(/^,|,$/g, "").trim() || "Roster";
+}
+
+function formatRosterCacheUpdatedLabel(value = "") {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function openOpponentRosterImport() {
+  const game = state.games.find((item) => item.id === lineupBuilderGameId);
+  if (!game || gameIsFinal(game)) return;
+  savePregameOpponentLineup();
+  if (els.opponentRosterImportPanel) els.opponentRosterImportPanel.hidden = false;
+  opponentRosterStatusMessage = "Loading NABA roster cache...";
+  renderOpponentRosterImport(game);
+  fetchNabaRosterCache().then(() => {
+    opponentRosterStatusMessage = "";
+    renderOpponentRosterImport(game);
+  });
+}
+
+function renderOpponentRosterImport(game = state.games.find((item) => item.id === lineupBuilderGameId)) {
+  if (!els.opponentRosterImportPanel || els.opponentRosterImportPanel.hidden || !game) return;
+  const team = findNabaRosterTeamForOpponent(game.opponent || "");
+  const entries = pregameOpponentLineupEntries(game);
+  const query = normalizeNabaRosterText(opponentRosterSearchQuery);
+  const players = team?.players || [];
+  const filteredPlayers = query
+    ? players.filter((player) => normalizeNabaRosterText(`${player.name} ${player.number} ${player.positions}`).includes(query))
+    : players;
+
+  if (els.opponentRosterImportStatus) {
+    const baseStatus = opponentRosterStatusMessage
+      || (team
+        ? `${team.teamName} roster | ${players.length} players${nabaRosterCache?.syncedAt ? ` | Updated ${formatRosterCacheUpdatedLabel(nabaRosterCache.syncedAt)}` : ""}`
+        : `No cached roster match for ${game.opponent || "this opponent"}. You can still type the lineup manually.`);
+    els.opponentRosterImportStatus.textContent = baseStatus;
+  }
+  if (els.opponentRosterSearch) {
+    els.opponentRosterSearch.value = opponentRosterSearchQuery;
+    els.opponentRosterSearch.disabled = !team || !players.length;
+  }
+  if (!els.opponentRosterList) return;
+  if (!team || !players.length) {
+    els.opponentRosterList.innerHTML = `<div class="opponent-roster-empty">Roster not available in the local NABA cache yet.</div>`;
+    return;
+  }
+  if (!filteredPlayers.length) {
+    els.opponentRosterList.innerHTML = `<div class="opponent-roster-empty">No players match that search.</div>`;
+    return;
+  }
+  els.opponentRosterList.innerHTML = filteredPlayers.map((player) => {
+    const isAdded = lineupHasRosterPlayer(entries, player);
+    return `<button type="button" class="opponent-roster-player${isAdded ? " is-added" : ""}" data-opponent-roster-player="${escapeHtml(player.id)}"${isAdded ? " disabled aria-disabled=\"true\"" : ""}>
+      <span class="opponent-roster-number">${escapeHtml(player.number || "--")}</span>
+      <span class="opponent-roster-name">
+        <strong>${escapeHtml(player.name)}</strong>
+        <span>${escapeHtml(rosterPlayerPositionLabel(player))}</span>
+      </span>
+      <span class="opponent-roster-added">${isAdded ? "Added" : "Add"}</span>
+    </button>`;
+  }).join("");
+}
+
+function addOpponentRosterPlayerToLineup(playerId) {
+  let game = state.games.find((item) => item.id === lineupBuilderGameId);
+  if (!game || gameIsFinal(game)) return;
+  const team = findNabaRosterTeamForOpponent(game.opponent || "");
+  const player = team?.players?.find((item) => item.id === playerId);
+  if (!player) return;
+  savePregameOpponentLineup();
+  game = state.games.find((item) => item.id === lineupBuilderGameId);
+  if (!game || gameIsFinal(game)) return;
+  const entries = pregameOpponentLineupEntries(game);
+  if (lineupHasRosterPlayer(entries, player)) {
+    renderOpponentRosterImport(game);
+    return;
+  }
+  let targetIndex = entries.findIndex((entry, index) => isPregameOpponentLineupSpotOpen(entry, index));
+  if (targetIndex === -1) {
+    targetIndex = entries.length;
+    entries.push({
+      id: createId("opp"),
+      name: "",
+      number: "",
+      order: targetIndex + 1,
+      active: true
+    });
+  }
+  entries[targetIndex] = {
+    ...entries[targetIndex],
+    name: player.name,
+    number: player.number,
+    order: targetIndex + 1,
+    active: true
+  };
+  game.lineups.home = entries;
+  game.opponentLineup = opponentLineupSnapshot(entries, { preserveBlank: true });
+  saveState();
+  renderOpponentLineupStep({ focusIndex: nextPregameOpponentOpenIndex(entries, targetIndex + 1) });
 }
 
 function emptyBases(value = null) {
@@ -2064,13 +2311,16 @@ function normalizeGame(game, nextState = state) {
       note: entry.note || ""
     };
   });
-  const homeLineup = homeSource.map((entry, index) => ({
-    id: entry.id || createId("opp"),
-    name: normalizeOpponentLineupEntry(entry, index).name,
-    number: normalizeOpponentLineupEntry(entry, index).number,
-    order: entry.order || index + 1,
-    active: entry.active !== false
-  }));
+  const homeLineup = homeSource.map((entry, index) => {
+    const normalizedEntry = normalizeOpponentLineupEntry(entry, index, { preserveBlank: true });
+    return {
+      id: entry.id || createId("opp"),
+      name: normalizedEntry.name,
+      number: normalizedEntry.number,
+      order: entry.order || index + 1,
+      active: entry.active !== false
+    };
+  });
   const atBat = game.atBat || makeAtBat();
   const normalizedLionsSide = normalizeLionsSide(game.lionsSide || (game.teams?.home?.id === "oakmont-lions" ? "home" : "away"));
   const score = {
@@ -2101,7 +2351,7 @@ function normalizeGame(game, nextState = state) {
     batterIndex: game.batterIndex ?? 0,
     lineupEntries,
     opponentBatterIndex: game.opponentBatterIndex ?? 0,
-    opponentLineup: opponentLineupSnapshot(homeLineup),
+    opponentLineup: opponentLineupSnapshot(homeLineup, { preserveBlank: true }),
     pitcherId: game.pitcherId || game.current?.pitcherId || "",
     score,
     atBat: {
@@ -4149,12 +4399,28 @@ function bindEvents() {
   els.lineupTemplatesBtn?.addEventListener("click", () => window.alert("Lineup templates are ready for a future save/load workflow."));
   els.addOpponentLineupBtn?.addEventListener("click", openOpponentLineupStep);
   els.addOpponentHitterBtn?.addEventListener("click", addPregameOpponentLineupHitter);
+  els.importOpponentRosterBtn?.addEventListener("click", openOpponentRosterImport);
+  els.opponentRosterSearch?.addEventListener("input", (event) => {
+    opponentRosterSearchQuery = event.target.value || "";
+    renderOpponentRosterImport();
+  });
+  els.opponentRosterList?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-opponent-roster-player]");
+    if (!button) return;
+    addOpponentRosterPlayerToLineup(button.dataset.opponentRosterPlayer);
+  });
   els.opponentLineupRows?.addEventListener("input", (event) => {
     const input = event.target.closest("[data-opponent-pregame-index]");
     if (!input) return;
+    setOpponentLineupActiveRow(Number(input.dataset.opponentPregameIndex));
     updatePregameOpponentLineupEntry(Number(input.dataset.opponentPregameIndex), {
       [input.dataset.opponentPregameField || "name"]: input.value
     });
+  });
+  els.opponentLineupRows?.addEventListener("focusin", (event) => {
+    const input = event.target.closest("[data-opponent-pregame-index]");
+    if (!input) return;
+    setOpponentLineupActiveRow(Number(input.dataset.opponentPregameIndex));
   });
   els.opponentLineupRows?.addEventListener("keydown", (event) => {
     const input = event.target.closest("[data-opponent-pregame-index]");
@@ -13718,6 +13984,9 @@ function openOpponentLineupStep() {
     return;
   }
   savePregameOpponentLineup();
+  opponentRosterSearchQuery = "";
+  opponentRosterStatusMessage = "";
+  if (els.opponentRosterImportPanel) els.opponentRosterImportPanel.hidden = true;
   renderOpponentLineupStep();
 }
 
@@ -13732,20 +14001,32 @@ function startGameFromOpponentLineupStep() {
 }
 
 function renderOpponentLineupStep(options = {}) {
-  const { focusIndex = 0 } = options;
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
   els.lineupBuilderPanel?.classList.remove("is-visible");
   els.opponentLineupPanel?.classList.toggle("is-visible", Boolean(game));
   if (!game) return;
   const entries = pregameOpponentLineupEntries(game);
+  const requestedFocusIndex = Number.isFinite(Number(options.focusIndex))
+    ? Number(options.focusIndex)
+    : opponentLineupActiveIndex;
+  const focusIndex = Math.max(0, Math.min(requestedFocusIndex || 0, Math.max(entries.length - 1, 0)));
+  opponentLineupActiveIndex = focusIndex;
   if (els.opponentLineupContext) {
     els.opponentLineupContext.textContent = `${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent || "Opponent"} | Optional lineup`;
   }
-  els.opponentLineupRows.innerHTML = entries.map(renderOpponentLineupSetupRow).join("");
+  els.opponentLineupRows.innerHTML = entries.map((entry, index) => renderOpponentLineupSetupRow(entry, index, index === focusIndex)).join("");
+  renderOpponentRosterImport(game);
   const focusTarget = els.opponentLineupRows.querySelector(`[data-opponent-pregame-index="${focusIndex}"][data-opponent-pregame-field="name"]`)
     || els.opponentLineupRows.querySelector(`[data-opponent-pregame-index="${focusIndex}"]`)
     || els.opponentLineupRows.querySelector("[data-opponent-pregame-index]");
   focusTarget?.focus();
+}
+
+function setOpponentLineupActiveRow(index = 0) {
+  opponentLineupActiveIndex = Math.max(0, Number(index) || 0);
+  els.opponentLineupRows?.querySelectorAll("[data-opponent-lineup-row]").forEach((row) => {
+    row.classList.toggle("is-active", Number(row.dataset.opponentLineupRow) === opponentLineupActiveIndex);
+  });
 }
 
 function pregameOpponentLineupEntries(game) {
@@ -13756,10 +14037,8 @@ function pregameOpponentLineupEntries(game) {
   const entries = [];
   for (let index = 0; index < totalSpots; index += 1) {
     const entry = existing[index] || names[index] || {};
-    const normalized = normalizeOpponentLineupEntry(entry, index);
-    const hasEntryData = entry && typeof entry === "object"
-      ? Boolean(entry.name || entry.number || entry.label || entry.playerName)
-      : Boolean(String(entry || "").trim());
+    const normalized = normalizeOpponentLineupEntry(entry, index, { preserveBlank: true });
+    const hasEntryData = pregameOpponentEntryHasData(entry, index);
     entries.push({
       ...normalized,
       name: hasEntryData ? normalized.name : "",
@@ -13768,14 +14047,16 @@ function pregameOpponentLineupEntries(game) {
     });
   }
   game.lineups.home = entries;
-  game.opponentLineup = opponentLineupSnapshot(entries);
+  game.opponentLineup = opponentLineupSnapshot(entries, { preserveBlank: true });
   return entries;
 }
 
 function addPregameOpponentLineupHitter() {
-  const game = state.games.find((item) => item.id === lineupBuilderGameId);
+  let game = state.games.find((item) => item.id === lineupBuilderGameId);
   if (!game || gameIsFinal(game)) return;
   savePregameOpponentLineup();
+  game = state.games.find((item) => item.id === lineupBuilderGameId);
+  if (!game || gameIsFinal(game)) return;
   const entries = pregameOpponentLineupEntries(game);
   const index = entries.length;
   entries.push({
@@ -13786,14 +14067,14 @@ function addPregameOpponentLineupHitter() {
     active: true
   });
   game.lineups.home = entries;
-  game.opponentLineup = opponentLineupSnapshot(entries);
+  game.opponentLineup = opponentLineupSnapshot(entries, { preserveBlank: true });
   saveState();
   renderOpponentLineupStep({ focusIndex: index });
 }
 
-function renderOpponentLineupSetupRow(entry, index) {
+function renderOpponentLineupSetupRow(entry, index, isActive = false) {
   const spot = index + 1;
-  return `<article class="opponent-lineup-setup-row">
+  return `<article class="opponent-lineup-setup-row${isActive ? " is-active" : ""}" data-opponent-lineup-row="${index}">
     <div class="lineup-order">${spot}</div>
     <label class="opponent-lineup-number">
       <span>No.</span>
@@ -13819,7 +14100,7 @@ function updatePregameOpponentLineupEntry(index, updates = {}) {
     active: true
   };
   game.lineups.home = entries;
-  game.opponentLineup = opponentLineupSnapshot(entries);
+  game.opponentLineup = opponentLineupSnapshot(entries, { preserveBlank: true });
   saveState();
 }
 
@@ -13843,7 +14124,7 @@ function savePregameOpponentLineup() {
     };
   });
   game.lineups.home = entries;
-  game.opponentLineup = opponentLineupSnapshot(entries);
+  game.opponentLineup = opponentLineupSnapshot(entries, { preserveBlank: true });
   saveState();
 }
 

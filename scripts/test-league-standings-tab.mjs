@@ -34,7 +34,7 @@ assert.match(refreshScript, /league-standings-cache\.js[\s\S]*ScorebookLeagueSta
 assert.match(refreshScript, /_scorebookRefresh[\s\S]*cache-control[\s\S]*no-cache/s, "Refresh script should bypass cached league responses");
 assert.match(workflow, /cron: "15 \* \* \* \*"/, "Workflow should refresh hourly");
 assert.match(workflow, /contents: write[\s\S]*git add data\/league-standings\.json data\/league-standings-cache\.js[\s\S]*git push/s, "Workflow should commit the static cache when standings change");
-assert.match(indexHtml, /data\/league-standings-cache\.js\?v=2026\.04\.29-build-207/, "Index should load the standings script cache for file opens");
+assert.match(indexHtml, /data\/league-standings-cache\.js\?v=2026\.04\.29-build-211/, "Index should load the standings script cache for file opens");
 assert.equal(standingsJson.division, "AA", "Static standings cache should be scoped to AA");
 assert.ok(standingsJson.rows.some((row) => row.teamName === "Oakmont Lions" && row.winPct === "1.000"), "Static cache should include current Oakmont Lions row");
 assert.ok(standingsJson.rows.some((row) => row.teamName === "Pittsburgh D2" && row.record === "2-1" && row.points === 7), "Static cache should include current Pittsburgh D2 row");
