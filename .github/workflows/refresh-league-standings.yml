@@ -8,14 +8,14 @@ on:
         required: false
         type: string
   schedule:
-    - cron: "15 10 * * *"
+    - cron: "15 * * * *"
 
 jobs:
   refresh-aa-standings:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: read
+      contents: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -31,3 +31,15 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           LEAGUE_SEASON: ${{ github.event.inputs.season }}
         run: node ./scripts/refresh-league-standings.mjs
+
+      - name: Commit refreshed standings cache
+        run: |
+          if git diff --quiet -- data/league-standings.json data/league-standings-cache.js; then
+            echo "Standings cache unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/league-standings.json data/league-standings-cache.js
+          git commit -m "Refresh league standings cache"
+          git push

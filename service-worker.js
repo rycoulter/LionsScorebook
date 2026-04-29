@@ -1,4 +1,4 @@
-const CACHE_NAME = "baseball-scorebook-v1-1-40-build-204";
+const CACHE_NAME = "baseball-scorebook-v1-1-43-build-207";
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
@@ -9,6 +9,8 @@ const FILES_TO_CACHE = [
   "./supabase-config.js",
   "./supabase-storage.js",
   "./matchup-images.js",
+  "./data/league-standings-cache.js",
+  "./data/league-standings.json",
   "./app.js",
   "./lions-logo.png",
   "./new-lion.png",

@@ -1,9 +1,9 @@
 # Oakmont Lions Scorebook PWA - Project Context
 
-Last updated: 2026-04-28
-Current commit: `de56f41` plus uncommitted runner decision and game-complete summary updates
-Current app version: `v.1.1.40`
-Current asset build markers: `2026.04.29-build-204`
+Last updated: 2026-04-29
+Current commit: `de56f41` plus uncommitted standings tab/cache refresh updates
+Current app version: `v.1.1.43`
+Current asset build markers: `2026.04.29-build-207`
 
 ## Project Overview
 
@@ -109,6 +109,8 @@ The app is still in a hybrid state:
 - roster now has a dedicated `public.roster_players` Supabase table
 - highlights now have a dedicated `public.game_highlights` Supabase table for YouTube-link metadata only
 - Team News articles now have a dedicated `public.news_articles` Supabase table so article edits are row-level and visible across devices
+- Pittsburgh NABA AA standings are cached in `data/league-standings.json` and `data/league-standings-cache.js`; the script cache lets local `file://` opens render standings without relying on `fetch`
+- `.github/workflows/refresh-league-standings.yml` refreshes those standings cache files hourly and optionally mirrors rows to Supabase when standings-table secrets are available
 - `app_state.roster` is still written as a compatibility fallback during the migration
 
 Important current note:

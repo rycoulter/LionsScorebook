@@ -2283,6 +2283,98 @@ main {
   white-space: nowrap;
 }
 
+.standings-page-head {
+  align-items: center;
+}
+
+.standings-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.standings-panel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(245, 189, 33, 0.11), transparent 34%),
+    linear-gradient(145deg, rgba(16, 24, 44, 0.94), rgba(7, 12, 28, 0.96));
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+}
+
+.standings-table-wrap {
+  overflow-x: auto;
+}
+
+.standings-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  color: var(--white);
+}
+
+.standings-table th,
+.standings-table td {
+  padding: 11px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.standings-table th {
+  color: var(--lion-gold);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.standings-table tbody tr {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.standings-table tbody tr.is-lions {
+  background: rgba(245, 189, 33, 0.1);
+}
+
+.standings-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(245, 189, 33, 0.16);
+  color: var(--lion-gold);
+  font-weight: 900;
+}
+
+.standings-team-name,
+.standings-team-code {
+  display: block;
+}
+
+.standings-team-name {
+  font-weight: 900;
+}
+
+.standings-team-code {
+  color: var(--text-soft);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.standings-empty-row td {
+  padding: 24px 12px;
+  color: var(--text-soft);
+  text-align: center;
+}
+
 .home-recent-result-panel {
   grid-column: auto;
 }
@@ -15421,7 +15513,7 @@ select option:checked {
     bottom: 0;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 4px;
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
     border-top: 1px solid rgba(255, 255, 255, 0.12);
@@ -15439,7 +15531,7 @@ select option:checked {
     border: 0;
     background: transparent;
     color: rgba(255, 255, 255, 0.62);
-    font-size: 0.9rem;
+    font-size: 0.76rem;
     font-weight: 600;
   }
 
@@ -15453,8 +15545,8 @@ select option:checked {
   }
 
   .mobile-bottom-nav-icon svg {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
   }
 
   .section-head {

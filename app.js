@@ -581,8 +581,9 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.40";
+const APP_VERSION = "v.1.1.43";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
+const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
 // Flip this to true while debugging stale Safari/iPad builds, or load the app with ?no-sw=1.
 const DISABLE_SERVICE_WORKER_REGISTRATION = false;
@@ -593,9 +594,9 @@ const VISITOR_ID_STORAGE_KEY = "oakmont-lions-visitor-id-v1";
 const VISIT_SESSION_ID_STORAGE_KEY = "oakmont-lions-visit-session-id-v1";
 const VISIT_RECORDED_STORAGE_KEY = "oakmont-lions-visit-recorded-v1";
 const SITE_VISIT_SUMMARY_REFRESH_MS = 5 * 60 * 1000;
-const PUBLIC_TAB_VIEWS = new Set(["home", "news", "games", "roster", "stats", "archive"]);
-const PUBLIC_READ_VIEWS = new Set(["home", "news", "games", "roster", "stats", "archive", "scorebook", "boxscore"]);
-const ADMIN_TAB_VIEWS = new Set(["home", "news", "newsEditor", "score", "games", "lineup", "roster", "stats", "highlights", "scouting", "archive", "analysis"]);
+const PUBLIC_TAB_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "archive"]);
+const PUBLIC_READ_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "archive", "scorebook", "boxscore"]);
+const ADMIN_TAB_VIEWS = new Set(["home", "news", "standings", "newsEditor", "score", "games", "lineup", "roster", "stats", "highlights", "scouting", "archive", "analysis"]);
 const supabaseStorage = window.ScorebookSupabaseStorage || null;
 
 const FIELD_LOCATIONS = [
@@ -642,6 +643,10 @@ let rosterSearchQuery = "";
 let rosterSortKey = "number";
 let rosterViewMode = "cards";
 let scoutingData = null;
+let leagueStandingsRows = [];
+let leagueStandingsUpdatedLabel = "Waiting for standings cache.";
+let leagueStandingsSourceLabel = "Pittsburgh NABA AA standings";
+let leagueStandingsSourceUrl = PITTSBURGH_NABA_STANDINGS_URL;
 let selectedScoutingTeamId = "";
 let scoutingRefreshState = "snapshot";
 let scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
@@ -816,7 +821,10 @@ const els = {
   homeRecentResultBody: document.getElementById("homeRecentResultBody"),
   homeTeamNewsBody: document.getElementById("homeTeamNewsBody"),
   homeTeamNewsLink: document.getElementById("homeTeamNewsLink"),
-  homeLeagueStandings: document.getElementById("homeLeagueStandings"),
+  leagueStandingsStatus: document.getElementById("leagueStandingsStatus"),
+  leagueStandingsMeta: document.getElementById("leagueStandingsMeta"),
+  leagueStandingsBody: document.getElementById("leagueStandingsBody"),
+  refreshLeagueStandingsBtn: document.getElementById("refreshLeagueStandingsBtn"),
   homeUpcomingGames: document.getElementById("homeUpcomingGames"),
   homePastGames: document.getElementById("homePastGames"),
   scoreViewTitle: document.getElementById("scoreViewTitle"),
@@ -4576,6 +4584,7 @@ window.addEventListener("resize", () => {
     refreshScoutingData({ silent: true });
   });
   els.refreshScoutingBtn.addEventListener("click", () => refreshScoutingData());
+  els.refreshLeagueStandingsBtn?.addEventListener("click", () => refreshScoutingData({ force: true }));
   document.querySelectorAll("[data-hit-sort]").forEach((button) => {
     button.addEventListener("click", () => {
       const key = button.dataset.hitSort;
@@ -4687,6 +4696,7 @@ function switchView(view) {
     tab.classList.toggle("is-active", tab.dataset.view === nextView);
   });
   els.views.forEach((panel) => panel.classList.toggle("is-visible", panel.dataset.panel === nextView));
+  if (nextView === "standings") refreshScoutingData({ silent: true });
   if (previousView !== nextView) {
     requestAnimationFrame(() => {
       document.scrollingElement?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
@@ -7566,6 +7576,7 @@ function render() {
   const scoreGame = activeScoreGame();
   renderAccessMode();
   renderHome();
+  renderLeagueStandings();
   renderScoreEmptyState(scoreGame);
   if (scoreGame) {
     renderScoreboard();
@@ -7756,6 +7767,60 @@ function renderHome() {
       }).join("")
       : `<div class="upcoming-empty">League standings will appear here after the next refresh.</div>`;
   }
+}
+
+function renderLeagueStandings() {
+  if (!els.leagueStandingsBody) return;
+  const rows = leagueStandingsRows.length
+    ? leagueStandingsRows
+    : (Array.isArray(scoutingData?.teams) && scoutingData.teams.length
+      ? scoutingData.teams.map((team, index) => normalizeLeagueStandingRow({
+        id: team.id,
+        teamName: team.name,
+        teamCode: team.code,
+        record: team.record,
+        points: team.points,
+        winPct: team.winPct,
+        gb: team.gb,
+        rf: team.rf,
+        ra: team.ra,
+        last10: team.last10,
+        streak: team.streak,
+        sourceUrl: team.url || PITTSBURGH_NABA_STANDINGS_URL,
+        sourceLabel: "Pittsburgh NABA AA standings"
+      }, index)).filter(Boolean)
+      : []);
+  if (els.leagueStandingsStatus) {
+    els.leagueStandingsStatus.textContent = rows.length
+      ? `${leagueStandingsSourceLabel} | ${leagueStandingsUpdatedLabel}`
+      : "Standings will appear after the next cache refresh.";
+  }
+  if (els.leagueStandingsMeta) {
+    els.leagueStandingsMeta.innerHTML = leagueStandingsSourceUrl
+      ? `<a href="${escapeHtml(leagueStandingsSourceUrl)}" target="_blank" rel="noopener">${escapeHtml(leagueStandingsSourceLabel)}</a>`
+      : escapeHtml(leagueStandingsSourceLabel);
+  }
+  els.leagueStandingsBody.innerHTML = rows.length
+    ? rows.map(renderLeagueStandingsRow).join("")
+    : `<tr class="standings-empty-row"><td colspan="9">League standings are not available yet.</td></tr>`;
+}
+
+function renderLeagueStandingsRow(row) {
+  const isLions = /oakmont lions/i.test(row.teamName || "");
+  return `<tr class="${isLions ? "is-lions" : ""}">
+    <td data-label="Rank"><span class="standings-rank">${escapeHtml(row.rank || "-")}</span></td>
+    <td data-label="Team">
+      <span class="standings-team-name">${escapeHtml(row.teamName || "Team")}</span>
+      <span class="standings-team-code">${escapeHtml(row.teamCode || "")}</span>
+    </td>
+    <td data-label="Record">${escapeHtml(row.record || "--")}</td>
+    <td data-label="Pts">${escapeHtml(row.pointsLabel ?? row.points ?? "--")}</td>
+    <td data-label="Win %">${escapeHtml(row.winPct || "--")}</td>
+    <td data-label="GB">${escapeHtml(row.gb || "-")}</td>
+    <td data-label="RF">${escapeHtml(row.rf ?? "--")}</td>
+    <td data-label="RA">${escapeHtml(row.ra ?? "--")}</td>
+    <td data-label="Streak">${escapeHtml(row.streak || "--")}</td>
+  </tr>`;
 }
 
 function seasonRecord() {
@@ -14401,6 +14466,82 @@ function currentLeagueSeason() {
   return new Date().getFullYear();
 }
 
+function normalizeLeagueWinPct(value) {
+  const text = String(value ?? "").trim();
+  if (!text || text === "-") return "";
+  if (text === "1" || text === "1.000") return "1.000";
+  if (/^0?\.\d{3}$/.test(text)) return text.replace(/^0/, "");
+  return text;
+}
+
+function normalizeLeaguePointsLabel(value) {
+  const text = String(value ?? "").trim();
+  return text || "-";
+}
+
+function normalizeLeagueStandingRow(row = {}, index = 0) {
+  const teamName = String(row.teamName || row.team_name || row.name || "").trim();
+  if (!teamName) return null;
+  const sourceUrl = row.sourceUrl || row.source_url || PITTSBURGH_NABA_STANDINGS_URL;
+  const sourceLabel = row.sourceLabel || row.source_label || "Pittsburgh NABA AA standings";
+  const syncedAt = row.syncedAt || row.synced_at || "";
+  return {
+    id: row.id || `${currentLeagueSeason()}-aa-${scoutingTeamId(teamName)}`,
+    rank: Number(row.rank) || index + 1,
+    teamName,
+    teamCode: row.teamCode || row.team_code || teamAbbrev(teamName),
+    record: row.record || "0-0",
+    points: Number(row.points) || 0,
+    pointsLabel: normalizeLeaguePointsLabel(row.pointsLabel ?? row.points_label ?? row.points),
+    winPct: normalizeLeagueWinPct(row.winPct || row.win_pct || ""),
+    gb: String(row.gb || row.games_back || "-"),
+    rf: Number(row.rf ?? row.runs_for) || 0,
+    ra: Number(row.ra ?? row.runs_against) || 0,
+    last10: row.last10 || row.last_ten || "--",
+    streak: row.streak || "--",
+    sourceUrl,
+    sourceLabel,
+    syncedAt
+  };
+}
+
+function formatStandingsUpdatedLabel(value) {
+  if (!value) return "Waiting for standings cache.";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return `Updated ${date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`;
+}
+
+function setLeagueStandingsCache(rows = [], meta = {}) {
+  const normalized = rows
+    .map((row, index) => normalizeLeagueStandingRow(row, index))
+    .filter(Boolean);
+  if (!normalized.length) return;
+  leagueStandingsRows = normalized;
+  leagueStandingsUpdatedLabel = formatStandingsUpdatedLabel(meta.syncedAt || normalized[0]?.syncedAt);
+  leagueStandingsSourceLabel = meta.sourceLabel || normalized[0]?.sourceLabel || "Pittsburgh NABA AA standings";
+  leagueStandingsSourceUrl = meta.sourceUrl || normalized[0]?.sourceUrl || PITTSBURGH_NABA_STANDINGS_URL;
+}
+
+function supabaseRowsFromLeagueRows(rows = []) {
+  return rows.map((row) => ({
+    team_name: row.teamName,
+    team_code: row.teamCode,
+    record: row.record,
+    points: row.points,
+    points_label: row.pointsLabel,
+    win_pct: row.winPct,
+    games_back: row.gb,
+    runs_for: row.rf,
+    runs_against: row.ra,
+    last_ten: row.last10,
+    streak: row.streak,
+    source_url: row.sourceUrl,
+    source_label: row.sourceLabel,
+    synced_at: row.syncedAt
+  }));
+}
+
 function mergeSupabaseLeagueStandings(rows = [], currentData) {
   const parsed = deepClone(currentData || AA_SCOUTING_SNAPSHOT);
   if (rows.length) {
@@ -14408,31 +14549,32 @@ function mergeSupabaseLeagueStandings(rows = [], currentData) {
     parsed.sourceLabel = "Supabase AA standings cache";
     parsed.updatedLabel = "Supabase standings cache";
   }
-  rows.forEach((row) => {
-    const teamName = String(row?.team_name || row?.name || "").trim();
+  rows.forEach((row, index) => {
+    const normalized = normalizeLeagueStandingRow(row, index);
+    const teamName = normalized?.teamName || "";
     if (!teamName) return;
     const standing = {
       name: teamName,
-      record: row.record || "--",
-      points: Number(row.points) || 0,
-      winPct: row.win_pct || row.winPct || "--",
-      gb: row.games_back || row.gb || "-",
-      rf: Number(row.runs_for ?? row.rf) || 0,
-      ra: Number(row.runs_against ?? row.ra) || 0,
-      last10: row.last_ten || row.last10 || "--",
-      streak: row.streak || "--"
+      record: normalized.record || "--",
+      points: normalized.points,
+      winPct: normalized.winPct || "--",
+      gb: normalized.gb || "-",
+      rf: normalized.rf,
+      ra: normalized.ra,
+      last10: normalized.last10 || "--",
+      streak: normalized.streak || "--"
     };
     const team = parsed.teams.find((item) => normalizeScoutName(item.name) === normalizeScoutName(teamName));
     if (team) {
       Object.assign(team, standing);
-      if (!team.code && row.team_code) team.code = row.team_code;
-      if (!team.url && row.source_url) team.url = row.source_url;
+      if (!team.code && normalized.teamCode) team.code = normalized.teamCode;
+      if (!team.url && normalized.sourceUrl) team.url = normalized.sourceUrl;
       return;
     }
     parsed.teams.push({
       id: scoutingTeamId(teamName),
-      code: row.team_code || teamAbbrev(teamName),
-      url: row.source_url || PITTSBURGH_NABA_STANDINGS_URL,
+      code: normalized.teamCode || teamAbbrev(teamName),
+      url: normalized.sourceUrl || PITTSBURGH_NABA_STANDINGS_URL,
       hitters: [],
       pitchers: [],
       ...standing
@@ -14452,6 +14594,34 @@ function initializeScoutingReport() {
   setTimeout(() => refreshScoutingData({ silent: true }), 0);
 }
 
+async function fetchStaticLeagueStandingsCache() {
+  const scriptCache = window.ScorebookLeagueStandingsCache;
+  if (Array.isArray(scriptCache?.rows) && scriptCache.rows.length) {
+    return scriptCache;
+  }
+  if (typeof fetch !== "function") return null;
+  try {
+    const response = await fetch(`${LEAGUE_STANDINGS_CACHE_URL}?v=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    if (!Array.isArray(payload?.rows) || !payload.rows.length) return null;
+    return payload;
+  } catch (error) {
+    console.warn("Unable to load static AA standings cache.", error);
+    return null;
+  }
+}
+
+function leagueRefreshUrl(url) {
+  try {
+    const requestUrl = new URL(url, window.location.href);
+    requestUrl.searchParams.set("_scorebookRefresh", String(Date.now()));
+    return requestUrl.toString();
+  } catch {
+    return url;
+  }
+}
+
 async function refreshScoutingData(options = {}) {
   if (!scoutingData) scoutingData = deepClone(AA_SCOUTING_SNAPSHOT);
   let supabaseStandingsLoaded = false;
@@ -14459,12 +14629,23 @@ async function refreshScoutingData(options = {}) {
     try {
       const { data, error } = await supabaseStorage.fetchLeagueStandings("AA", currentLeagueSeason());
       if (!error && Array.isArray(data) && data.length) {
+        setLeagueStandingsCache(data, {
+          sourceLabel: "Supabase AA standings cache",
+          sourceUrl: PITTSBURGH_NABA_STANDINGS_URL,
+          syncedAt: data[0]?.synced_at
+        });
         scoutingData = mergeSupabaseLeagueStandings(data, scoutingData);
         supabaseStandingsLoaded = true;
       }
     } catch (error) {
       console.warn("Unable to load cached AA standings from Supabase.", error);
     }
+  }
+  const staticStandingsCache = await fetchStaticLeagueStandingsCache();
+  if (staticStandingsCache?.rows?.length) {
+    setLeagueStandingsCache(staticStandingsCache.rows, staticStandingsCache);
+    scoutingData = mergeSupabaseLeagueStandings(supabaseRowsFromLeagueRows(leagueStandingsRows), scoutingData);
+    supabaseStandingsLoaded = true;
   }
   const selectedTeam = getSelectedScoutingTeam();
   const urls = [PITTSBURGH_NABA_STANDINGS_URL, PITTSBURGH_NABA_URL, teamStatsPageUrl(selectedTeam)]
@@ -14481,20 +14662,31 @@ async function refreshScoutingData(options = {}) {
   if (!options.silent) {
     scoutingStatusMessage = "Checking Pittsburgh NABA for the latest AA data...";
     els.refreshScoutingBtn.disabled = true;
+    if (els.refreshLeagueStandingsBtn) els.refreshLeagueStandingsBtn.disabled = true;
     renderScoutingReport();
+    renderLeagueStandings();
   }
 
   let touchedLiveData = false;
   let fetchFailed = false;
   for (const url of urls) {
     try {
-      const response = await fetch(url, { cache: "no-store" });
+      const response = await fetch(leagueRefreshUrl(url), { cache: "no-store" });
       if (!response.ok) throw new Error(`Pittsburgh NABA returned ${response.status}`);
       const html = await response.text();
       if (url === PITTSBURGH_NABA_STANDINGS_URL || url === PITTSBURGH_NABA_URL) {
         const parsedLeague = parsePittsburghNabaScouting(html, scoutingData);
+        if (parsedLeague.latestStandings?.length && (options.force || !leagueStandingsRows.length)) {
+          const syncedAt = new Date().toISOString();
+          setLeagueStandingsCache(parsedLeague.latestStandings, {
+            sourceLabel: "Live Pittsburgh NABA refresh",
+            sourceUrl: PITTSBURGH_NABA_STANDINGS_URL,
+            syncedAt
+          });
+        }
         touchedLiveData = touchedLiveData || Boolean(parsedLeague.liveDataFound);
         delete parsedLeague.liveDataFound;
+        delete parsedLeague.latestStandings;
         scoutingData = parsedLeague;
       } else {
         const parsedTeam = parseTeamPageScouting(html);
@@ -14515,14 +14707,15 @@ async function refreshScoutingData(options = {}) {
       : "Using Pittsburgh NABA AA snapshot. Live refresh may be blocked by the league site from this browser.";
   if (!fetchFailed && !touchedLiveData && !supabaseStandingsLoaded) scoutingStatusMessage = "Using Pittsburgh NABA AA snapshot.";
   els.refreshScoutingBtn.disabled = false;
+  if (els.refreshLeagueStandingsBtn) els.refreshLeagueStandingsBtn.disabled = false;
   renderScoutingReport();
+  renderLeagueStandings();
   renderHome();
 }
-
 function parsePittsburghNabaScouting(html, currentData) {
   const parsed = deepClone(currentData || AA_SCOUTING_SNAPSHOT);
   const text = visibleTextFromHtml(html);
-  const standings = parseAaStandings(text);
+  const standings = parseAaStandingsFromHtml(html) || parseAaStandings(text);
   standings.forEach((standing) => {
     const team = parsed.teams.find((item) => normalizeScoutName(item.name) === normalizeScoutName(standing.name));
     if (team) {
@@ -14543,7 +14736,58 @@ function parsePittsburghNabaScouting(html, currentData) {
   if (leagueLeaders.pitchers.length) parsed.leagueLeaders.pitchers = leagueLeaders.pitchers;
   parsed.updatedLabel = "Live Pittsburgh NABA refresh";
   parsed.liveDataFound = Boolean(standings.length || leagueLeaders.hitters.length || leagueLeaders.pitchers.length);
+  parsed.latestStandings = standings;
   return parsed;
+}
+
+function decodeHtmlEntities(value) {
+  return String(value || "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, "\"")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function cleanStandingsCell(value) {
+  return decodeHtmlEntities(String(value || "").replace(/<[^>]*>/g, " "))
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseAaStandingsFromHtml(html) {
+  const tableMatch = String(html || "").match(/<table\b[^>]*id=["']standingsTable["'][^>]*>([\s\S]*?)<\/table>/i);
+  if (!tableMatch?.[1]) return null;
+  const rowMatches = [...tableMatch[1].matchAll(/<tr\b([^>]*)>([\s\S]*?)<\/tr>/gi)];
+  const standingsRows = [];
+  let activeDivision = "";
+  rowMatches.forEach((match) => {
+    const rowAttrs = match[1] || "";
+    const rowHtml = match[2] || "";
+    if (/standDiv0/i.test(rowAttrs)) {
+      activeDivision = cleanStandingsCell(rowHtml).toUpperCase();
+      return;
+    }
+    if (activeDivision !== "AA" || !/standTeam/i.test(rowAttrs)) return;
+    const cells = [...rowHtml.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)]
+      .map((cell) => cleanStandingsCell(cell[1]));
+    if (cells.length < 10) return;
+    standingsRows.push({
+      name: cells[0],
+      record: cells[1] || "0-0",
+      points: cells[2] && cells[2] !== "-" ? Number(cells[2]) || 0 : 0,
+      pointsLabel: cells[2] || "-",
+      winPct: cells[3] || "--",
+      gb: cells[4] || "-",
+      rf: Number(cells[7]) || 0,
+      ra: Number(cells[8]) || 0,
+      last10: cells[9] || "--",
+      streak: cells[10] || "--"
+    });
+  });
+  return standingsRows.length ? standingsRows : null;
 }
 
 function parseAaStandings(text) {
@@ -14552,7 +14796,7 @@ function parseAaStandings(text) {
   if (divisionIndex >= 0) {
     const headerIndex = lines.findIndex((line, index) => index > divisionIndex && /^Team\s*\|/i.test(line));
     const standingsRows = [];
-    const compactRowPattern = /^(?<name>.+?)(?<record>\d+-\d+(?:-\d+)?)\s+(?<points>\d+)\s+(?<winPct>\.\d{3})\s+(?<gb>-|\d+(?:\.\d+)?)\s+(?<home>\d+-\d+(?:-\d+)?)\s+(?<away>\d+-\d+(?:-\d+)?)\s+(?<rf>\d+)\s+(?<ra>\d+)\s+(?<last10>\d+-\d+(?:-\d+)?)\s+(?<streak>(?:Won|Lost)\s+\d+)$/i;
+    const compactRowPattern = /^(?<name>.+?)(?<record>\d+-\d+(?:-\d+)?)\s+(?<points>\d+)\s+(?<winPct>1\.000|\.\d{3})\s+(?<gb>-|\d+(?:\.\d+)?)\s+(?<home>\d+-\d+(?:-\d+)?)\s+(?<away>\d+-\d+(?:-\d+)?)\s+(?<rf>\d+)\s+(?<ra>\d+)\s+(?<last10>\d+-\d+(?:-\d+)?)\s+(?<streak>(?:Won|Lost|Tied)\s+\d+)$/i;
     for (let index = headerIndex + 1; headerIndex > -1 && index < lines.length; index += 1) {
       const line = lines[index];
       if (/^(AAA|AA|A)$/i.test(line)) break;
@@ -14608,7 +14852,7 @@ function parseAaStandings(text) {
       const record = allTokens[index + 1];
       const points = allTokens[index + 2];
       const winPct = allTokens[index + 3];
-      if (!/^\d+-\d+(?:-\d+)?$/.test(record || "") || !/^\d+$/.test(points || "") || !/^\.\d{3}$/.test(winPct || "")) {
+      if (!/^\d+-\d+(?:-\d+)?$/.test(record || "") || !/^\d+$/.test(points || "") || !/^(?:1\.000|\.\d{3})$/.test(winPct || "")) {
         continue;
       }
       standingsRows.push({
@@ -14636,7 +14880,7 @@ function parseAaStandings(text) {
       const record = tokens[index + 1];
       const points = tokens[index + 2];
       const winPct = tokens[index + 3];
-      if (!/^\d+-\d+(?:-\d+)?$/.test(record || "") || !/^\d+$/.test(points || "") || !/^\.\d{3}$/.test(winPct || "")) {
+      if (!/^\d+-\d+(?:-\d+)?$/.test(record || "") || !/^\d+$/.test(points || "") || !/^(?:1\.000|\.\d{3})$/.test(winPct || "")) {
         continue;
       }
       standingsRows.push({
@@ -14655,7 +14899,7 @@ function parseAaStandings(text) {
   }
   const aaBlockMatch = normalizedText.match(/\bAA\s+Team\s+Record\s+Pts\s+Win\s+%GB\s+Home\s+Away\s+RF\s+RA\s+Last\s+10\s+Streak\s+([\s\S]*?)(?:\s+\bA\s+Team\s+Record\s+Pts\s+Win\s+%GB|\s+PRINT\b|$)/i);
   if (aaBlockMatch?.[1]) {
-    const compactRowPattern = /(?<name>[A-Za-z0-9&'’:\-. ]+?)(?<record>\d+-\d+(?:-\d+)?)\s+(?<points>\d+)\s+(?<winPct>\.\d{3})\s+(?<gb>-|\d+(?:\.\d+)?)\s+(?<home>\d+-\d+(?:-\d+)?)\s+(?<away>\d+-\d+(?:-\d+)?)\s+(?<rf>\d+)\s+(?<ra>\d+)\s+(?<last10>\d+-\d+(?:-\d+)?)\s+(?<streak>(?:Won|Lost)\s+\d+)/gi;
+    const compactRowPattern = /(?<name>[A-Za-z0-9&'’:\-. ]+?)(?<record>\d+-\d+(?:-\d+)?)\s+(?<points>\d+)\s+(?<winPct>1\.000|\.\d{3})\s+(?<gb>-|\d+(?:\.\d+)?)\s+(?<home>\d+-\d+(?:-\d+)?)\s+(?<away>\d+-\d+(?:-\d+)?)\s+(?<rf>\d+)\s+(?<ra>\d+)\s+(?<last10>\d+-\d+(?:-\d+)?)\s+(?<streak>(?:Won|Lost|Tied)\s+\d+)/gi;
     const standingsRows = [];
     for (const match of aaBlockMatch[1].matchAll(compactRowPattern)) {
       if (!match.groups) continue;

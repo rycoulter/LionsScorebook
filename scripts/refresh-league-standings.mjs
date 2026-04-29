@@ -1,15 +1,16 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+
 const STANDINGS_URL = process.env.PITTSBURGH_NABA_STANDINGS_URL
   || "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA";
-const DIVISION = "AA";
+const SUPABASE_URL = process.env.SUPABASE_URL || "";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const LEAGUE_SEASON = Number(process.env.LEAGUE_SEASON) || new Date().getFullYear();
+const STANDINGS_JSON_PATH = path.join("data", "league-standings.json");
+const STANDINGS_SCRIPT_PATH = path.join("data", "league-standings-cache.js");
 
-function requiredEnv(name) {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
-function decodeHtml(value) {
-  return String(value || "")
+function decodeHtmlEntities(value = "") {
+  return String(value)
     .replace(/&nbsp;/gi, " ")
     .replace(/&#39;/g, "'")
     .replace(/&amp;/g, "&")
@@ -18,165 +19,243 @@ function decodeHtml(value) {
     .replace(/&gt;/g, ">");
 }
 
-function visibleTextFromHtml(html) {
-  return decodeHtml(html)
+function cleanCell(value = "") {
+  return decodeHtmlEntities(String(value).replace(/<[^>]*>/g, " "))
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function teamCode(name = "") {
+  const words = String(name || "Team").split(/\s+/).filter(Boolean);
+  return words.map((word) => word[0]).join("").slice(0, 3).toUpperCase() || "TM";
+}
+
+function slug(value = "") {
+  return String(value)
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeWinPct(value = "") {
+  const text = String(value).trim();
+  if (!text || text === "-") return "";
+  if (text === "1" || text === "1.000") return "1.000";
+  if (/^0?\.\d{3}$/.test(text)) return text.replace(/^0/, "");
+  return text;
+}
+
+function parseAaStandingsTable(html) {
+  const tableMatch = String(html || "").match(/<table\b[^>]*id=["']standingsTable["'][^>]*>([\s\S]*?)<\/table>/i);
+  if (!tableMatch?.[1]) return [];
+  const rowMatches = [...tableMatch[1].matchAll(/<tr\b([^>]*)>([\s\S]*?)<\/tr>/gi)];
+  const rows = [];
+  let activeDivision = "";
+  for (const match of rowMatches) {
+    const rowAttrs = match[1] || "";
+    const rowHtml = match[2] || "";
+    if (/standDiv0/i.test(rowAttrs)) {
+      activeDivision = cleanCell(rowHtml).toUpperCase();
+      continue;
+    }
+    if (activeDivision !== "AA" || !/standTeam/i.test(rowAttrs)) continue;
+    const cells = [...rowHtml.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((cell) => cleanCell(cell[1]));
+    if (cells.length < 10) continue;
+    rows.push({
+      teamName: cells[0],
+      record: cells[1] || "0-0",
+      points: cells[2] && cells[2] !== "-" ? Number(cells[2]) || 0 : 0,
+      pointsLabel: cells[2] || "-",
+      winPct: normalizeWinPct(cells[3]),
+      gb: cells[4] || "-",
+      rf: Number(cells[7]) || 0,
+      ra: Number(cells[8]) || 0,
+      last10: cells[9] || "--",
+      streak: cells[10] || "--"
+    });
+  }
+  return rows;
+}
+
+function visibleText(html = "") {
+  return String(html)
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<\/(tr|p|div|li|h\d|table|tbody|thead|section|article)>/gi, "\n")
-    .replace(/<(td|th|br)\b[^>]*>/gi, " | ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/<\/td>/gi, " ")
     .replace(/<[^>]*>/g, " ")
     .replace(/\u00a0/g, " ");
 }
 
-function parseRecord(record) {
-  const [wins, losses, ties] = String(record || "0-0")
-    .split("-")
-    .map((value) => Number.parseInt(value, 10) || 0);
-  return { wins, losses, ties: ties || 0 };
-}
-
-function teamSlug(name) {
-  return String(name || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-}
-
-function teamCode(name) {
-  const words = String(name || "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => word.replace(/[^a-z0-9]/gi, ""));
-  const initials = words.map((word) => word[0]).join("").slice(0, 3).toUpperCase();
-  return initials || String(name || "TM").replace(/[^a-z0-9]/gi, "").slice(0, 3).toUpperCase() || "TM";
+function parseAaStandingsText(html) {
+  const text = visibleText(html).replace(/\s+/g, " ").trim();
+  const aaBlockMatch = text.match(/\bAA\s+Team\s+Record\s+Pts\s+Win\s+%GB\s+Home\s+Away\s+RF\s+RA\s+Last\s+10\s+Streak\s+([\s\S]*?)(?:\s+\bA\s+Team\s+Record\s+Pts\s+Win\s+%GB|\s+PRINT\b|$)/i);
+  if (!aaBlockMatch?.[1]) return [];
+  const rowPattern = /(?<teamName>[A-Za-z0-9&'’:\-. ]+?)(?<record>\d+-\d+(?:-\d+)?)\s+(?<points>\d+)\s+(?<winPct>1\.000|\.\d{3})\s+(?<gb>-|\d+(?:\.\d+)?)\s+(?<home>\d+-\d+(?:-\d+)?)\s+(?<away>\d+-\d+(?:-\d+)?)\s+(?<rf>\d+)\s+(?<ra>\d+)\s+(?<last10>\d+-\d+(?:-\d+)?)\s+(?<streak>(?:Won|Lost|Tied)\s+\d+)/gi;
+  return [...aaBlockMatch[1].matchAll(rowPattern)].map((match) => ({
+    teamName: match.groups.teamName.trim(),
+    record: match.groups.record,
+    points: Number(match.groups.points) || 0,
+    pointsLabel: match.groups.points,
+    winPct: normalizeWinPct(match.groups.winPct),
+    gb: match.groups.gb,
+    rf: Number(match.groups.rf) || 0,
+    ra: Number(match.groups.ra) || 0,
+    last10: match.groups.last10,
+    streak: match.groups.streak
+  }));
 }
 
 function parseAaStandings(html) {
-  const normalized = visibleTextFromHtml(html).replace(/\s+/g, " ").trim();
-  const tokens = normalized
-    .split("|")
-    .map((token) => token.trim())
-    .filter(Boolean);
-  const header = ["AA", "Team", "Record", "Pts", "Win %", "GB", "Home", "Away", "RF", "RA", "Last 10", "Streak"];
-  const aaIndex = tokens.findIndex((token, index) => (
-    token === "AA" && header.every((expected, offset) => String(tokens[index + offset] || "").toLowerCase() === expected.toLowerCase())
-  ));
-  if (aaIndex < 0) {
-    throw new Error("Unable to locate the AA standings header in the Pittsburgh NABA response.");
-  }
-
-  const rows = [];
-  for (let index = aaIndex + header.length; index <= tokens.length - 11; index += 11) {
-    const maybeDivision = String(tokens[index] || "").toUpperCase();
-    if (maybeDivision === "A" || maybeDivision === "AAA" || maybeDivision === "PRINT") break;
-    const record = tokens[index + 1];
-    const points = tokens[index + 2];
-    const winPct = tokens[index + 3];
-    if (!/^\d+-\d+(?:-\d+)?$/.test(record || "") || !/^\d+$/.test(points || "") || !/^\.\d{3}$/.test(winPct || "")) {
-      continue;
-    }
-    rows.push({
-      name: tokens[index],
-      record,
-      points: Number(points) || 0,
-      winPct,
-      gb: tokens[index + 4] || "-",
-      rf: Number(tokens[index + 7]) || 0,
-      ra: Number(tokens[index + 8]) || 0,
-      last10: tokens[index + 9] || "--",
-      streak: tokens[index + 10] || "--"
-    });
-  }
-
+  const tableRows = parseAaStandingsTable(html);
+  const rows = tableRows.length ? tableRows : parseAaStandingsText(html);
   if (!rows.length) {
-    throw new Error("Located the AA standings header but parsed zero standings rows.");
+    throw new Error("Unable to parse AA standings rows from the Pittsburgh NABA response.");
   }
-
-  return rows;
+  return rows.map((row, index) => ({
+    id: `${LEAGUE_SEASON}-aa-${slug(row.teamName)}`,
+    rank: index + 1,
+    teamName: row.teamName,
+    teamCode: teamCode(row.teamName),
+    record: row.record,
+    points: row.points,
+    pointsLabel: row.pointsLabel,
+    winPct: row.winPct,
+    gb: row.gb,
+    rf: row.rf,
+    ra: row.ra,
+    last10: row.last10,
+    streak: row.streak,
+    sourceUrl: STANDINGS_URL,
+    sourceLabel: "Pittsburgh NABA AA standings"
+  }));
 }
 
 async function fetchStandingsHtml() {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort("timeout"), 20000);
-  try {
-    const response = await fetch(STANDINGS_URL, {
-      headers: {
-        "user-agent": "Oakmont Lions Scorebook Standings Bot/1.0",
-        accept: "text/html,application/xhtml+xml"
-      },
-      signal: controller.signal
-    });
-    if (!response.ok) {
-      throw new Error(`Pittsburgh NABA returned ${response.status}`);
+  if (process.env.STANDINGS_HTML_FILE) {
+    return readFile(process.env.STANDINGS_HTML_FILE, "utf8");
+  }
+  const requestUrl = new URL(STANDINGS_URL);
+  requestUrl.searchParams.set("_scorebookRefresh", String(Date.now()));
+  const response = await fetch(requestUrl, {
+    headers: {
+      "user-agent": "Oakmont Lions Scorebook Standings Bot/1.0",
+      accept: "text/html,application/xhtml+xml",
+      "cache-control": "no-cache",
+      pragma: "no-cache"
     }
-    return await response.text();
-  } finally {
-    clearTimeout(timeoutId);
+  });
+  if (!response.ok) {
+    throw new Error(`Pittsburgh NABA returned HTTP ${response.status}`);
+  }
+  return response.text();
+}
+
+async function readExistingPayload() {
+  try {
+    return JSON.parse(await readFile(STANDINGS_JSON_PATH, "utf8"));
+  } catch {
+    return null;
   }
 }
 
-async function supabaseRequest(path, options = {}) {
-  const supabaseUrl = requiredEnv("SUPABASE_URL").replace(/\/$/, "");
-  const serviceRoleKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
-  const response = await fetch(`${supabaseUrl}${path}`, {
+function standingsSignature(rows = []) {
+  return JSON.stringify(rows.map((row) => ({
+    teamName: row.teamName,
+    record: row.record,
+    points: row.points,
+    winPct: row.winPct,
+    gb: row.gb,
+    rf: row.rf,
+    ra: row.ra,
+    last10: row.last10,
+    streak: row.streak
+  })));
+}
+
+async function writeStandingsCache(payload) {
+  await mkdir(path.dirname(STANDINGS_JSON_PATH), { recursive: true });
+  await writeFile(STANDINGS_JSON_PATH, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  await writeFile(
+    STANDINGS_SCRIPT_PATH,
+    `window.ScorebookLeagueStandingsCache = ${JSON.stringify(payload, null, 2)};\n`,
+    "utf8"
+  );
+}
+
+async function supabaseRequest(pathname, options = {}) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Supabase standings sync skipped because SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing.");
+  }
+  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}${pathname}`, {
     ...options,
     headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation,resolution=merge-duplicates",
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "content-type": "application/json",
+      prefer: "return=minimal",
       ...(options.headers || {})
     }
   });
-  const text = await response.text();
   if (!response.ok) {
-    throw new Error(`Supabase request failed (${response.status}): ${text}`);
+    const body = await response.text();
+    throw new Error(`Supabase ${pathname} failed with ${response.status}: ${body}`);
   }
-  return text ? JSON.parse(text) : null;
 }
 
 async function upsertStandingsRows(rows, season) {
-  const ids = rows.map((row) => row.id);
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return false;
+  const params = new URLSearchParams({
+    division: "eq.AA",
+    season: `eq.${season}`
+  });
+  await supabaseRequest(`/rest/v1/league_standings?${params.toString()}`, {
+    method: "DELETE"
+  });
   await supabaseRequest("/rest/v1/league_standings", {
     method: "POST",
+    headers: {
+      prefer: "resolution=merge-duplicates"
+    },
     body: JSON.stringify(rows)
   });
-
-  const params = new URLSearchParams({
-    season: `eq.${season}`,
-    division: `eq.${DIVISION}`,
-    id: `not.in.(${ids.join(",")})`
-  });
-
-  await supabaseRequest(`/rest/v1/league_standings?${params.toString()}`, {
-    method: "DELETE",
-    headers: {
-      Prefer: "return=minimal"
-    }
-  });
+  return true;
 }
 
 async function main() {
-  const season = Number.parseInt(process.env.LEAGUE_SEASON || "", 10) || new Date().getFullYear();
   const html = await fetchStandingsHtml();
   const standings = parseAaStandings(html);
-  const syncedAt = new Date().toISOString();
+  const existingPayload = await readExistingPayload();
+  const existingSignature = standingsSignature(existingPayload?.rows || []);
+  const nextSignature = standingsSignature(standings);
+  const syncedAt = existingSignature === nextSignature && existingPayload?.syncedAt
+    ? existingPayload.syncedAt
+    : new Date().toISOString();
+  const rows = standings.map((team) => ({ ...team, syncedAt }));
+  const payload = {
+    season: LEAGUE_SEASON,
+    division: "AA",
+    sourceUrl: STANDINGS_URL,
+    sourceLabel: "Pittsburgh NABA AA standings",
+    syncedAt,
+    rows
+  };
+  await writeStandingsCache(payload);
 
-  const rows = standings.map((team, index) => {
-    const record = parseRecord(team.record);
-    return {
-      id: `${season}-${DIVISION.toLowerCase()}-${teamSlug(team.name)}`,
-      season,
-      division: DIVISION,
-      rank: index + 1,
-      team_name: team.name,
-      team_code: teamCode(team.name),
-      wins: record.wins,
-      losses: record.losses,
-      ties: record.ties,
+  let supabaseSynced = false;
+  try {
+    supabaseSynced = await upsertStandingsRows(rows.map((team) => ({
+      season: LEAGUE_SEASON,
+      division: "AA",
+      rank: team.rank,
+      team_name: team.teamName,
+      team_code: team.teamCode,
       record: team.record,
       points: team.points,
+      points_label: team.pointsLabel,
       win_pct: team.winPct,
       games_back: team.gb,
       runs_for: team.rf,
@@ -185,31 +264,16 @@ async function main() {
       streak: team.streak,
       source_url: STANDINGS_URL,
       source_label: "Pittsburgh NABA AA standings",
-      synced_at: syncedAt,
-      metadata: {
-        refreshed_by: "github-actions",
-        division: DIVISION
-      }
-    };
-  });
+      synced_at: syncedAt
+    })), LEAGUE_SEASON);
+  } catch (error) {
+    console.warn(error.message);
+  }
 
-  await upsertStandingsRows(rows, season);
-
-  console.log(JSON.stringify({
-    ok: true,
-    season,
-    division: DIVISION,
-    count: rows.length,
-    teams: rows.map((row) => ({
-      rank: row.rank,
-      team_name: row.team_name,
-      record: row.record,
-      points: row.points
-    }))
-  }, null, 2));
+  console.log(`Refreshed ${rows.length} AA standings rows for ${LEAGUE_SEASON}. Static cache updated. Supabase synced: ${supabaseSynced ? "yes" : "no"}.`);
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.stack || error.message : String(error));
+  console.error(error);
   process.exitCode = 1;
 });
