@@ -15793,6 +15793,14 @@ select option:checked {
     text-align: center;
   }
 
+  .home-recent-result-footer {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
   .home-box-score-link {
     width: 100%;
     justify-content: center;
@@ -15800,6 +15808,18 @@ select option:checked {
     border-radius: 8px;
     background: rgba(245, 189, 33, 0.08);
     color: var(--lion-gold);
+  }
+
+  .home-recent-result-footer .home-box-score-link,
+  .home-recent-result-footer .home-highlight-link {
+    width: auto;
+    min-width: 0;
+    min-height: 50px;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 10px;
+    text-align: center;
+    line-height: 1.15;
   }
 
   .home-recent-games-row {
