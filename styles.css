@@ -6675,7 +6675,7 @@ button:focus-visible {
 
 .stats-table-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -6683,6 +6683,26 @@ button:focus-visible {
 
 .stats-table-actions .secondary-action {
   min-width: 152px;
+  min-height: 40px;
+}
+
+.stats-desktop-player-filter {
+  display: grid;
+  gap: 5px;
+  min-width: 220px;
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.stats-desktop-player-filter select {
+  min-height: 40px;
+  color: var(--white);
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-transform: none;
 }
 
 .stats-table-scroll {

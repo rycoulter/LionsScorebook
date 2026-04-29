@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.47";
+const APP_VERSION = "v.1.1.48";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
 const NABA_ROSTERS_CACHE_URL = "data/naba-rosters.json";
@@ -709,6 +709,8 @@ let newsLayoutMode = "latest";
 let statsPlayerFocus = "all";
 let activeCustomSubSelect = null;
 let statsMode = "hitting";
+let desktopHitPlayerFilter = "all";
+let desktopPitPlayerFilter = "all";
 let mobileHitPlayerFilter = "all";
 let mobileHitGameFilter = "all";
 let mobilePitPlayerFilter = "all";
@@ -1160,6 +1162,8 @@ const els = {
   statsPitchingMeta: document.getElementById("statsPitchingMeta"),
   statsHittingExportBtn: document.getElementById("statsHittingExportBtn"),
   statsPitchingExportBtn: document.getElementById("statsPitchingExportBtn"),
+  desktopHitPlayerSelect: document.getElementById("desktopHitPlayerSelect"),
+  desktopPitPlayerSelect: document.getElementById("desktopPitPlayerSelect"),
   leadersGrid: document.getElementById("leadersGrid"),
   hittingStatsBody: document.getElementById("hittingStatsBody"),
   pitchingStatsBody: document.getElementById("pitchingStatsBody"),
@@ -4733,6 +4737,8 @@ window.addEventListener("resize", () => {
   els.clearStatsFocusBtn?.addEventListener("click", () => {
     statsPlayerFocus = "all";
     statsMode = "hitting";
+    desktopHitPlayerFilter = "all";
+    desktopPitPlayerFilter = "all";
     mobileHitPlayerFilter = "all";
     mobilePitPlayerFilter = "all";
     mobileHitGameFilter = "all";
@@ -4885,6 +4891,14 @@ window.addEventListener("resize", () => {
   });
   els.mobilePitGameSelect?.addEventListener("change", () => {
     mobilePitGameFilter = els.mobilePitGameSelect.value || "all";
+    renderSeasonStats();
+  });
+  els.desktopHitPlayerSelect?.addEventListener("change", () => {
+    desktopHitPlayerFilter = els.desktopHitPlayerSelect.value || "all";
+    renderSeasonStats();
+  });
+  els.desktopPitPlayerSelect?.addEventListener("change", () => {
+    desktopPitPlayerFilter = els.desktopPitPlayerSelect.value || "all";
     renderSeasonStats();
   });
   els.statsHittingExportBtn?.addEventListener("click", () => {
@@ -7417,6 +7431,8 @@ function openGameStats(gameId) {
   const gameSeason = String(game?.date || "").slice(0, 4);
   if (/^\d{4}$/.test(gameSeason)) statsSeasonFilter = normalizeStatsSeasonFilter(gameSeason);
   statsPlayerFocus = "all";
+  desktopHitPlayerFilter = "all";
+  desktopPitPlayerFilter = "all";
   mobileHitPlayerFilter = "all";
   mobilePitPlayerFilter = "all";
   mobileHitGameFilter = game.id;
@@ -7446,6 +7462,8 @@ function openPlayerStats(playerId) {
   if (!player) return;
   statsSeasonFilter = defaultStatsSeasonForPlayer(playerId);
   statsPlayerFocus = playerId;
+  desktopHitPlayerFilter = playerId;
+  desktopPitPlayerFilter = playerId;
   mobileHitPlayerFilter = playerId;
   mobilePitPlayerFilter = playerId;
   mobileHitGameFilter = "all";
@@ -12799,6 +12817,41 @@ function getSeasonPitchingRows() {
     .sort((a, b) => comparePitchingRows(a, b));
 }
 
+function desktopStatsPlayerOption(player) {
+  return `<option value="${escapeHtml(player.id)}">#${escapeHtml(player.number || "--")} ${escapeHtml(player.name)}</option>`;
+}
+
+function syncDesktopStatsPlayerSelect(select, players, currentValue, focusedPlayerId) {
+  if (!select) return currentValue;
+  const focusedPlayer = focusedPlayerId ? state.roster.find((player) => player.id === focusedPlayerId) : null;
+  const availablePlayers = focusedPlayer ? [focusedPlayer] : players;
+  select.innerHTML = [
+    focusedPlayer ? "" : `<option value="all">All players</option>`,
+    ...availablePlayers.map(desktopStatsPlayerOption)
+  ].join("");
+  let nextValue = focusedPlayer ? focusedPlayer.id : currentValue;
+  if (!focusedPlayer && !availablePlayers.some((player) => player.id === nextValue)) nextValue = "all";
+  select.value = nextValue;
+  select.disabled = Boolean(focusedPlayer);
+  return nextValue;
+}
+
+function renderDesktopStatsFilters(hittingRows, pitchingRows) {
+  const focusedPlayerId = statsFocusedPlayerId();
+  desktopHitPlayerFilter = syncDesktopStatsPlayerSelect(
+    els.desktopHitPlayerSelect,
+    hittingRows.map(({ player }) => player),
+    desktopHitPlayerFilter,
+    focusedPlayerId
+  );
+  desktopPitPlayerFilter = syncDesktopStatsPlayerSelect(
+    els.desktopPitPlayerSelect,
+    pitchingRows.map(({ player }) => player),
+    desktopPitPlayerFilter,
+    focusedPlayerId
+  );
+}
+
 function statsGamesWithDataForSeason(season = statsSeasonFilter) {
   return statsGamesForSeason(season)
     .filter((game) => (Array.isArray(game?.events) && game.events.length) || Object.keys(hittingStatEditMap(game)).length)
@@ -12967,7 +13020,9 @@ function renderStatsFocusBanner() {
 
 function exportStatsTable(mode) {
   const isPitching = mode === "pitching";
-  const rows = isPitching ? getSeasonPitchingRows() : getSeasonHittingRows();
+  const playerFilter = statsFocusedPlayerId() || (isPitching ? desktopPitPlayerFilter : desktopHitPlayerFilter);
+  const rows = (isPitching ? getSeasonPitchingRows() : getSeasonHittingRows())
+    .filter(({ player }) => playerFilter === "all" || player.id === playerFilter);
   const headers = isPitching
     ? ["Player", "W", "L", "ND", "IP", "NP", "Balls", "Strikes", "Str%", "BF", "H", "R", "ERA", "BB", "HBP", "K", "K%", "BB%", "K/BB", "K/9", "R/9", "WHIP", "P/IP"]
     : ["Player", "GP", "PA", "AB", "H", "1B", "2B", "3B", "HR", "AVG", "OPS", "RISP", "OBP", "SLG", "RBI", "BB", "HBP", "K", "SB", "CS", "PO", "ROE", "E"];
@@ -15586,7 +15641,12 @@ function renderSeasonStats() {
   renderStatsFocusBanner();
   updateSortIndicators();
   const focusedPlayerId = statsFocusedPlayerId();
-  const hittingRows = getSeasonHittingRows().filter(({ player }) => !focusedPlayerId || player.id === focusedPlayerId);
+  const allHittingRows = getSeasonHittingRows();
+  const allPitchingRows = getSeasonPitchingRows();
+  renderDesktopStatsFilters(allHittingRows, allPitchingRows);
+  const hittingPlayerFilter = focusedPlayerId || (desktopHitPlayerFilter !== "all" ? desktopHitPlayerFilter : "");
+  const pitchingPlayerFilter = focusedPlayerId || (desktopPitPlayerFilter !== "all" ? desktopPitPlayerFilter : "");
+  const hittingRows = allHittingRows.filter(({ player }) => !hittingPlayerFilter || player.id === hittingPlayerFilter);
   els.hittingStatsBody.innerHTML = hittingRows
     .map(({ player, hit, gp }) => {
       return `<tr>
@@ -15618,7 +15678,7 @@ function renderSeasonStats() {
     })
     .join("")
     || `<tr><td colspan="24" class="stats-empty-row">No batting stats yet.</td></tr>`;
-  const pitchingRows = getSeasonPitchingRows().filter(({ player }) => !focusedPlayerId || player.id === focusedPlayerId);
+  const pitchingRows = allPitchingRows.filter(({ player }) => !pitchingPlayerFilter || player.id === pitchingPlayerFilter);
   els.pitchingStatsBody.innerHTML = pitchingRows
     .map(({ player, pit }) => {
       return `<tr>
@@ -15651,13 +15711,13 @@ function renderSeasonStats() {
     .join("")
     || `<tr><td colspan="24" class="stats-empty-row">No pitching stats yet.</td></tr>`;
   if (els.statsHittingMeta) {
-    els.statsHittingMeta.textContent = focusedPlayerId
-      ? `${statsSeasonLabel()} batting lines for ${playerDisplayName(focusedPlayerId)} across completed and in-progress games.`
+    els.statsHittingMeta.textContent = hittingPlayerFilter
+      ? `${statsSeasonLabel()} batting lines for ${playerDisplayName(hittingPlayerFilter)} across completed and in-progress games.`
       : `${statsSeasonLabel()} roster batting lines for ${hittingRows.length} players.`;
   }
   if (els.statsPitchingMeta) {
-    els.statsPitchingMeta.textContent = focusedPlayerId
-      ? `${statsSeasonLabel()} pitching lines for ${playerDisplayName(focusedPlayerId)} across completed and in-progress games.`
+    els.statsPitchingMeta.textContent = pitchingPlayerFilter
+      ? `${statsSeasonLabel()} pitching lines for ${playerDisplayName(pitchingPlayerFilter)} across completed and in-progress games.`
       : `${statsSeasonLabel()} pitching lines and run prevention for ${pitchingRows.length} arms.`;
   }
   renderMobileStatsFilters();
