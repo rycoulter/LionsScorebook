@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.54";
+const APP_VERSION = "v.1.1.55";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
@@ -8991,6 +8991,7 @@ function renderScoreboard() {
   els.scoreOpponentLineupInput.value = opponentLineup(game).join("\n");
   els.gameTitle.textContent = gameMatchupLabel(game);
   if (els.scoreViewTitle) els.scoreViewTitle.textContent = gameMatchupLabel(game);
+  const currentHalf = game.current?.half ?? game.half ?? "top";
   const inningLabel = gameIsFinal(game) ? "FINAL" : halfInningLabel(game);
   const headerBatter = lionsBatting ? currentBatterLabel(game) : currentOpponentBatter(game);
   els.headerBatterDisplay.textContent = lionsBatting ? headerBatter : `${headerBatter} (${opponentSide(game) === "home" ? "Home" : "Away"} ${game.opponent})`;
@@ -9018,7 +9019,11 @@ function renderScoreboard() {
   if (els.headerCountDisplay) els.headerCountDisplay.textContent = `${game.atBat.balls}-${game.atBat.strikes}`;
   if (els.outsStateDisplay) els.outsStateDisplay.textContent = String(game.outs);
   if (els.scoreBannerArrow) {
-    els.scoreBannerArrow.classList.toggle("is-bottom", !gameIsFinal(game) && game.half === "bottom");
+    const isBottomHalf = !gameIsFinal(game) && currentHalf === "bottom";
+    const isTopHalf = !gameIsFinal(game) && currentHalf === "top";
+    els.scoreBannerArrow.classList.toggle("is-bottom", isBottomHalf);
+    els.scoreBannerArrow.classList.toggle("is-top", isTopHalf);
+    els.scoreBannerArrow.dataset.half = gameIsFinal(game) ? "final" : currentHalf;
   }
   if (els.scoreBannerShell) {
     els.scoreBannerShell.classList.toggle("is-final", gameIsFinal(game));

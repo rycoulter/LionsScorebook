@@ -17839,6 +17839,25 @@ select option:checked {
   justify-content: flex-end !important;
 }
 
+#scoreView .score-status-card .score-banner-arrow {
+  --score-banner-arrow-height: 12px;
+  transform: none !important;
+  border-top: 0 !important;
+  border-bottom: var(--score-banner-arrow-height) solid currentColor !important;
+}
+
+#scoreView .score-status-card .score-banner-arrow.is-bottom {
+  transform: none !important;
+  border-bottom: 0 !important;
+  border-top: var(--score-banner-arrow-height) solid currentColor !important;
+}
+
+@media (min-width: 700px) {
+  #scoreView .score-status-card .score-banner-arrow {
+    --score-banner-arrow-height: 16px;
+  }
+}
+
 @media (max-width: 700px) {
   #scoreView .score-status-card .score-banner-logo {
     width: 56px !important;
