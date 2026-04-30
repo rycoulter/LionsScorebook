@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.49";
+const APP_VERSION = "v.1.1.50";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
 const NABA_ROSTERS_CACHE_URL = "data/naba-rosters.json";
