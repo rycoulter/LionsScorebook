@@ -6622,7 +6622,7 @@ button:focus-visible {
 .bar-fill {
   height: 100%;
   border-radius: 8px;
-  background: linear-gradient(90deg, var(--red), var(--gold), var(--grass));
+  background: linear-gradient(90deg, #ef4444 0%, #f97316 35%, #facc15 62%, #22c55e 100%);
 }
 
 .tracking-list {
@@ -10791,7 +10791,8 @@ label {
 }
 
 .bar-fill {
-  background: linear-gradient(90deg, #b63b36, var(--lion-gold));
+  background: linear-gradient(90deg, #ef4444 0%, #f97316 34%, var(--lion-gold) 62%, #22c55e 100%);
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.16);
 }
 
 /* Mockup-matched roster cards */

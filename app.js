@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.51";
+const APP_VERSION = "v.1.1.54";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
@@ -1072,10 +1072,6 @@ const els = {
   optimizeBtn: document.getElementById("optimizeBtn"),
   optimizedLineup: document.getElementById("optimizedLineup"),
   optimizerMode: document.getElementById("optimizerMode"),
-  runWeight: document.getElementById("runWeight"),
-  contactWeight: document.getElementById("contactWeight"),
-  speedWeight: document.getElementById("speedWeight"),
-  defenseWeight: document.getElementById("defenseWeight"),
   applyOptimizedBtn: document.getElementById("applyOptimizedBtn"),
   addPlayerBtn: document.getElementById("addPlayerBtn"),
   playerForm: document.getElementById("playerForm"),
@@ -4672,14 +4668,6 @@ window.addEventListener("resize", () => {
   els.optimizeBtn.addEventListener("click", () => {
     optimizedIds = buildOptimizedLineup();
     renderOptimizedLineup();
-  });
-
-  [els.runWeight, els.contactWeight, els.speedWeight, els.defenseWeight].forEach((input) => {
-    input.addEventListener("input", () => {
-      optimizedIds = buildOptimizedLineup();
-      renderOptimizedLineup();
-      renderValueBoard();
-    });
   });
 
   els.applyOptimizedBtn.addEventListener("click", () => {
@@ -16746,7 +16734,7 @@ function buildOptimizedLineup() {
 function renderOptimizedLineup() {
   if (!optimizedIds.length) optimizedIds = buildOptimizedLineup();
   const defensiveMap = assignDefense(optimizedIds);
-  els.optimizerMode.textContent = `Weights ${els.runWeight.value}/${els.contactWeight.value}/${els.speedWeight.value}/${els.defenseWeight.value}`;
+  els.optimizerMode.textContent = "Stat-informed order";
   els.optimizedLineup.innerHTML = optimizedIds
     .map((id) => {
       const player = state.roster.find((item) => item.id === id);
@@ -16790,29 +16778,8 @@ function assignDefense(ids) {
 
 function playerValue(player) {
   const stats = statsForPlayer(player.id);
-  const weights = lineupWeights();
-  const runCreation = safeRate(stats.obp) * 180 + safeRate(stats.slg) * 95 + safeRate(stats.woba) * 140 + stats.rbi * 2.5;
-  const contact = (1 - safeRate(stats.kRate)) * 75 + contactQuality(stats) * 55 + player.grades.contact;
-  const speed = player.grades.speed + stats.sb * 6 - stats.cs * 8;
-  const defense = player.grades.defense;
-  const clutch = stats.highLevPa ? (stats.highLevSuccess / stats.highLevPa) * 30 : 8;
-  return runCreation * weights.run + contact * weights.contact + speed * weights.speed + defense * weights.defense + clutch;
-}
-
-function lineupWeights() {
-  const raw = {
-    run: Number(els.runWeight.value),
-    contact: Number(els.contactWeight.value),
-    speed: Number(els.speedWeight.value),
-    defense: Number(els.defenseWeight.value)
-  };
-  const total = Object.values(raw).reduce((sum, value) => sum + value, 0) || 1;
-  return {
-    run: raw.run / total,
-    contact: raw.contact / total,
-    speed: raw.speed / total,
-    defense: raw.defense / total
-  };
+  const runs = runsScoredForPlayer(player.id);
+  return Math.max(0, stats.tb + stats.bb + stats.hbp + stats.rbi + runs + stats.sb + stats.sac - stats.cs - stats.po);
 }
 
 function hittingStatEditMap(game) {
