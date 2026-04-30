@@ -581,8 +581,9 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.50";
+const APP_VERSION = "v.1.1.51";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
+const NIGHT_GAME_START_MINUTES = 20 * 60;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
 const NABA_ROSTERS_CACHE_URL = "data/naba-rosters.json";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
@@ -8269,6 +8270,26 @@ function getMatchupImage(opponentName, lionsHomeAway = "home") {
   return window.MatchupImages?.getMatchupImage(opponentName, lionsHomeAway) || "new-lion.png";
 }
 
+function gameStartMinutes(game) {
+  const value = String(game?.time || "").trim();
+  if (!value) return null;
+  const match = value.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]\.?m\.?)?$/i);
+  if (!match) return null;
+  let hours = Number(match[1]);
+  const minutes = Number(match[2] || 0);
+  const meridian = String(match[3] || "").toLowerCase().replace(/\./g, "");
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes) || minutes < 0 || minutes > 59) return null;
+  if (meridian === "pm" && hours < 12) hours += 12;
+  if (meridian === "am" && hours === 12) hours = 0;
+  if (hours < 0 || hours > 23) return null;
+  return (hours * 60) + minutes;
+}
+
+function isNightGame(game) {
+  const minutes = gameStartMinutes(game);
+  return minutes !== null && minutes >= NIGHT_GAME_START_MINUTES;
+}
+
 function setHomeMatchupImage(game = null) {
   if (!els.homeMatchupImage) return;
   els.homeMatchupImage.classList.toggle("is-no-game-hero", !game);
@@ -8277,8 +8298,7 @@ function setHomeMatchupImage(game = null) {
     els.homeMatchupImage.alt = "Oakmont Lions";
     return;
   }
-  const opponentName = game?.opponent || "";
-  els.homeMatchupImage.src = getMatchupImage(opponentName, game ? lionsSide(game) : "home");
+  els.homeMatchupImage.src = matchupImageForGame(game);
   els.homeMatchupImage.alt = `${gameMatchupLabel(game)} matchup graphic`;
 }
 
@@ -13824,7 +13844,11 @@ function completedGameSyncMeta(game, syncState = stableGameSyncState(game, { kee
 }
 
 function matchupImageForGame(game) {
-  return window.MatchupImages?.getMatchupImage?.(game?.opponent, lionsSide(game)) || window.MatchupImages?.fallback || "new-lion.png";
+  const side = lionsSide(game);
+  const nightImage = isNightGame(game)
+    ? window.MatchupImages?.getNightMatchupImage?.(game?.opponent, side)
+    : "";
+  return nightImage || window.MatchupImages?.getMatchupImage?.(game?.opponent, side) || window.MatchupImages?.fallback || "new-lion.png";
 }
 
 function renderRecordSummary() {

@@ -1,6 +1,12 @@
 (function matchupImages(global) {
   const MATCHUP_IMAGE_FALLBACK = "new-lion.png";
   const TEAM_LOGO_FALLBACK = "assets/team-logos/lions.png";
+  const NIGHT_MATCHUP_IMAGES = new Set([
+    "lions@d2",
+    "lions@devils",
+    "lions@ducks",
+    "lions@eagles"
+  ]);
   const OPPONENT_IMAGE_KEYS = [
     { aliases: ["eagles", "eagle"], key: "eagles", label: "Eagles" },
     { aliases: ["ducks", "duck"], key: "ducks", label: "Ducks" },
@@ -44,6 +50,17 @@
     return `assets/matchups/${awayKey}@${homeKey}.png`;
   }
 
+  function getNightMatchupImage(opponentName, lionsSide = "home") {
+    const key = opponentImageKey(opponentName);
+    if (!key) return "";
+
+    const lionsAreAway = lionsSide === "away";
+    const awayKey = lionsAreAway ? "lions" : key;
+    const homeKey = lionsAreAway ? key : "lions";
+    const imageKey = `${awayKey}@${homeKey}`;
+    return NIGHT_MATCHUP_IMAGES.has(imageKey) ? `assets/matchups/night/${imageKey}.png` : "";
+  }
+
   function teamLogoKey(teamName = "", teamKey = "") {
     if (teamKey === "lions") return "lions";
     if (teamKey === "opponent") return opponentImageKey(teamName);
@@ -62,6 +79,7 @@
   global.MatchupImages = {
     fallback: MATCHUP_IMAGE_FALLBACK,
     getMatchupImage,
+    getNightMatchupImage,
     getTeamLogo,
     opponentImageKey,
     knownOpponents: OPPONENT_IMAGE_KEYS.map((entry) => entry.label),
