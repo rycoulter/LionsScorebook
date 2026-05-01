@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.57";
+const APP_VERSION = "v.1.1.59";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
@@ -747,6 +747,7 @@ let scoringStepHoldButton = null;
 let scoringStepHoldConsumedButton = null;
 let scoringStepHoldConsumedAt = 0;
 let scoringStepPointerActionButton = null;
+let scoringStepPointerActionKey = "";
 let scoringStepPointerActionAt = 0;
 const POINTER_ACTION_CLICK_SUPPRESS_MS = 2500;
 const SCORING_PANEL_POINTERUP_ACTION_SELECTOR = [
@@ -781,8 +782,8 @@ const pendingDeletedSharedGameIds = new Set();
 let pendingServiceWorkerRefresh = false;
 const SUPABASE_REFRESH_THROTTLE_MS = 15000;
 const PLAY_HISTORY_LIMIT = 8;
-const PITCH_FEEDBACK_DURATION_MS = 950;
-const ACTION_FEEDBACK_DURATION_MS = 850;
+const PITCH_FEEDBACK_DURATION_MS = 700;
+const ACTION_FEEDBACK_DURATION_MS = 600;
 const RUN_SCORE_FEEDBACK_DURATION_MS = 1500;
 const LIVE_GAME_SYNC_DEBOUNCE_MS = 900;
 
@@ -9543,6 +9544,15 @@ function closestFromEventTarget(target, selector) {
   return typeof parent?.closest === "function" ? parent.closest(selector) : null;
 }
 
+function scoringActionButtonKey(button) {
+  if (!button?.dataset) return "";
+  const entries = Object.keys(button.dataset)
+    .sort()
+    .map((key) => `${key}:${button.dataset[key]}`);
+  const label = (button.textContent || "").trim().replace(/\s+/g, " ");
+  return `${entries.join("|")}::${label}`;
+}
+
 function handleActionFeedbackPointerDown(event) {
   const button = closestFromEventTarget(event.target, "button");
   if (!button || button.disabled) return;
@@ -9573,9 +9583,10 @@ function handleScoringPanelPointerUpAction(event) {
   if (!button || button.disabled) return;
   if (button === scoringStepHoldConsumedButton && Date.now() - scoringStepHoldConsumedAt < 700) return;
   event.preventDefault();
-  handleScoringPanelClick({ target: button });
   scoringStepPointerActionButton = button;
+  scoringStepPointerActionKey = scoringActionButtonKey(button);
   scoringStepPointerActionAt = Date.now();
+  handleScoringPanelClick({ target: button, pointerActionHandled: true });
 }
 
 function handleGameCompleteAction(button) {
@@ -9611,10 +9622,20 @@ function handleGameCompleteAction(button) {
 function handleScoringPanelClick(event) {
   const button = closestFromEventTarget(event.target, "button");
   if (!button) return;
-  if (button === scoringStepPointerActionButton) {
+  const fromPointerAction = Boolean(event.pointerActionHandled);
+  const pointerActionAge = Date.now() - scoringStepPointerActionAt;
+  const buttonActionKey = scoringActionButtonKey(button);
+  const isDuplicatePointerClick = button === scoringStepPointerActionButton
+    || (buttonActionKey && buttonActionKey === scoringStepPointerActionKey);
+  if (!fromPointerAction && isDuplicatePointerClick) {
     const shouldSuppressSyntheticClick = Date.now() - scoringStepPointerActionAt < POINTER_ACTION_CLICK_SUPPRESS_MS || !button.isConnected;
     scoringStepPointerActionButton = null;
+    scoringStepPointerActionKey = "";
     if (shouldSuppressSyntheticClick) return;
+  }
+  if (!fromPointerAction && scoringStepPointerActionAt && pointerActionAge >= POINTER_ACTION_CLICK_SUPPRESS_MS) {
+    scoringStepPointerActionButton = null;
+    scoringStepPointerActionKey = "";
   }
   if (button === scoringStepHoldConsumedButton && Date.now() - scoringStepHoldConsumedAt < 700) {
     scoringStepHoldConsumedButton = null;
@@ -9719,6 +9740,8 @@ function clearScoringStepHold() {
 }
 
 function handleScoringStepPointerDown(event) {
+  const actionButton = closestFromEventTarget(event.target, SCORING_PANEL_POINTERUP_ACTION_SELECTOR);
+  if (actionButton && !actionButton.disabled) event.preventDefault();
   const button = closestFromEventTarget(event.target, "button[data-hold-open]");
   if (!button) return;
   clearScoringStepHold();
