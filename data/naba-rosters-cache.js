@@ -1,7 +1,7 @@
 window.ScorebookNabaRostersCache = {
   "season": 2026,
   "sourceLabel": "Pittsburgh NABA rosters",
-  "syncedAt": "2026-04-29T19:47:26.724Z",
+  "syncedAt": "2026-05-01T12:11:26.174Z",
   "teams": [
     {
       "teamName": "Oakmont Lions",
@@ -171,7 +171,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "SS, CF, P, 2B"
         }
       ],
-      "syncedAt": "2026-04-29T19:47:26.724Z"
+      "syncedAt": "2026-05-01T12:11:26.174Z"
     },
     {
       "teamName": "Pittsburgh D2",
@@ -187,14 +187,6 @@ window.ScorebookNabaRostersCache = {
           "name": "Kenneth Ames",
           "number": "27",
           "positions": "1B"
-        },
-        {
-          "id": "pittsburgh-d2-tucci-anthony",
-          "firstName": "Tucci",
-          "lastName": "Anthony",
-          "name": "Tucci Anthony",
-          "number": "",
-          "positions": "P, 2B, UTIL., INF, SS"
         },
         {
           "id": "pittsburgh-d2-jeffrey-arnold",
@@ -317,6 +309,14 @@ window.ScorebookNabaRostersCache = {
           "positions": "2B, SS"
         },
         {
+          "id": "pittsburgh-d2-anthony-tucci",
+          "firstName": "Anthony",
+          "lastName": "Tucci",
+          "name": "Anthony Tucci",
+          "number": "",
+          "positions": "P, 2B, UTIL., INF, SS"
+        },
+        {
           "id": "pittsburgh-d2-mike-zwigart",
           "firstName": "Mike",
           "lastName": "Zwigart",
@@ -325,7 +325,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "C, P, UTIL."
         }
       ],
-      "syncedAt": "2026-04-29T19:47:26.724Z"
+      "syncedAt": "2026-05-01T12:11:26.174Z"
     },
     {
       "teamName": "BiscuitvilleTownSquare Bandidos",
@@ -479,7 +479,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "LF"
         }
       ],
-      "syncedAt": "2026-04-29T19:47:26.724Z"
+      "syncedAt": "2026-05-01T12:11:26.174Z"
     },
     {
       "teamName": "South Hills Devils",
@@ -681,7 +681,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "1B, P"
         }
       ],
-      "syncedAt": "2026-04-29T19:47:26.724Z"
+      "syncedAt": "2026-05-01T12:11:26.174Z"
     },
     {
       "teamName": "South Oakland Ducks",
@@ -859,7 +859,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "RF, LF, OF"
         }
       ],
-      "syncedAt": "2026-04-29T19:47:26.724Z"
+      "syncedAt": "2026-05-01T12:11:26.174Z"
     },
     {
       "teamName": "South Side Eagles",
@@ -957,6 +957,14 @@ window.ScorebookNabaRostersCache = {
           "positions": "3B, 1B, P"
         },
         {
+          "id": "south-side-eagles-david-niklas",
+          "firstName": "David",
+          "lastName": "Niklas",
+          "name": "David Niklas",
+          "number": "13",
+          "positions": "C, 3B"
+        },
+        {
           "id": "south-side-eagles-james-perreira",
           "firstName": "James",
           "lastName": "Perreira",
@@ -997,7 +1005,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "P"
         }
       ],
-      "syncedAt": "2026-04-29T19:47:26.724Z"
+      "syncedAt": "2026-05-01T12:11:26.174Z"
     },
     {
       "teamName": "Bauerstown Turtles",
@@ -1007,15 +1015,143 @@ window.ScorebookNabaRostersCache = {
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=roster&s=baseball&u=BAUERSTOWNTURTLES",
       "players": [
         {
+          "id": "bauerstown-turtles-vincent-barbieri",
+          "firstName": "Vincent",
+          "lastName": "Barbieri",
+          "name": "Vincent Barbieri",
+          "number": "20",
+          "positions": "3B, 1B, P"
+        },
+        {
+          "id": "bauerstown-turtles-mason-brooks",
+          "firstName": "Mason",
+          "lastName": "Brooks",
+          "name": "Mason Brooks",
+          "number": "9",
+          "positions": "P, LF"
+        },
+        {
+          "id": "bauerstown-turtles-anthony-cugini",
+          "firstName": "Anthony",
+          "lastName": "Cugini",
+          "name": "Anthony Cugini",
+          "number": "33",
+          "positions": "CF, LF"
+        },
+        {
+          "id": "bauerstown-turtles-justin-desabato",
+          "firstName": "Justin",
+          "lastName": "Desabato",
+          "name": "Justin Desabato",
+          "number": "23",
+          "positions": "CF, RF"
+        },
+        {
+          "id": "bauerstown-turtles-brian-driscoll",
+          "firstName": "Brian",
+          "lastName": "Driscoll",
+          "name": "Brian Driscoll",
+          "number": "21",
+          "positions": "1B, P"
+        },
+        {
+          "id": "bauerstown-turtles-kyle-ford",
+          "firstName": "Kyle",
+          "lastName": "Ford",
+          "name": "Kyle Ford",
+          "number": "5",
+          "positions": "P, 1B"
+        },
+        {
           "id": "bauerstown-turtles-jacob-herbst",
           "firstName": "Jacob",
           "lastName": "Herbst",
           "name": "Jacob Herbst",
           "number": "",
           "positions": "P, CF, UTIL., OF"
+        },
+        {
+          "id": "bauerstown-turtles-maximilian-menner",
+          "firstName": "Maximilian",
+          "lastName": "Menner",
+          "name": "Maximilian Menner",
+          "number": "2",
+          "positions": "CF, LF, 2B"
+        },
+        {
+          "id": "bauerstown-turtles-jake-morgan",
+          "firstName": "Jake",
+          "lastName": "Morgan",
+          "name": "Jake Morgan",
+          "number": "3",
+          "positions": "3B, 2B"
+        },
+        {
+          "id": "bauerstown-turtles-anthony-ondo",
+          "firstName": "Anthony",
+          "lastName": "Ondo",
+          "name": "Anthony Ondo",
+          "number": "8",
+          "positions": "C, P"
+        },
+        {
+          "id": "bauerstown-turtles-natalie-ondo",
+          "firstName": "Natalie",
+          "lastName": "Ondo",
+          "name": "Natalie Ondo",
+          "number": "22",
+          "positions": "UT"
+        },
+        {
+          "id": "bauerstown-turtles-ron-ondo",
+          "firstName": "Ron",
+          "lastName": "Ondo",
+          "name": "Ron Ondo",
+          "number": "18",
+          "positions": "1B, RF"
+        },
+        {
+          "id": "bauerstown-turtles-paul-perman",
+          "firstName": "Paul",
+          "lastName": "Perman",
+          "name": "Paul Perman",
+          "number": "12",
+          "positions": "2B, P"
+        },
+        {
+          "id": "bauerstown-turtles-ethan-rowell",
+          "firstName": "Ethan",
+          "lastName": "Rowell",
+          "name": "Ethan Rowell",
+          "number": "69",
+          "positions": "1B, 3B"
+        },
+        {
+          "id": "bauerstown-turtles-colton-schott",
+          "firstName": "Colton",
+          "lastName": "Schott",
+          "name": "Colton Schott",
+          "number": "13",
+          "positions": "CF, LF"
+        },
+        {
+          "id": "bauerstown-turtles-cody-walsh",
+          "firstName": "Cody",
+          "lastName": "Walsh",
+          "name": "Cody Walsh",
+          "number": "3",
+          "positions": "2B"
+        },
+        {
+          "id": "bauerstown-turtles-evan-walsh",
+          "firstName": "Evan",
+          "lastName": "Walsh",
+          "name": "Evan Walsh",
+          "number": "34",
+          "positions": "SS, P, LF"
         }
       ],
-      "syncedAt": "2026-04-29T19:47:26.724Z"
+      "syncedAt": "2026-05-01T12:11:26.174Z"
     },
     {
       "teamName": "Keystone Oaks",
@@ -1137,7 +1273,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "3B, SS"
         }
       ],
-      "syncedAt": "2026-04-29T19:47:26.724Z"
+      "syncedAt": "2026-05-01T12:11:26.174Z"
     },
     {
       "teamName": "Butler Buccos",
@@ -1195,7 +1331,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "P, 1B"
         }
       ],
-      "syncedAt": "2026-04-29T19:47:26.724Z"
+      "syncedAt": "2026-05-01T12:11:26.174Z"
     },
     {
       "teamName": "Ross Raiders",
@@ -1204,7 +1340,7 @@ window.ScorebookNabaRostersCache = {
       "nabaKey": "PITTSBUR-ROSSRAIDERS",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=roster&s=baseball&u=PITTSBUR-ROSSRAIDERS",
       "players": [],
-      "syncedAt": "2026-04-29T19:47:26.724Z"
+      "syncedAt": "2026-05-01T12:11:26.174Z"
     }
   ]
 };
