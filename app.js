@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.55";
+const APP_VERSION = "v.1.1.57";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
@@ -781,8 +781,8 @@ const pendingDeletedSharedGameIds = new Set();
 let pendingServiceWorkerRefresh = false;
 const SUPABASE_REFRESH_THROTTLE_MS = 15000;
 const PLAY_HISTORY_LIMIT = 8;
-const PITCH_FEEDBACK_DURATION_MS = 700;
-const ACTION_FEEDBACK_DURATION_MS = 600;
+const PITCH_FEEDBACK_DURATION_MS = 950;
+const ACTION_FEEDBACK_DURATION_MS = 850;
 const RUN_SCORE_FEEDBACK_DURATION_MS = 1500;
 const LIVE_GAME_SYNC_DEBOUNCE_MS = 900;
 
