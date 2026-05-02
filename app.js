@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.59";
+const APP_VERSION = "v.1.1.63";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
@@ -1045,6 +1045,8 @@ const els = {
   gameActionsSyncBtn: document.getElementById("gameActionsSyncBtn"),
   gameActionsEndHalfBtn: document.getElementById("gameActionsEndHalfBtn"),
   gameActionsCompleteBtn: document.getElementById("gameActionsCompleteBtn"),
+  gameActionsPostponeBtn: document.getElementById("gameActionsPostponeBtn"),
+  gameActionsRestartBtn: document.getElementById("gameActionsRestartBtn"),
   gameActionsStatusText: document.getElementById("gameActionsStatusText"),
   closeGameActionsBtn: document.getElementById("closeGameActionsBtn"),
   pitcherSelectModal: document.getElementById("pitcherSelectModal"),
@@ -2151,12 +2153,14 @@ function loadState() {
     if (!nextState.roster || !nextState.games || !nextState.lineup) return seedState();
     const normalized = normalizeState(nextState);
     const activeFromLibrary = normalized.games.find((game) => game.id === library.activeGameId);
-    if (activeFromLibrary) normalized.activeGameId = activeFromLibrary.id;
+    if (activeFromLibrary && activeFromLibrary.status === "active" && !gameIsFinal(activeFromLibrary)) {
+      normalized.activeGameId = activeFromLibrary.id;
+    }
     if (!normalized.activeGameId && normalized.games.length) {
       normalized.activeGameId = normalized.games.find((game) => game.status === "active" && !gameIsFinal(game))?.id || "";
     }
     const active = normalized.games.find((game) => game.id === normalized.activeGameId);
-    if (gameIsFinal(active)) {
+    if (active && (gameIsFinal(active) || active.status !== "active")) {
       const nextOpen = normalized.games
         .filter((game) => !gameIsFinal(game) && game.status === "active")
         .sort((a, b) => (a.date || todayValue()).localeCompare(b.date || todayValue()) || (a.time || "").localeCompare(b.time || ""))[0];
@@ -4247,6 +4251,12 @@ function bindEvents() {
     closeGameActionsModal();
     finishGame();
   });
+  els.gameActionsPostponeBtn?.addEventListener("click", () => {
+    postponeActiveGame();
+  });
+  els.gameActionsRestartBtn?.addEventListener("click", () => {
+    restartActiveGame();
+  });
   els.dismissLineupPreviewBtn?.addEventListener("click", () => dismissLineupPreview(activeGame()));
   els.dismissBatterIntroBtn?.addEventListener("click", () => dismissBatterIntro(activeGame(), { rerender: true }));
 
@@ -4320,8 +4330,10 @@ function bindEvents() {
       return;
     }
     if (action === "score" || action === "start") scoreScheduledGame(button.dataset.gameId);
+    if (action === "resume-postponed") resumePostponedGame(button.dataset.gameId);
     if (action === "complete") completeScheduledGame(button.dataset.gameId);
     if (action === "edit") openGameEditor(button.dataset.gameId);
+    if (action === "postpone") postponeScheduledGame(button.dataset.gameId);
     if (action === "delete") removeScheduledGame(button.dataset.gameId);
   });
   els.gamesArchiveNote?.addEventListener("click", (event) => {
@@ -5012,7 +5024,7 @@ function activeGame() {
     game = state.games.find((item) => item.status === "active" && !gameIsFinal(item));
     if (game) state.activeGameId = game.id;
   }
-  if (!game) game = state.games.find((item) => !gameIsFinal(item)) || state.games[0];
+  if (!game) game = state.games.find((item) => !gameIsFinal(item) && item.status !== "postponed") || state.games[0];
   if (!game) {
     game = makeUniqueGame({ opponent: "Opponent", status: "scheduled" });
     state.games.push(game);
@@ -7236,6 +7248,10 @@ function scoreScheduledGame(gameId) {
   const game = state.games.find((item) => item.id === gameId);
   if (!game) return;
   if (gameIsFinal(game)) return;
+  if (gameIsPostponed(game)) {
+    resumePostponedGame(game.id);
+    return;
+  }
   if (game.status === "active") {
     openActiveGameForScoring(game);
     return;
@@ -7246,7 +7262,7 @@ function scoreScheduledGame(gameId) {
 function confirmLineupAndStartGame() {
   if (!requireAdminAccess("Admin sign-in required to start games.")) return;
   const game = state.games.find((item) => item.id === lineupBuilderGameId);
-  if (!game || gameIsFinal(game)) return;
+  if (!game || gameIsFinal(game) || gameIsPostponed(game)) return;
   const readiness = lineupReadiness(game);
   if (!readiness.ready) {
     renderLineupBuilder();
@@ -7713,6 +7729,115 @@ function completeScheduledGame(gameId) {
   render();
 }
 
+function postponeGame(game, options = {}) {
+  if (!requireAdminAccess("Admin sign-in required to postpone games.")) return;
+  const { fromScore = false } = options;
+  if (!game || gameIsFinal(game) || gameIsPostponed(game)) return;
+  const matchup = gameMatchupLabel(game);
+  const confirmed = window.confirm(`Postpone ${matchup}? Scoring already recorded for this game will stay saved, but the game will no longer appear as the current or next game.`);
+  if (!confirmed) return;
+  const previousStatus = game.status === "active" ? "active" : "scheduled";
+  if (previousStatus === "active") syncGameCurrent(game);
+  game.status = "postponed";
+  game.postponedAt = new Date().toISOString();
+  game.postponedFromStatus = previousStatus;
+  if (fromScore || previousStatus === "active") clearPendingPlayState(game, true);
+  markSharedGamesDirty(game.id);
+  if (state.activeGameId === game.id) moveActiveGameOffGame(game.id);
+  closeGameActionsModal();
+  gameFilter = "postponed";
+  scheduleGamesLayout = "dashboard";
+  saveStateWithOptions({ markLiveGamesDirty: false });
+  switchView("games");
+  render();
+  requestSharedSnapshotSync("postpone-game");
+}
+
+function postponeActiveGame() {
+  const game = activeScoreGame();
+  if (!game || gameIsScoreLocked(game)) return;
+  postponeGame(game, { fromScore: true });
+}
+
+function postponeScheduledGame(gameId) {
+  const game = state.games.find((item) => item.id === gameId);
+  postponeGame(game);
+}
+
+function resetGameScoringState(game) {
+  if (!game) return;
+  const startingPitcherId = startingPitcherIdForGame(game)
+    || gameLineupEntries(game).find((entry) => entry.role === "P")?.playerId
+    || game.pitcherId
+    || "";
+  game.status = "active";
+  game.inning = 1;
+  game.half = "top";
+  game.outs = 0;
+  game.bases = emptyBases(false);
+  game.batterIndex = 0;
+  game.opponentBatterIndex = 0;
+  game.score = { lions: 0, opponent: 0, away: 0, home: 0 };
+  game.plateAppearances = [];
+  game.currentPlateAppearanceId = "";
+  game.substitutions = [];
+  game.events = [];
+  game.playHistory = [];
+  game.atBat = makeAtBat();
+  game.pendingScoring = null;
+  game.pitcherId = startingPitcherId;
+  game.current = {
+    inning: 1,
+    half: "top",
+    outs: 0,
+    balls: 0,
+    strikes: 0,
+    batterId: "",
+    pitcherId: startingPitcherId,
+    runners: emptyBases(false)
+  };
+  syncGameTeams(game, lionsSide(game));
+  syncGameCurrent(game);
+}
+
+function restartActiveGame() {
+  if (!requireAdminAccess("Admin sign-in required to restart games.")) return;
+  const game = activeScoreGame();
+  if (!game || gameIsScoreLocked(game)) return;
+  const confirmed = window.confirm(`Restart ${gameMatchupLabel(game)} from the first pitch? This clears the score, plays, stats, pitch counts, runner movement, substitutions, and undo history for this game. The schedule details and lineups stay saved.`);
+  if (!confirmed) return;
+  resetGameScoringState(game);
+  clearPendingPlayState(game, true);
+  clearGameCompleteSummary(game.id);
+  markSharedGamesDirty(game.id);
+  setActiveGame(game.id);
+  closeGameActionsModal();
+  saveStateWithOptions({ capturePendingScoring: false, liveSyncReason: "restart-game" });
+  render();
+  switchView("score");
+  requestSharedSnapshotSync("restart-game");
+}
+
+function resumePostponedGame(gameId) {
+  if (!requireAdminAccess("Admin sign-in required to continue postponed games.")) return;
+  const game = state.games.find((item) => item.id === gameId);
+  if (!game || gameIsFinal(game) || !gameIsPostponed(game)) return;
+  const shouldOpenScore = game.postponedFromStatus === "active" || game.lineupSetupStarted || (game.events || []).length;
+  game.resumedFromPostponedAt = new Date().toISOString();
+  if (shouldOpenScore) {
+    game.status = "active";
+    markSharedGamesDirty(game.id);
+    saveStateWithOptions({ liveSyncReason: "resume-postponed-game" });
+    openActiveGameForScoring(game);
+  } else {
+    game.status = "scheduled";
+    markSharedGamesDirty(game.id);
+    saveStateWithOptions({ markLiveGamesDirty: false });
+    openLineupBuilder(game.id, "games");
+  }
+  requestSharedSnapshotSync("resume-postponed-game");
+}
+
 function finishGame() {
   if (!requireAdminAccess("Admin sign-in required to complete games.")) return;
   const current = activeGame();
@@ -8115,6 +8240,10 @@ function gameIsFinal(game) {
   return Boolean(game && (game.status === "completed" || game.status === "final"));
 }
 
+function gameIsPostponed(game) {
+  return Boolean(game && game.status === "postponed");
+}
+
 function gameIsScoreLocked(game) {
   return gameIsFinal(game) || game?.status !== "active";
 }
@@ -8165,6 +8294,7 @@ function isGameInScheduledLiveWindow(game, now = new Date()) {
 
 function gameLifecycle(game) {
   if (gameIsFinal(game)) return "completed";
+  if (gameIsPostponed(game)) return "postponed";
   if (game?.status === "active") return "active";
   if (isGameInScheduledLiveWindow(game)) return "active";
   return "future";
@@ -8172,6 +8302,7 @@ function gameLifecycle(game) {
 
 function gameStatusLabel(game) {
   if (gameIsFinal(game)) return "Final";
+  if (gameIsPostponed(game)) return "Postponed";
   if (game?.status === "active") return "In progress";
   if (isGameInScheduledLiveWindow(game)) return "Live";
   return "Future";
@@ -8188,7 +8319,7 @@ function completedInningCount(game) {
 function scoreableGames(excludeGameId = "") {
   const today = todayValue();
   return [...state.games]
-    .filter((game) => !gameIsFinal(game) && game.id !== excludeGameId)
+    .filter((game) => !gameIsFinal(game) && !gameIsPostponed(game) && game.id !== excludeGameId)
     .sort((a, b) => {
       const aDate = a.date || today;
       const bDate = b.date || today;
@@ -8208,16 +8339,20 @@ function inProgressGames() {
     });
 }
 
-function moveActiveGameOffFinal(finalGameId = "") {
-  const current = state.games.find((game) => game.id === state.activeGameId);
-  if (state.activeGameId !== finalGameId && !gameIsFinal(current)) return;
-  const next = inProgressGames().filter((game) => game.id !== finalGameId)[0];
+function moveActiveGameOffGame(gameId = "") {
+  const next = inProgressGames().filter((game) => game.id !== gameId)[0];
   if (next) {
     state.activeGameId = next.id;
     storage.setActiveGame(next.id);
   } else {
     state.activeGameId = "";
   }
+}
+
+function moveActiveGameOffFinal(finalGameId = "") {
+  const current = state.games.find((game) => game.id === state.activeGameId);
+  if (state.activeGameId !== finalGameId && !gameIsFinal(current)) return;
+  moveActiveGameOffGame(finalGameId);
 }
 
 function upcomingScheduledGames(limit = 3) {
@@ -10233,6 +10368,8 @@ function renderGameActionsModal(game = activeGame()) {
   if (els.gameActionsSyncBtn) els.gameActionsSyncBtn.disabled = !hasSyncReady;
   if (els.gameActionsEndHalfBtn) els.gameActionsEndHalfBtn.disabled = !game || gameIsScoreLocked(game);
   if (els.gameActionsCompleteBtn) els.gameActionsCompleteBtn.disabled = !game || gameIsScoreLocked(game);
+  if (els.gameActionsPostponeBtn) els.gameActionsPostponeBtn.disabled = !game || gameIsScoreLocked(game);
+  if (els.gameActionsRestartBtn) els.gameActionsRestartBtn.disabled = !game || gameIsScoreLocked(game);
   if (!game) {
     els.gameActionsStatusText.textContent = "No active game is loaded.";
     return;
@@ -10755,6 +10892,9 @@ function scoringStepConfig(game) {
         ${stepButton("Record Ball", "step-pitch", "ball", "ball")}
         ${stepButton("Intentional Walk", "step-auto-result", "BB", "neutral")}
         ${stepButton("HBP", "step-auto-result", "HBP", "hbp")}
+      </div>
+      <div class="confirm-play-row">
+        <button type="button" class="secondary-action" data-score-step-back>Back</button>
       </div>`
     };
   }
@@ -10984,6 +11124,9 @@ function renderOpponentScoringStepPanel(game) {
       ${stepButton("Record Ball", "step-pitch", "ball", "ball")}
       ${stepButton("Intentional Walk", "step-auto-result", "BB", "neutral")}
       ${stepButton("HBP", "step-auto-result", "HBP", "hbp")}
+    </div>
+    <div class="confirm-play-row">
+      <button type="button" class="secondary-action" data-score-step-back>Back</button>
     </div>`;
     return;
   }
@@ -12656,7 +12799,7 @@ function renderGameSummaryMobilePitcher(row) {
 function renderGames() {
   const admin = isAdminMode();
   const activeId = activeScoreGame()?.id || "";
-  const visibleFilters = new Set(["all", "future", "completed"]);
+  const visibleFilters = new Set(["all", "future", "completed", "postponed"]);
   populateScheduleSeasonSelect();
   if (!visibleFilters.has(gameFilter)) gameFilter = "all";
   renderRecordSummary();
@@ -13288,15 +13431,17 @@ function renderScheduleCalendarCellEvent(game) {
   const opponentName = homeOpponentName(game);
   const logo = window.MatchupImages?.getTeamLogo?.(opponentName, "opponent") || "assets/team-logos/lions.png";
   const home = lionsSide(game) === "home";
-  const completed = gameLifecycle(game) === "completed";
-  const live = gameLifecycle(game) === "active";
+  const lifecycle = gameLifecycle(game);
+  const completed = lifecycle === "completed";
+  const live = lifecycle === "active";
+  const postponed = lifecycle === "postponed";
   const outcome = completed
     ? (Number(game?.score?.lions || 0) > Number(game?.score?.opponent || 0) ? "W" : Number(game?.score?.lions || 0) < Number(game?.score?.opponent || 0) ? "L" : "T")
     : "";
   const finalScore = `${Number(game?.score?.lions || 0)} - ${Number(game?.score?.opponent || 0)}`;
-  const timeLabel = completed ? `Final - ${finalScore}` : (live ? `Live - ${finalScore}` : (formatGameTimeDisplay(game?.time) || "TBD"));
-  const statusClass = `${home ? " is-home" : " is-away"}${completed ? " is-completed" : ""}${live ? " is-live" : ""}`;
-  const action = completed ? "boxscore" : "";
+  const timeLabel = completed ? `Final - ${finalScore}` : (live ? `Live - ${finalScore}` : postponed ? `Postponed - ${finalScore}` : (formatGameTimeDisplay(game?.time) || "TBD"));
+  const statusClass = `${home ? " is-home" : " is-away"}${completed ? " is-completed" : ""}${live ? " is-live" : ""}${postponed ? " is-postponed" : ""}`;
+  const action = completed || postponed ? "boxscore" : "";
   return `<button type="button" class="schedule-calendar-event${statusClass}" ${action ? `data-game-action="${escapeHtml(action)}" data-game-id="${escapeHtml(game.id)}"` : "disabled"}>
     <div class="schedule-calendar-event-top">
       <span class="schedule-calendar-event-side">${escapeHtml(home ? "vs" : "@")}</span>
@@ -13312,18 +13457,20 @@ function renderScheduleCalendarEvent(game) {
   const opponentName = homeOpponentName(game);
   const logo = window.MatchupImages?.getTeamLogo?.(opponentName, "opponent") || "assets/team-logos/lions.png";
   const home = lionsSide(game) === "home";
-  const completed = gameLifecycle(game) === "completed";
-  const live = gameLifecycle(game) === "active";
+  const lifecycle = gameLifecycle(game);
+  const completed = lifecycle === "completed";
+  const live = lifecycle === "active";
+  const postponed = lifecycle === "postponed";
   const outcome = completed ? (Number(game?.score?.lions || 0) > Number(game?.score?.opponent || 0) ? "W" : Number(game?.score?.lions || 0) < Number(game?.score?.opponent || 0) ? "L" : "T") : "";
   const lionsScore = Number(game?.score?.lions || 0);
   const opponentScore = Number(game?.score?.opponent || 0);
   const scoreLabel = `${lionsScore} - ${opponentScore}`;
   const dateLabel = formatShortMonthDay(game?.date || "") || formatGameDateDisplay(game?.date) || "Date TBD";
   const timeLabel = formatGameTimeDisplay(game?.time) || "TBD";
-  const statusLabel = completed ? "Final" : (live ? "Live" : "Scheduled");
-  const subStatusLabel = completed ? dateLabel : `${dateLabel}${timeLabel ? ` • ${timeLabel}` : ""}`;
-  const statusClass = `${home ? " is-home" : " is-away"}${completed ? " is-completed" : ""}${live ? " is-live" : ""}`;
-  const action = completed ? "boxscore" : "";
+  const statusLabel = completed ? "Final" : (live ? "Live" : postponed ? "Postponed" : "Scheduled");
+  const subStatusLabel = completed || postponed ? dateLabel : `${dateLabel}${timeLabel ? ` • ${timeLabel}` : ""}`;
+  const statusClass = `${home ? " is-home" : " is-away"}${completed ? " is-completed" : ""}${live ? " is-live" : ""}${postponed ? " is-postponed" : ""}`;
+  const action = completed || postponed ? "boxscore" : "";
   return `<button type="button" class="schedule-calendar-event schedule-calendar-list-card${statusClass}" ${action ? `data-game-action="${escapeHtml(action)}" data-game-id="${escapeHtml(game.id)}"` : "disabled"}>
     <div class="schedule-calendar-list-main">
       <div class="schedule-calendar-list-team">
@@ -13331,7 +13478,7 @@ function renderScheduleCalendarEvent(game) {
         <img class="schedule-calendar-event-logo" src="${escapeHtml(logo)}" alt="" loading="lazy" decoding="async">
         <strong class="schedule-calendar-event-opponent">${escapeHtml(opponentName)}</strong>
       </div>
-      <strong class="schedule-calendar-list-score">${escapeHtml(completed || live ? scoreLabel : timeLabel)}</strong>
+      <strong class="schedule-calendar-list-score">${escapeHtml(completed || live || postponed ? scoreLabel : timeLabel)}</strong>
     </div>
     <div class="schedule-calendar-list-meta">
       <div class="schedule-calendar-list-status">
@@ -13409,7 +13556,7 @@ function renderScheduleMetaItem(type, text) {
 }
 
 function renderQuickScoreAction(game, className = "schedule-quick-score-action") {
-  if (!isAdminMode() || !game?.id || gameIsFinal(game)) return "";
+  if (!isAdminMode() || !game?.id || gameIsFinal(game) || gameIsPostponed(game)) return "";
   return `<button type="button" class="secondary-action ${escapeHtml(className)}" data-game-action="quick-score" data-game-id="${escapeHtml(game.id)}">Quick Score</button>`;
 }
 
@@ -13785,10 +13932,11 @@ function renderScheduleGameCard(game, activeId = "") {
   const lifecycle = gameLifecycle(game);
   const actualActive = game.status === "active" && !gameIsFinal(game);
   const active = game.id === activeId && lifecycle === "active" ? " is-active" : "";
-  const score = game.events.length || locked ? gameScoreLabel(game) : gameMatchupLabel(game);
+  const score = game.events.length || locked || lifecycle === "postponed" ? gameScoreLabel(game) : gameMatchupLabel(game);
   const status = gameStatusLabel(game);
   const completed = lifecycle === "completed";
-  const statusTag = lifecycle === "active" ? "LIVE" : completed ? "FINAL" : "UPCOMING";
+  const postponed = lifecycle === "postponed";
+  const statusTag = lifecycle === "active" ? "LIVE" : completed ? "FINAL" : postponed ? "POSTPONED" : "UPCOMING";
   const cardClass = `game-card${active} is-${lifecycle}`;
   const matchupImage = matchupImageForGame(game);
   const location = gameLocationLabel(game);
@@ -13799,6 +13947,10 @@ function renderScheduleGameCard(game, activeId = "") {
     : "";
   const quickScoreAction = renderQuickScoreAction(game, "schedule-quick-score-card");
   const highlightsAction = renderGameHighlightsAction(game);
+  const reviewActions = `<button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${escapeHtml(game.id)}">View Box Score</button>
+         <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">View Scorebook</button>`;
+  const postponedAdminActions = `<button type="button" class="primary-action" data-game-action="resume-postponed" data-game-id="${escapeHtml(game.id)}">Continue Scoring</button>
+         <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${escapeHtml(game.id)}">View Scorebook</button>`;
   const primaryAction = admin
     ? (lifecycle === "active"
       ? `<button type="button" class="primary-action" data-game-action="score" data-game-id="${game.id}">${actualActive ? (game.id === activeId ? "Continue Scoring" : "Open In Progress") : "Start Live Game"}</button>`
@@ -13812,10 +13964,12 @@ function renderScheduleGameCard(game, activeId = "") {
        <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${game.id}">View Scorebook</button>
        ${highlightsAction}`
     : lifecycle === "active"
-      ? `<button type="button" class="secondary-action" data-game-action="boxscore" data-game-id="${game.id}">View Box Score</button>
-         <button type="button" class="secondary-action" data-game-action="scorebook" data-game-id="${game.id}">View Scorebook</button>`
-      : "";
+      ? reviewActions
+      : postponed
+        ? reviewActions
+        : "";
   const canComplete = lifecycle === "active";
+  const canPostpone = lifecycle === "active" || lifecycle === "future";
   return `<article class="${cardClass}">
     <img class="game-card-matchup" src="${escapeHtml(matchupImage)}" alt="${escapeHtml(gameMatchupLabel(game))} matchup">
     <div>
@@ -13832,9 +13986,11 @@ function renderScheduleGameCard(game, activeId = "") {
       ${admin
         ? `${quickScoreAction}
            ${completed ? `<button type="button" class="secondary-action" data-game-action="summary" data-game-id="${game.id}">View Summary</button>` : ""}
+           ${postponed ? postponedAdminActions : ""}
            ${highlightsAction}
            ${completedSyncButton}
            <button type="button" class="secondary-action" data-game-action="edit" data-game-id="${game.id}" ${locked ? "disabled" : ""}>Edit</button>
+           <button type="button" class="secondary-action" data-game-action="postpone" data-game-id="${game.id}" ${canPostpone ? "" : "disabled"}>Postpone</button>
            <button type="button" class="secondary-action" data-game-action="complete" data-game-id="${game.id}" ${canComplete ? "" : "disabled"}>Mark Final</button>
            <button type="button" class="secondary-action danger-action" data-game-action="delete" data-game-id="${game.id}">Remove</button>`
         : publicActions}
