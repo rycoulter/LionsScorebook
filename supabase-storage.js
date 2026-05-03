@@ -100,6 +100,36 @@
     return Boolean(game && isFinalGameStatus(game.status));
   }
 
+  function isPostponedGameData(game) {
+    return Boolean(game && game.status === "postponed");
+  }
+
+  function timestampValue(value) {
+    const time = Date.parse(String(value || ""));
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function gameResumedAfterPostponed(game, postponedGame) {
+    return timestampValue(game?.resumedFromPostponedAt) > timestampValue(postponedGame?.postponedAt);
+  }
+
+  function postponedGameBlocksIncoming(existingGame, incomingGame) {
+    return Boolean(
+      isPostponedGameData(existingGame)
+      && !isPostponedGameData(incomingGame)
+      && !gameResumedAfterPostponed(incomingGame, existingGame)
+    );
+  }
+
+  function shouldUseLocalGameOverRemote(localGame, remoteGame) {
+    if (!remoteGame) return true;
+    if (isFinalGameData(remoteGame) && !isFinalGameData(localGame)) return false;
+    if (isFinalGameData(localGame) && !isFinalGameData(remoteGame)) return true;
+    if (postponedGameBlocksIncoming(remoteGame, localGame)) return false;
+    if (postponedGameBlocksIncoming(localGame, remoteGame)) return true;
+    return localGame?.status === "active";
+  }
+
   function rowRepresentsFinalGame(row) {
     return Boolean(row?.is_final || isFinalGameStatus(row?.status) || isFinalGameData(row?.game_data));
   }
@@ -264,19 +294,7 @@
           seenIds.add(gameId);
           return;
         }
-        if (remoteGame && isFinalGameData(remoteGame) && !isFinalGameData(game)) {
-          mergedGames.push(remoteGame);
-          seenIds.add(gameId);
-          remoteGamesById.delete(gameId);
-          return;
-        }
-        if (remoteGame && isFinalGameData(game) && !isFinalGameData(remoteGame)) {
-          mergedGames.push(game);
-          seenIds.add(gameId);
-          remoteGamesById.delete(gameId);
-          return;
-        }
-        if (game.status === "active") {
+        if (shouldUseLocalGameOverRemote(game, remoteGame)) {
           mergedGames.push(game);
           seenIds.add(gameId);
           remoteGamesById.delete(gameId);
@@ -501,14 +519,29 @@
         .map((row) => row.id)
         .filter(Boolean)
     );
+    const existingGamesById = new Map(
+      (existingResponse.data || [])
+        .map((row) => [row.id, row.game_data])
+        .filter(([id, game]) => Boolean(id && game))
+    );
     const skippedFinalGameIds = [];
+    const skippedPostponedGameIds = [];
     const safeRows = rows.filter((row) => {
       const blocked = finalRemoteIds.has(row.id) && !isFinalGameData(row.game_data);
-      if (blocked) skippedFinalGameIds.push(row.id);
-      return !blocked;
+      if (blocked) {
+        skippedFinalGameIds.push(row.id);
+        return false;
+      }
+      const existingGame = existingGamesById.get(row.id);
+      const postponedBlocked = postponedGameBlocksIncoming(existingGame, row.game_data);
+      if (postponedBlocked) {
+        skippedPostponedGameIds.push(row.id);
+        return false;
+      }
+      return true;
     });
     if (!safeRows.length) {
-      return { data: [], error: null, skippedFinalGameIds };
+      return { data: [], error: null, skippedFinalGameIds, skippedPostponedGameIds };
     }
     const response = await client
       .from("games")
@@ -516,7 +549,8 @@
       .select("id, updated_at");
     return {
       ...response,
-      skippedFinalGameIds
+      skippedFinalGameIds,
+      skippedPostponedGameIds
     };
   }
 

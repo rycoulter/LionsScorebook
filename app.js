@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.65";
+const APP_VERSION = "v.1.1.66";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
@@ -2894,8 +2894,32 @@ function markSharedGamesDeleted(gameIds = []) {
   });
 }
 
-function remoteFinalGameBlocksLocalSync(remoteGame, localGame) {
-  return Boolean(remoteGame && localGame && gameIsFinal(remoteGame) && !gameIsFinal(localGame));
+function timestampValue(value) {
+  const time = Date.parse(String(value || ""));
+  return Number.isFinite(time) ? time : 0;
+}
+
+function gameResumedAfterPostponed(game, postponedGame) {
+  return timestampValue(game?.resumedFromPostponedAt) > timestampValue(postponedGame?.postponedAt);
+}
+
+function postponedGameBlocksIncoming(existingGame, incomingGame) {
+  return Boolean(
+    gameIsPostponed(existingGame)
+    && !gameIsPostponed(incomingGame)
+    && !gameResumedAfterPostponed(incomingGame, existingGame)
+  );
+}
+
+function remoteGameBlocksLocalSync(remoteGame, localGame) {
+  return Boolean(
+    remoteGame
+    && localGame
+    && (
+      (gameIsFinal(remoteGame) && !gameIsFinal(localGame))
+      || postponedGameBlocksIncoming(remoteGame, localGame)
+    )
+  );
 }
 
 function clearSharedSessionPending(options = {}) {
@@ -2944,7 +2968,7 @@ function overlaySessionSharedChanges(baseState, localState = state) {
     const localGame = localGamesById.get(gameId);
     if (!localGame) return;
     const remoteGame = mergedGamesById.get(gameId);
-    if (remoteFinalGameBlocksLocalSync(remoteGame, localGame)) {
+    if (remoteGameBlocksLocalSync(remoteGame, localGame)) {
       pendingSharedGameIds.delete(gameId);
       return;
     }
