@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.63";
+const APP_VERSION = "v.1.1.64";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
@@ -785,7 +785,7 @@ const PLAY_HISTORY_LIMIT = 8;
 const PITCH_FEEDBACK_DURATION_MS = 700;
 const ACTION_FEEDBACK_DURATION_MS = 600;
 const RUN_SCORE_FEEDBACK_DURATION_MS = 1500;
-const LIVE_GAME_SYNC_DEBOUNCE_MS = 900;
+const LIVE_GAME_SYNC_DEBOUNCE_MS = 8000;
 
 const els = {
   tabs: [...document.querySelectorAll(".tab")],
@@ -3047,6 +3047,14 @@ function requestSupabaseRefresh(reason, options = {}) {
   }, 0);
 }
 
+function requestLifecycleSupabaseRefresh(reason, options = {}) {
+  if (activeLiveGameForState(state)) return;
+  requestSupabaseRefresh(reason, {
+    ...options,
+    invalidateBaseline: false
+  });
+}
+
 function generateClientId(prefix = "id") {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -3242,11 +3250,17 @@ function requestLiveGameSnapshotSync(reason = "live-game") {
   requestSharedSnapshotSync(reason);
 }
 
+function clearLiveGameSnapshotSyncTimer() {
+  if (!liveGameSyncTimer) return;
+  window.clearTimeout(liveGameSyncTimer);
+  liveGameSyncTimer = null;
+}
+
 function queueLiveGameSnapshotSync(game = activeLiveGameForState(state), reason = "live-game") {
   if (!game?.id || game.status !== "active" || gameIsFinal(game)) return;
   markSharedGamesDirty(game.id);
   if (!supabaseStorage?.isReady?.() || !supabaseAdminEmail) return;
-  if (liveGameSyncTimer) window.clearTimeout(liveGameSyncTimer);
+  clearLiveGameSnapshotSyncTimer();
   liveGameSyncTimer = window.setTimeout(() => {
     liveGameSyncTimer = null;
     requestLiveGameSnapshotSync(reason);
@@ -3931,7 +3945,7 @@ async function applySupabaseAdminState(user, options = {}) {
     });
   }
   requestCompletedGameSyncRetry("admin-ready");
-  requestLiveGameSnapshotSync("admin-ready-live-game");
+  queueLiveGameSnapshotSync(activeLiveGameForState(state), "admin-ready-live-game");
   recordSiteVisitOnce("admin-ready", { force: true });
   requestSiteVisitSummaryRefresh("admin-ready", { force: true });
   return true;
@@ -4649,19 +4663,19 @@ function bindEvents() {
     recordSiteVisitOnce("online");
     requestSiteVisitSummaryRefresh("online", { force: true });
     requestCompletedGameSyncRetry("online");
-    requestLiveGameSnapshotSync("online-live-game");
-    requestSupabaseRefresh("online", { force: true, skipWhenHidden: false });
+    queueLiveGameSnapshotSync(activeLiveGameForState(state), "online-live-game");
+    requestLifecycleSupabaseRefresh("online", { skipWhenHidden: false });
   });
   window.addEventListener("offline", render);
   window.addEventListener("focus", () => {
     scheduleScoreGameRenderFlush("focus");
     if (isAdminMode()) requestSiteVisitSummaryRefresh("focus");
-    requestSupabaseRefresh("focus");
+    requestLifecycleSupabaseRefresh("focus");
   });
 window.addEventListener("pageshow", () => {
   scheduleScoreGameRenderFlush("pageshow");
   recordSiteVisitOnce("pageshow");
-  requestSupabaseRefresh("pageshow", { force: true, skipWhenHidden: false });
+  requestLifecycleSupabaseRefresh("pageshow", { skipWhenHidden: false });
 });
 
 window.addEventListener("resize", () => {
@@ -4673,7 +4687,7 @@ window.addEventListener("resize", () => {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
       scheduleScoreGameRenderFlush("visibility");
-      requestSupabaseRefresh("visibility");
+      requestLifecycleSupabaseRefresh("visibility");
     }
   });
   els.finishGameBtn.addEventListener("click", finishGame);
@@ -7304,11 +7318,11 @@ function homeNextGameScoreButtonLabel(game) {
   return game?.status === "active" && !gameIsFinal(game) ? "Score Game" : "Start Game";
 }
 
-function openActiveGameForScoring(game) {
+function openActiveGameForScoring(game, options = {}) {
   if (!game || gameIsFinal(game) || game.status !== "active") return false;
   setActiveGame(game.id);
   syncGameCurrent(game);
-  saveState();
+  saveState(options.saveStateOptions || {});
   render();
   switchView("score");
   return true;
@@ -7750,6 +7764,7 @@ function postponeGame(game, options = {}) {
   saveStateWithOptions({ markLiveGamesDirty: false });
   switchView("games");
   render();
+  clearLiveGameSnapshotSyncTimer();
   requestSharedSnapshotSync("postpone-game");
 }
 
@@ -7812,9 +7827,10 @@ function restartActiveGame() {
   markSharedGamesDirty(game.id);
   setActiveGame(game.id);
   closeGameActionsModal();
-  saveStateWithOptions({ capturePendingScoring: false, liveSyncReason: "restart-game" });
+  saveStateWithOptions({ capturePendingScoring: false, markLiveGamesDirty: false });
   render();
   switchView("score");
+  clearLiveGameSnapshotSyncTimer();
   requestSharedSnapshotSync("restart-game");
 }
 
@@ -7827,14 +7843,14 @@ function resumePostponedGame(gameId) {
   if (shouldOpenScore) {
     game.status = "active";
     markSharedGamesDirty(game.id);
-    saveStateWithOptions({ liveSyncReason: "resume-postponed-game" });
-    openActiveGameForScoring(game);
+    openActiveGameForScoring(game, { saveStateOptions: { markLiveGamesDirty: false } });
   } else {
     game.status = "scheduled";
     markSharedGamesDirty(game.id);
     saveStateWithOptions({ markLiveGamesDirty: false });
     openLineupBuilder(game.id, "games");
   }
+  clearLiveGameSnapshotSyncTimer();
   requestSharedSnapshotSync("resume-postponed-game");
 }
 
