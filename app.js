@@ -269,6 +269,7 @@ const eventRules = {
   SB: { label: "Stolen base", pa: false, sb: true },
   CS: { label: "Caught stealing", pa: false, cs: true, out: true },
   PO: { label: "Picked off", pa: false, po: true, out: true },
+  BK: { label: "Balk", pa: false },
   TAG: { label: "Tag up", pa: false }
 };
 
@@ -303,7 +304,7 @@ const fieldPositionsWithoutPitcher = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "
 
 const battedBallResults = new Set(["1B", "2B", "3B", "HR", "ROE", "FC", "DP", "GO", "FO", "LO", "SAC"]);
 const scorebookFielderResults = new Set(["GO", "FO", "LO", "DP", "FC", "SAC", "ROE"]);
-const scorebookBaseRunningResults = new Set(["SB", "CS", "PO"]);
+const scorebookBaseRunningResults = new Set(["SB", "CS", "PO", "BK"]);
 const statEditSprayResults = ["1B", "2B", "3B", "HR", "GO", "LO", "FO"];
 const statEditSprayResultSet = new Set(statEditSprayResults);
 const statEditSprayHitResults = new Set(["1B", "2B", "3B", "HR"]);
@@ -581,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.66";
+const APP_VERSION = "v.1.1.67";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
@@ -6151,6 +6152,7 @@ function applyEvent(game = activeGame(), event = {}) {
   if (event.type === "special_action") {
     if (event.action === "steal") recordSteal(event.target, "safe", event.source);
     if (event.action === "caught_stealing") recordSteal(event.target, "out", event.source);
+    if (event.action === "balk") recordBalk(event.target, event.source);
     if (event.action === "pickoff") recordPickoff(event.target);
     if (event.action === "tag_up") recordTagUp(event.target);
     scoringStep = "pitch";
@@ -7037,6 +7039,62 @@ function recordSteal(target, outcome, sourceBase = "") {
   selectedFieldRunnerBase = "";
   scoringStep = "pitch";
   if (game.outs >= 3) advanceHalfInning(game);
+  saveState();
+  render();
+}
+
+function recordBalk(target, sourceBase = "") {
+  const game = activeGame();
+  if (gameIsScoreLocked(game)) return;
+  if (game.status !== "completed") game.status = "active";
+  syncGameCurrent(game);
+  reconcileGameBasesFromEvents(game);
+  const balk = baseKeyForSteal(target, sourceBase);
+  const runner = game.bases?.[balk.from];
+  if (!isOccupied(runner)) return;
+  const runnerId = runnerIdentity(runner) || runner;
+  const targetRunner = balk.to !== "home" ? game.bases?.[balk.to] : false;
+  if (balk.to !== "home" && isOccupied(targetRunner) && !sameRunnerValue(targetRunner, runner)) return;
+
+  const snapshotBefore = liveGameSnapshot(game);
+  const playHistoryEntry = pushPlayHistorySnapshot(game, { reason: "runnerAction", result: "BK" });
+  const runnerAdvancements = [{ runnerId, from: balk.from, to: balk.to }];
+  const movement = applyRunnerAdvancements(game, runnerAdvancements);
+  if (movement.runsScored) {
+    addRunsForBattingTeam(game, movement.runsScored);
+  }
+  commitCurrentToLegacy(game);
+
+  const createdAt = new Date().toISOString();
+  game.events.push({
+    id: uuid(),
+    gameId: game.id,
+    playerId: runnerId || currentBatterModelId(game),
+    opponentBatter: isOpponentAtBat(game) ? String(runnerId || currentBatterModelId(game)).replace(/^opp:/, "") : undefined,
+    result: "BK",
+    runs: movement.runsScored,
+    rbi: 0,
+    contact: "none",
+    launch: "none",
+    leverage: "neutral",
+    inning: game.current?.inning ?? game.inning,
+    half: game.current?.half ?? game.half,
+    outsBefore: snapshotBefore.outs,
+    outsAfter: game.current?.outs ?? game.outs,
+    basesBefore: { ...snapshotBefore.bases },
+    basesAfter: { ...game.bases },
+    scope: isLionsAtBat(game) ? "offense" : "defense",
+    note: `${runnerName(runner) || "Runner"} advanced on balk to ${baseLabel(balk.to)}`,
+    pitches: [],
+    count: game.atBat ? `${game.atBat.balls}-${game.atBat.strikes}` : "0-0",
+    spray: null,
+    runnerAdvancements: deepClone(runnerAdvancements),
+    createdAt,
+    snapshotBefore,
+    playHistoryId: playHistoryEntry?.id || ""
+  });
+  selectedFieldRunnerBase = "";
+  scoringStep = "pitch";
   saveState();
   render();
 }
@@ -9325,23 +9383,25 @@ function renderRunnerTracker() {
     && selectedRunner
     && (stealTarget === "home" || (stealTarget && !isOccupied(bases[stealTarget])))
   );
+  const canBalk = canSteal;
   els.runnerActionButtons.forEach((button) => {
     const action = button.dataset.runnerAction;
     const canUseNonRunner = action === "non_runner" && isLionsAtBat(game) && eligibleNonRunnerPlayers(game, selectedBase).length > 0;
     const enabled = Boolean(
       selectedBase
       && selectedRunner
-      && (action === "steal" ? canSteal : action === "non_runner" ? canUseNonRunner : true)
+      && (action === "steal" ? canSteal : action === "balk" ? canBalk : action === "non_runner" ? canUseNonRunner : true)
     );
     button.disabled = !enabled;
     if (action === "steal") button.textContent = selectedBase ? `SB ${baseLabel(stealTarget)}` : "SB";
     if (action === "caught_stealing") button.textContent = stealTarget ? `CS ${baseLabel(stealTarget)}` : "CS";
     if (action === "pickoff") button.textContent = selectedLabel ? `PO ${selectedLabel}` : "PO";
+    if (action === "balk") button.textContent = stealTarget ? `BALK ${baseLabel(stealTarget)}` : "BALK";
     if (action === "non_runner") button.textContent = "NR";
   });
   els.runnerHint.textContent = selectedBase
-    ? `${runnerName(selectedRunner) || "Runner"} selected on ${selectedLabel}. Choose SB, CS, PO, or NR.`
-    : "Tap a runner badge to choose SB, CS, PO, or NR.";
+    ? `${runnerName(selectedRunner) || "Runner"} selected on ${selectedLabel}. Choose SB, CS, PO, Balk, or NR.`
+    : "Tap a runner badge to choose SB, CS, PO, Balk, or NR.";
   const showRunnerOuts = (Boolean(game.atBat?.pendingInPlay) || awaitingSprayLocation || awaitingRunnerDecision) && isLionsAtBat(game);
   els.runnerPlayControls.classList.toggle("is-visible", showRunnerOuts);
   els.runnerOutButtons.forEach((button) => {
@@ -9578,6 +9638,7 @@ function actionFeedbackForResult(result) {
 function actionFeedbackForSpecialAction(action, target = "") {
   if (action === "steal") return target === "home" ? makeActionFeedback("run", "RUN") : makeActionFeedback("double", "SB");
   if (["caught_stealing", "pickoff"].includes(action)) return makeActionFeedback("out", action === "caught_stealing" ? "CS" : "PO");
+  if (action === "balk") return makeActionFeedback("foul", "BALK");
   if (action === "tag_up") return target === "home" ? makeActionFeedback("run", "RUN") : makeActionFeedback("single", baseLabel(target));
   if (action === "non_runner") return makeActionFeedback("neutral", "NR");
   return makeActionFeedback("neutral", "PLAY");
@@ -10882,18 +10943,20 @@ function selectedRunnerActionConfig(game) {
   const canSteal = Boolean(
     stealTarget && (stealTarget === "home" || !isOccupied(game.bases?.[stealTarget]))
   );
+  const canBalk = canSteal;
   const canUseNonRunner = isLionsAtBat(game) && eligibleNonRunnerPlayers(game, base).length > 0;
   const runnerLabel = runnerName(runner) || `#${runnerNumber(runner) || ""}`.trim() || "Runner";
   return {
     eyebrow: "Runner Action",
     title: `${runnerLabel} on ${baseLabel(base)}`,
-    hint: "Choose SB, CS, PO, or NR. Use Back if you selected the runner by mistake.",
+    hint: "Choose SB, CS, PO, Balk, or NR. Use Back if you selected the runner by mistake.",
     body: `<div class="special-action-group runner-action-group">
       <span>${escapeHtml(runnerLabel)} selected on ${escapeHtml(baseLabel(base))}</span>
       <div class="step-grid step-grid-special runner-action-grid">
         <button type="button" class="step-button step-safe" data-special-action="steal" data-special-source="${escapeHtml(base)}" data-special-target="${escapeHtml(stealTarget)}"${canSteal ? "" : " disabled"}>SB ${escapeHtml(baseLabel(stealTarget))}</button>
         <button type="button" class="step-button step-danger" data-special-action="caught_stealing" data-special-source="${escapeHtml(base)}" data-special-target="${escapeHtml(stealTarget)}">CS ${escapeHtml(baseLabel(stealTarget))}</button>
         <button type="button" class="step-button step-danger" data-special-action="pickoff" data-special-source="${escapeHtml(base)}" data-special-target="${escapeHtml(base)}">PO ${escapeHtml(baseLabel(base))}</button>
+        <button type="button" class="step-button step-neutral" data-special-action="balk" data-special-source="${escapeHtml(base)}" data-special-target="${escapeHtml(stealTarget)}"${canBalk ? "" : " disabled"}>BALK ${escapeHtml(baseLabel(stealTarget))}</button>
         <button type="button" class="step-button step-neutral" data-special-action="non_runner" data-special-target="${escapeHtml(base)}"${canUseNonRunner ? "" : " disabled"}>NR</button>
       </div>
       <div class="confirm-play-row">
@@ -12400,6 +12463,7 @@ function scorebookRunnerDetail(event) {
   if (event.result === "SB") return `Stole ${scorebookRunnerDestinationLabel(event)}`.trim();
   if (event.result === "CS") return `Out trying for ${scorebookRunnerDestinationLabel(event)}`.trim();
   if (event.result === "PO") return `Picked off at ${scorebookRunnerOriginLabel(event)}`.trim();
+  if (event.result === "BK") return `Advanced on balk to ${scorebookRunnerDestinationLabel(event)}`.trim();
   return "";
 }
 

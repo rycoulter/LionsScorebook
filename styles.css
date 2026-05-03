@@ -16553,7 +16553,7 @@ select option:checked {
 }
 
 #scoreView .steal-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -16594,7 +16594,7 @@ select option:checked {
   left: 50%;
   right: auto;
   bottom: 18px;
-  width: min(420px, calc(100% - 24px));
+  width: min(560px, calc(100% - 24px));
   transform: translateX(-50%);
 }
 
@@ -16607,7 +16607,7 @@ select option:checked {
 }
 
 #scoreView .runner-action-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 #scoreView .step-safe {
