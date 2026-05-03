@@ -581,7 +581,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.64";
+const APP_VERSION = "v.1.1.65";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
@@ -3048,7 +3048,8 @@ function requestSupabaseRefresh(reason, options = {}) {
 }
 
 function requestLifecycleSupabaseRefresh(reason, options = {}) {
-  if (activeLiveGameForState(state)) return;
+  const liveGame = activeLiveGameForState(state);
+  if (liveGame?.id && (pendingSharedGameIds.has(liveGame.id) || liveGameSyncTimer)) return;
   requestSupabaseRefresh(reason, {
     ...options,
     invalidateBaseline: false
@@ -3945,7 +3946,7 @@ async function applySupabaseAdminState(user, options = {}) {
     });
   }
   requestCompletedGameSyncRetry("admin-ready");
-  queueLiveGameSnapshotSync(activeLiveGameForState(state), "admin-ready-live-game");
+  requestLifecycleSupabaseRefresh("admin-ready", { force: true, skipWhenHidden: false });
   recordSiteVisitOnce("admin-ready", { force: true });
   requestSiteVisitSummaryRefresh("admin-ready", { force: true });
   return true;
@@ -4663,7 +4664,6 @@ function bindEvents() {
     recordSiteVisitOnce("online");
     requestSiteVisitSummaryRefresh("online", { force: true });
     requestCompletedGameSyncRetry("online");
-    queueLiveGameSnapshotSync(activeLiveGameForState(state), "online-live-game");
     requestLifecycleSupabaseRefresh("online", { skipWhenHidden: false });
   });
   window.addEventListener("offline", render);
