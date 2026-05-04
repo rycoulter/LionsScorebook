@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.68";
+const APP_VERSION = "v.1.1.69";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
@@ -828,6 +828,7 @@ const els = {
   homeBattingLeadersLink: document.getElementById("homeBattingLeadersLink"),
   homePitchingLeaders: document.getElementById("homePitchingLeaders"),
   homePitchingLeadersLink: document.getElementById("homePitchingLeadersLink"),
+  homeRecentResultOutcome: document.getElementById("homeRecentResultOutcome"),
   homeRecentResultBody: document.getElementById("homeRecentResultBody"),
   homeTeamNewsBody: document.getElementById("homeTeamNewsBody"),
   homeTeamNewsLink: document.getElementById("homeTeamNewsLink"),
@@ -8197,6 +8198,7 @@ function renderHome() {
     setHomeMatchupImage(null);
   }
   const recentFinals = completedGames(5);
+  renderHomeLastGameResultHeading(recentFinals[0] || null);
   if (els.homeRecentResultBody) {
     els.homeRecentResultBody.innerHTML = renderHomeLastGameResultCard(recentFinals[0] || null);
   }
@@ -8533,21 +8535,49 @@ function gameScheduleMeta(game) {
   return `${gameTeamMeta(game)} | ${game.date || "No date"}${game.time ? ` at ${game.time}` : ""}${location ? ` | ${location}` : ""}`;
 }
 
+function homeLastGameOutcome(game) {
+  const lionsScore = Number(game?.score?.lions || 0);
+  const opponentScore = Number(game?.score?.opponent || 0);
+  if (lionsScore > opponentScore) return { key: "win", label: "Win" };
+  if (lionsScore < opponentScore) return { key: "loss", label: "Loss" };
+  return { key: "tie", label: "Tie" };
+}
+
+function renderHomeLastGameResultHeading(game) {
+  if (!els.homeRecentResultOutcome) return;
+  if (!game) {
+    els.homeRecentResultOutcome.textContent = "";
+    els.homeRecentResultOutcome.className = "home-result-heading-status";
+    return;
+  }
+  const outcome = homeLastGameOutcome(game);
+  els.homeRecentResultOutcome.textContent = `(${outcome.label})`;
+  els.homeRecentResultOutcome.className = `home-result-heading-status home-result-heading-status-${outcome.key}`;
+}
+
 function renderHomeLastGameResultCard(game) {
   if (!game) return `<div class="upcoming-empty">No completed games yet.</div>`;
   const opponentName = homeOpponentName(game);
+  const lionsScore = Number(game?.score?.lions || 0);
+  const opponentScore = Number(game?.score?.opponent || 0);
+  const outcome = homeLastGameOutcome(game);
   const dateLabel = formatGameDateDisplay(game.date);
   const locationLabel = gameLocationLabel(game) || "Field location TBD";
-  return `<article class="home-recent-result-card">
+  return `<article class="home-recent-result-card home-recent-result-card-${outcome.key}">
     <div class="home-recent-result-scoreline">
-      <div class="home-recent-result-team">
+      <div class="home-recent-result-team home-recent-result-team-lions">
         <img class="home-recent-result-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.("Lions", "lions") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
         <strong>Lions</strong>
       </div>
-      <strong class="home-recent-result-score home-recent-result-score-lions">${escapeHtml(String(Number(game?.score?.lions || 0)))}</strong>
-      <span class="home-recent-result-dash">-</span>
-      <strong class="home-recent-result-score">${escapeHtml(String(Number(game?.score?.opponent || 0)))}</strong>
-      <div class="home-recent-result-team">
+      <div class="home-recent-result-score-center">
+        <div class="home-recent-result-score-pair">
+          <strong class="home-recent-result-score home-recent-result-score-lions">${escapeHtml(String(lionsScore))}</strong>
+          <span class="home-recent-result-dash">-</span>
+          <strong class="home-recent-result-score home-recent-result-score-opponent">${escapeHtml(String(opponentScore))}</strong>
+        </div>
+        <span class="home-recent-result-outcome-pill home-recent-result-outcome-${outcome.key}">${escapeHtml(outcome.label)}</span>
+      </div>
+      <div class="home-recent-result-team home-recent-result-team-opponent">
         <img class="home-recent-result-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.(opponentName, "opponent") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
         <strong>${escapeHtml(opponentName)}</strong>
       </div>
