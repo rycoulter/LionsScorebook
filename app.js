@@ -582,9 +582,10 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.69";
+const APP_VERSION = "v.1.1.70";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
+const ERA_GAME_INNINGS = 7;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
 const NABA_ROSTERS_CACHE_URL = "data/naba-rosters.json";
 const SCHEDULED_LIVE_WINDOW_MINUTES = 150;
@@ -11637,7 +11638,7 @@ function pitcherStats(playerId, gameId = null, season = null) {
   stats.bbRate = divide(stats.bb, stats.batters);
   stats.kbb = stats.bb ? stats.k / stats.bb : stats.k;
   stats.k9 = divide(stats.k * 9, stats.ip);
-  stats.era = stats.ip ? (stats.earnedRuns * 9) / stats.ip : Number.NaN;
+  stats.era = stats.ip ? (stats.earnedRuns * ERA_GAME_INNINGS) / stats.ip : Number.NaN;
   stats.r9 = divide(stats.runs * 9, stats.ip);
   stats.whip = divide(stats.bb + stats.h, stats.ip);
   stats.pitchesPerInning = divide(stats.pitches, stats.ip);
@@ -13465,7 +13466,7 @@ function teamPitchingStats(season = null) {
   stats.bbRate = divide(stats.bb, stats.batters);
   stats.kbb = stats.bb ? stats.k / stats.bb : stats.k;
   stats.k9 = divide(stats.k * 9, stats.ip);
-  stats.era = stats.ip ? (stats.earnedRuns * 9) / stats.ip : Number.NaN;
+  stats.era = stats.ip ? (stats.earnedRuns * ERA_GAME_INNINGS) / stats.ip : Number.NaN;
   stats.r9 = divide(stats.runs * 9, stats.ip);
   stats.whip = divide(stats.bb + stats.h, stats.ip);
   stats.pitchesPerInning = divide(stats.pitches, stats.ip);
