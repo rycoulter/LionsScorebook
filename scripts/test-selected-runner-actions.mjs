@@ -82,7 +82,7 @@ assert.match(
 );
 assert.match(
   functionBody(appJs, "handleScoringPanelPointerUpAction"),
-  /handleScoringPanelClick\(\{ target: button \}\)/,
+  /handleScoringPanelClick\(\{ target: button, pointerActionHandled: true \}\)/,
   "Pointerup should commit through the same scoring action handler used by click"
 );
 assert.match(
