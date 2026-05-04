@@ -256,7 +256,7 @@ const eventRules = {
   BB: { label: "Walk", pa: true, ab: false, bb: true, reach: true },
   HBP: { label: "Hit by pitch", pa: true, ab: false, hbp: true, reach: true },
   ROE: { label: "Reached on error", pa: true, ab: true, reach: true, bip: true, roe: true },
-  FC: { label: "Fielder's choice", pa: true, ab: true, out: true, bip: true },
+  FC: { label: "Fielder's choice", pa: true, ab: true, bip: true },
   DP: { label: "Double play", pa: true, ab: true, out: true, bip: true, dp: true },
   K: { label: "Strikeout", pa: true, ab: true, out: true, k: true },
   GO: { label: "Groundout", pa: true, ab: true, out: true, bip: true, launch: "gb" },
@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.67";
+const APP_VERSION = "v.1.1.68";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const LEAGUE_STANDINGS_CACHE_URL = "data/league-standings.json";
@@ -1204,6 +1204,7 @@ const els = {
   statEditGameForm: document.getElementById("statEditGameForm"),
   closeStatEditGameBtn: document.getElementById("closeStatEditGameBtn"),
   cancelStatEditGameBtn: document.getElementById("cancelStatEditGameBtn"),
+  clearStatEditGameBtn: document.getElementById("clearStatEditGameBtn"),
   statEditSprayChart: document.getElementById("statEditSprayChart"),
   statEditSprayMarkers: document.getElementById("statEditSprayMarkers"),
   statEditSprayList: document.getElementById("statEditSprayList"),
@@ -4852,6 +4853,7 @@ window.addEventListener("resize", () => {
   });
   els.closeStatEditGameBtn?.addEventListener("click", closeStatEditGameModal);
   els.cancelStatEditGameBtn?.addEventListener("click", closeStatEditGameModal);
+  els.clearStatEditGameBtn?.addEventListener("click", clearStatEditGameStats);
   els.statEditGameModal?.addEventListener("click", (event) => {
     if (event.target === els.statEditGameModal) closeStatEditGameModal();
   });
@@ -7470,6 +7472,8 @@ async function saveQuickScoreResult(event) {
   };
   syncScoreBySide(game);
   game.status = "completed";
+  game.scoringSource = "quick-score";
+  game.quickScored = true;
   game.currentPlateAppearanceId = "";
   game.atBat = makeAtBat();
   game.pendingScoring = null;
@@ -16339,6 +16343,11 @@ function openStatEditGameModal(playerId, gameId) {
   if (els.statEditGameMeta) {
     els.statEditGameMeta.textContent = `#${player.number || "--"} ${player.name} | ${formatGameDateWithYear(game.date)} | ${gameMatchupLabel(game)}`;
   }
+  if (els.clearStatEditGameBtn) {
+    const hasSavedEdit = hasHittingStatEdit(game, playerId);
+    els.clearStatEditGameBtn.hidden = !hasSavedEdit;
+    els.clearStatEditGameBtn.disabled = !hasSavedEdit;
+  }
   closeStatEditGameSelectModal();
   els.statEditGameModal.hidden = false;
   window.setTimeout(() => els.statEditInputs?.ab?.focus(), 0);
@@ -16456,6 +16465,26 @@ function saveStatEditGameStats(event) {
   render();
   requestSharedSnapshotSync("game-stat-edit");
   requestCompletedGameSyncRetry("game-stat-edit");
+}
+
+function clearStatEditGameStats() {
+  if (!requireAdminAccess("Admin sign-in required to clear game stats.")) return;
+  const game = statEditGame();
+  const player = statEditPlayer();
+  if (!game || !player || !hasHittingStatEdit(game, player.id)) return;
+  const ok = window.confirm(`Clear saved manual stats for #${player.number || "--"} ${player.name} in ${gameMatchupLabel(game)}?`);
+  if (!ok) return;
+  delete hittingStatEditMap(game)[player.id];
+  markSharedGamesDirty(game.id);
+  if (gameIsFinal(game)) {
+    markGameSyncPending(game);
+    queueCompletedGameSync(game.id, { reason: "clear-game-stat-edit" });
+  }
+  saveStateWithOptions({ liveSyncReason: "clear-game-stat-edit" });
+  closeStatEditGameModal();
+  render();
+  requestSharedSnapshotSync("clear-game-stat-edit");
+  requestCompletedGameSyncRetry("clear-game-stat-edit");
 }
 
 function pitchingStatEditPlayer() {
@@ -16761,6 +16790,20 @@ function homeLeaderGameLine(label, row) {
   return `${formatInnings(row.stats.outs)} IP | ${row.stats.k} K | ${formatEra(row.stats.era)} ERA`;
 }
 
+function gameUsesLineupForGamesPlayed(game) {
+  if (!game || game.quickScored || game.scoringSource === "quick-score") return false;
+  const hasScoredEvent = (Array.isArray(game.events) ? game.events : []).some((event) =>
+    event
+      && !event.manualStatEdit
+      && event.scope !== "lineup"
+      && (eventRules[event.result]?.pa || scorebookBaseRunningResults.has(event.result))
+  );
+  if (hasScoredEvent) return true;
+  return (Array.isArray(game.plateAppearances) ? game.plateAppearances : []).some((appearance) =>
+    Boolean(appearance?.result || appearance?.completedAt || (Array.isArray(appearance?.pitches) && appearance.pitches.length))
+  );
+}
+
 function gamesPlayedForPlayer(playerId, season = null) {
   return statsGamesForSeason(season).filter((game) => {
     const storedLineupIds = Array.isArray(game.lineupEntries)
@@ -16768,9 +16811,9 @@ function gamesPlayedForPlayer(playerId, season = null) {
         .filter((entry) => entry?.active !== false && entry?.playerId)
         .map((entry) => entry.playerId)
       : [];
-    return storedLineupIds.includes(playerId)
-      || hasHittingStatEdit(game, playerId)
-      || offensiveEventsForStatsGame(game).some((event) => event.playerId === playerId);
+    return hasHittingStatEdit(game, playerId)
+      || offensiveEventsForStatsGame(game).some((event) => event.playerId === playerId)
+      || (gameUsesLineupForGamesPlayed(game) && storedLineupIds.includes(playerId));
   }).length;
 }
 
