@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.70";
+const APP_VERSION = "v.1.1.71";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -8346,7 +8346,11 @@ function gameIsFinal(game) {
 }
 
 function gameIsPostponed(game) {
-  return Boolean(game && game.status === "postponed");
+  if (!game || gameIsFinal(game)) return false;
+  const postponedAt = timestampValue(game.postponedAt);
+  const resumedAt = timestampValue(game.resumedFromPostponedAt);
+  if (postponedAt && resumedAt > postponedAt) return false;
+  return game.status === "postponed" || Boolean(postponedAt);
 }
 
 function gameIsScoreLocked(game) {
@@ -8389,7 +8393,7 @@ function dateAtTimeZone(year, month, day, hour, minute, timeZone) {
 }
 
 function isGameInScheduledLiveWindow(game, now = new Date()) {
-  if (!game || gameIsFinal(game) || game?.status === "active") return false;
+  if (!game || gameIsFinal(game) || gameIsPostponed(game) || game?.status === "active") return false;
   if ((game?.status || "scheduled") !== "scheduled") return false;
   const start = parseScheduledGameStart(game);
   if (!start) return false;
