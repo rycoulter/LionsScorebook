@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.71";
+const APP_VERSION = "v.1.1.72";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -12961,7 +12961,7 @@ function renderGames() {
   const completedGamesSorted = gamesForLifecycle("completed", { season: scheduleSeasonFilter });
   const completedTotal = completedGamesSorted.length;
   if (gameFilter === "all") {
-    const upcomingGames = gamesForLifecycle("future", { season: scheduleSeasonFilter });
+    const upcomingGames = scheduleDashboardUpcomingGames({ season: scheduleSeasonFilter });
     const featuredUpcoming = upcomingGames[0] || null;
     const additionalUpcoming = upcomingGames.slice(featuredUpcoming ? 1 : 0, featuredUpcoming ? 3 : 2);
     const recentCompleted = completedGamesSorted.slice(0, 6);
@@ -14034,6 +14034,13 @@ function gamesForLifecycle(lifecycle, options = {}) {
   return lifecycle === "completed"
     ? games.sort(sortGamesNewestFirst)
     : games.sort(sortGamesOldestFirst);
+}
+
+function scheduleDashboardUpcomingGames(options = {}) {
+  const today = todayValue();
+  return gamesForLifecycle("future", options)
+    .filter((game) => !gameIsPostponed(game))
+    .filter((game) => (game.date || today) >= today);
 }
 
 function sortGamesOldestFirst(a, b) {

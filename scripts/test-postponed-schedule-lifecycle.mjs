@@ -34,6 +34,14 @@ assert.match(upcomingBody, /gameLifecycle\(game\) === "future"/, "home next-game
 const scoreableBody = functionBody(appJs, "scoreableGames");
 assert.match(scoreableBody, /!gameIsPostponed\(game\)/, "postponed games should not be considered scoreable live games");
 
+const renderGamesBody = functionBody(appJs, "renderGames");
+assert.match(renderGamesBody, /scheduleDashboardUpcomingGames\(\{ season: scheduleSeasonFilter \}\)/, "Schedule/Scores ALL dashboard should use the dedicated next-game helper");
+
+const scheduleDashboardUpcomingBody = functionBody(appJs, "scheduleDashboardUpcomingGames");
+assert.match(scheduleDashboardUpcomingBody, /gamesForLifecycle\("future", options\)/, "Schedule/Scores next-game helper should use future lifecycle games");
+assert.match(scheduleDashboardUpcomingBody, /!gameIsPostponed\(game\)/, "Schedule/Scores next-game helper should exclude postponed games explicitly");
+assert.match(scheduleDashboardUpcomingBody, /\(game\.date \|\| today\) >= today/, "Schedule/Scores next-game helper should not feature past-dated games");
+
 function timestampValue(value) {
   const time = Date.parse(String(value || ""));
   return Number.isFinite(time) ? time : 0;
@@ -57,6 +65,25 @@ function localGameLifecycle(game) {
   if (game?.status === "active") return "active";
   return "future";
 }
+
+function localDashboardUpcomingGames(games, today = "2026-05-05") {
+  return games
+    .filter((game) => localGameLifecycle(game) === "future")
+    .filter((game) => !localGameIsPostponed(game))
+    .filter((game) => (game.date || today) >= today)
+    .sort((a, b) => {
+      const dateCompare = (a.date || today).localeCompare(b.date || today);
+      if (dateCompare) return dateCompare;
+      return (a.time || "").localeCompare(b.time || "");
+    });
+}
+
+const pastUnplayedGame = {
+  id: "past-unplayed",
+  status: "scheduled",
+  date: "2026-05-01",
+  time: "20:00"
+};
 
 const futureGame = {
   id: "future-game",
@@ -91,6 +118,7 @@ const resumedPostponedGame = {
 };
 
 const games = [
+  pastUnplayedGame,
   futureGame,
   staleScheduledPostponedGame,
   staleActivePostponedGame,
@@ -109,8 +137,14 @@ assert.deepEqual(
 
 assert.deepEqual(
   games.filter((game) => localGameLifecycle(game) === "future").map((game) => game.id),
-  ["future-game", "resumed-postponed"],
+  ["past-unplayed", "future-game", "resumed-postponed"],
   "next/future schedule should exclude postponed records"
+);
+
+assert.deepEqual(
+  localDashboardUpcomingGames(games).map((game) => game.id),
+  ["resumed-postponed", "future-game"],
+  "Schedule/Scores ALL dashboard should not feature past unplayed or postponed games as next"
 );
 
 console.log("Postponed schedule lifecycle checks passed.");
