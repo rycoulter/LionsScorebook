@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.73";
+const APP_VERSION = "v.1.1.74";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -642,6 +642,7 @@ let highlightModalGameId = "";
 let newsEditId = "";
 let newsEditorImageDataUrl = "";
 let quickScoreGameId = "";
+let boxScoreEditGameId = "";
 let rosterFilter = "active";
 let rosterSearchQuery = "";
 let rosterSortKey = "number";
@@ -1132,6 +1133,8 @@ const els = {
   boxScoreMobileMetaSecondary: document.getElementById("boxScoreMobileMetaSecondary"),
   boxScoreGameSelect: document.getElementById("boxScoreGameSelect"),
   boxScoreMobileGameSelect: document.getElementById("boxScoreMobileGameSelect"),
+  boxScoreEditBtn: document.getElementById("boxScoreEditBtn"),
+  boxScoreMobileEditBtn: document.getElementById("boxScoreMobileEditBtn"),
   boxScoreBackBtn: document.getElementById("boxScoreBackBtn"),
   boxScoreMobileBackBtn: document.getElementById("boxScoreMobileBackBtn"),
   boxScoreMobileReturnBtn: document.getElementById("boxScoreMobileReturnBtn"),
@@ -1268,6 +1271,13 @@ const els = {
   quickScoreOpponentInput: document.getElementById("quickScoreOpponentInput"),
   quickScoreCancelBtn: document.getElementById("quickScoreCancelBtn"),
   quickScoreCloseBtn: document.getElementById("quickScoreCloseBtn"),
+  boxScoreEditModal: document.getElementById("boxScoreEditModal"),
+  boxScoreEditTitle: document.getElementById("boxScoreEditTitle"),
+  boxScoreEditMeta: document.getElementById("boxScoreEditMeta"),
+  boxScoreEditForm: document.getElementById("boxScoreEditForm"),
+  boxScoreEditFields: document.getElementById("boxScoreEditFields"),
+  boxScoreEditCancelBtn: document.getElementById("boxScoreEditCancelBtn"),
+  boxScoreEditCloseBtn: document.getElementById("boxScoreEditCloseBtn"),
   statEditInputs: {
     ab: document.getElementById("statEditAb"),
     h: document.getElementById("statEditH"),
@@ -4207,6 +4217,8 @@ function bindEvents() {
   els.boxScoreBackBtn?.addEventListener("click", () => switchView(boxScoreReturnView || (isAdminMode() ? "analysis" : "games")));
   els.boxScoreMobileBackBtn?.addEventListener("click", () => switchView(boxScoreReturnView || (isAdminMode() ? "analysis" : "games")));
   els.boxScoreMobileReturnBtn?.addEventListener("click", () => switchView(boxScoreReturnView || (isAdminMode() ? "analysis" : "games")));
+  els.boxScoreEditBtn?.addEventListener("click", openBoxScoreEditModal);
+  els.boxScoreMobileEditBtn?.addEventListener("click", openBoxScoreEditModal);
   els.boxScoreMobileShareBtn?.addEventListener("click", () => {
     shareBoxScoreGame().catch((error) => console.warn("Box score share failed.", error));
   });
@@ -4881,6 +4893,12 @@ window.addEventListener("resize", () => {
   els.quickScoreModal?.addEventListener("click", (event) => {
     if (event.target === els.quickScoreModal) closeQuickScoreModal();
   });
+  els.boxScoreEditForm?.addEventListener("submit", saveBoxScoreEdit);
+  els.boxScoreEditCancelBtn?.addEventListener("click", closeBoxScoreEditModal);
+  els.boxScoreEditCloseBtn?.addEventListener("click", closeBoxScoreEditModal);
+  els.boxScoreEditModal?.addEventListener("click", (event) => {
+    if (event.target === els.boxScoreEditModal) closeBoxScoreEditModal();
+  });
   els.statEditSprayModeButtons?.forEach((button) => {
     button.addEventListener("click", () => setStatEditSprayMode(button.dataset.statEditSprayMode));
   });
@@ -4976,6 +4994,10 @@ window.addEventListener("resize", () => {
     if (event.key !== "Escape") return;
     if (els.quickScoreModal && !els.quickScoreModal.hidden) {
       closeQuickScoreModal();
+      return;
+    }
+    if (els.boxScoreEditModal && !els.boxScoreEditModal.hidden) {
+      closeBoxScoreEditModal();
       return;
     }
     if (els.statEditGameModal && !els.statEditGameModal.hidden) {
@@ -14896,11 +14918,170 @@ function renderGameBreakdown() {
     .join("") || `<p class="player-meta">Game analysis appears after scorekeeping begins.</p>`;
 }
 
+function setBoxScoreEditButtonsVisible(visible) {
+  [els.boxScoreEditBtn, els.boxScoreMobileEditBtn].filter(Boolean).forEach((button) => {
+    button.hidden = !visible;
+  });
+}
+
+function rawBoxScoreLineEditMap(game) {
+  return game?.boxScoreLineEdits && typeof game.boxScoreLineEdits === "object" && !Array.isArray(game.boxScoreLineEdits)
+    ? game.boxScoreLineEdits
+    : {};
+}
+
+function boxScoreLineEditMap(game) {
+  if (!game) return {};
+  if (!game.boxScoreLineEdits || typeof game.boxScoreLineEdits !== "object" || Array.isArray(game.boxScoreLineEdits)) {
+    game.boxScoreLineEdits = {};
+  }
+  return game.boxScoreLineEdits;
+}
+
+function boxScoreLineEditForTeam(game, teamKey) {
+  return rawBoxScoreLineEditMap(game)[teamKey] || null;
+}
+
+function boxScoreEditNumber(value, fallback = 0, max = 999) {
+  if (value === null || value === undefined || String(value).trim() === "") return Math.max(0, Math.min(max, Number(fallback) || 0));
+  return clampNumber(value, 0, max);
+}
+
+function normalizeBoxScoreLineEdit(input = {}, innings = [], fallbackLine = {}) {
+  const storedRunsByInning = input.runsByInning && typeof input.runsByInning === "object" ? input.runsByInning : {};
+  const fallbackRunsByInning = fallbackLine.runsByInning || {};
+  const runsByInning = {};
+  innings.forEach((inning) => {
+    const rawValue = Object.prototype.hasOwnProperty.call(storedRunsByInning, inning)
+      ? storedRunsByInning[inning]
+      : storedRunsByInning[String(inning)];
+    runsByInning[inning] = boxScoreEditNumber(rawValue, fallbackRunsByInning[inning] || 0, 99);
+  });
+  const inningRunTotal = Object.values(runsByInning).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  return {
+    runsByInning,
+    runs: boxScoreEditNumber(input.runs ?? input.totalRuns, fallbackLine.runs ?? inningRunTotal, 999),
+    hits: boxScoreEditNumber(input.hits, fallbackLine.hits ?? 0, 999),
+    errors: boxScoreEditNumber(input.errors, fallbackLine.errors ?? 0, 999),
+    updatedAt: input.updatedAt || new Date().toISOString()
+  };
+}
+
+function boxScoreEditGame() {
+  return state.games.find((game) => game.id === boxScoreEditGameId) || null;
+}
+
+function renderBoxScoreEditTeam(team, line, innings) {
+  return `<section class="box-score-edit-team" data-box-score-edit-section="${escapeHtml(team.key)}">
+    <h4>${escapeHtml(team.name)}</h4>
+    <div class="box-score-edit-innings">
+      ${innings.map((inning) => `<label>
+        <span>${inning}</span>
+        <input type="number" min="0" max="99" step="1" inputmode="numeric" value="${line.runsByInning[inning] || 0}" data-box-score-edit-team="${escapeHtml(team.key)}" data-box-score-edit-inning="${inning}">
+      </label>`).join("")}
+    </div>
+    <div class="box-score-edit-totals">
+      <label>
+        <span>Runs</span>
+        <input type="number" min="0" max="999" step="1" inputmode="numeric" value="${line.runs || 0}" data-box-score-edit-team="${escapeHtml(team.key)}" data-box-score-edit-field="runs">
+      </label>
+      <label>
+        <span>Hits</span>
+        <input type="number" min="0" max="999" step="1" inputmode="numeric" value="${line.hits || 0}" data-box-score-edit-team="${escapeHtml(team.key)}" data-box-score-edit-field="hits">
+      </label>
+      <label>
+        <span>Errors</span>
+        <input type="number" min="0" max="999" step="1" inputmode="numeric" value="${line.errors || 0}" data-box-score-edit-team="${escapeHtml(team.key)}" data-box-score-edit-field="errors">
+      </label>
+    </div>
+  </section>`;
+}
+
+function renderBoxScoreEditForm(game) {
+  if (!game || !els.boxScoreEditFields) return;
+  const innings = boxScoreInnings(game);
+  const teams = boxScoreTeams(game);
+  const lines = new Map(teams.map((team) => [team.key, boxScoreLineForTeam(game, team, innings)]));
+  if (els.boxScoreEditTitle) els.boxScoreEditTitle.textContent = "Edit Box Score";
+  if (els.boxScoreEditMeta) els.boxScoreEditMeta.textContent = `${gameMatchupLabel(game)} | ${formatGameDateWithYear(game.date || todayValue())}`;
+  els.boxScoreEditFields.innerHTML = teams
+    .map((team) => renderBoxScoreEditTeam(team, lines.get(team.key), innings))
+    .join("");
+}
+
+function openBoxScoreEditModal() {
+  if (!requireAdminAccess("Admin sign-in required to edit box scores.")) return;
+  const game = state.games.find((item) => item.id === boxScoreGameId) || activeScoreGame();
+  if (!game || !els.boxScoreEditModal) return;
+  boxScoreEditGameId = game.id;
+  renderBoxScoreEditForm(game);
+  els.boxScoreEditModal.hidden = false;
+  window.setTimeout(() => els.boxScoreEditFields?.querySelector("input")?.focus(), 0);
+}
+
+function closeBoxScoreEditModal() {
+  boxScoreEditGameId = "";
+  if (els.boxScoreEditModal) els.boxScoreEditModal.hidden = true;
+}
+
+function boxScoreEditFieldValue(teamKey, field) {
+  const input = els.boxScoreEditFields?.querySelector(`[data-box-score-edit-team="${teamKey}"][data-box-score-edit-field="${field}"]`);
+  return boxScoreEditNumber(input?.value, 0, 999);
+}
+
+function boxScoreEditInningValues(teamKey, innings) {
+  const runsByInning = {};
+  innings.forEach((inning) => {
+    const input = els.boxScoreEditFields?.querySelector(`[data-box-score-edit-team="${teamKey}"][data-box-score-edit-inning="${inning}"]`);
+    runsByInning[inning] = boxScoreEditNumber(input?.value, 0, 99);
+  });
+  return runsByInning;
+}
+
+function collectBoxScoreEditForTeam(teamKey, innings) {
+  return normalizeBoxScoreLineEdit({
+    runsByInning: boxScoreEditInningValues(teamKey, innings),
+    runs: boxScoreEditFieldValue(teamKey, "runs"),
+    hits: boxScoreEditFieldValue(teamKey, "hits"),
+    errors: boxScoreEditFieldValue(teamKey, "errors")
+  }, innings);
+}
+
+function saveBoxScoreEdit(event) {
+  event?.preventDefault?.();
+  if (!requireAdminAccess("Admin sign-in required to edit box scores.")) return;
+  const game = boxScoreEditGame();
+  if (!game) return;
+  const innings = boxScoreInnings(game);
+  const edits = boxScoreLineEditMap(game);
+  const lionsEdit = collectBoxScoreEditForTeam("lions", innings);
+  const opponentEdit = collectBoxScoreEditForTeam("opponent", innings);
+  edits.lions = lionsEdit;
+  edits.opponent = opponentEdit;
+  game.score = {
+    ...(game.score || {}),
+    lions: lionsEdit.runs,
+    opponent: opponentEdit.runs
+  };
+  syncScoreBySide(game);
+  markSharedGamesDirty(game.id);
+  if (gameIsFinal(game)) {
+    markGameSyncPending(game);
+    queueCompletedGameSync(game.id, { reason: "box-score-edit" });
+  }
+  saveStateWithOptions({ liveSyncReason: "box-score-edit" });
+  closeBoxScoreEditModal();
+  render();
+  requestSharedSnapshotSync("box-score-edit");
+  requestCompletedGameSyncRetry("box-score-edit");
+}
+
 function renderBoxScore() {
   if (!els.boxScoreSummary) return;
   const active = activeScoreGame() || [...state.games].sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0] || null;
   if (!active) {
     boxScoreGameId = "";
+    setBoxScoreEditButtonsVisible(false);
     els.boxScoreGameSelect.innerHTML = "";
     if (els.boxScoreMobileGameSelect) els.boxScoreMobileGameSelect.innerHTML = "";
     els.boxScoreTitle.textContent = "Game box score";
@@ -14918,6 +15099,7 @@ function renderBoxScore() {
   }
   if (!boxScoreGameId || !state.games.some((game) => game.id === boxScoreGameId)) boxScoreGameId = active.id;
   const game = state.games.find((item) => item.id === boxScoreGameId) || active;
+  setBoxScoreEditButtonsVisible(isAdminMode());
   const teams = boxScoreTeams(game);
   if (!teams.some((team) => team.key === boxScoreTeam)) boxScoreTeam = "lions";
   const selectedTeam = teams.find((team) => team.key === boxScoreTeam) || teams[0];
@@ -14991,12 +15173,19 @@ function boxScoreLineForTeam(game, team, innings) {
       .filter((event) => Number(event.inning || 0) === inning)
       .reduce((sum, event) => sum + (event.runs || 0), 0);
   });
-  return {
+  const computedLine = {
     ...team,
     runsByInning,
     runs: team.score,
     hits: events.filter((event) => eventRules[event.result]?.hit).length,
     errors: boxScoreFieldingErrorEvents(game, team).length
+  };
+  const edit = boxScoreLineEditForTeam(game, team.key);
+  if (!edit) return computedLine;
+  return {
+    ...computedLine,
+    ...normalizeBoxScoreLineEdit(edit, innings, computedLine),
+    manualBoxScoreLine: true
   };
 }
 
