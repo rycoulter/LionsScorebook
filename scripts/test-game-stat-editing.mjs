@@ -91,6 +91,21 @@ const pitchingEventsBody = functionBody(appJs, "pitchingEventsForStatsGame");
 mustMatch(pitchingEventsBody, /manualPitchingStatEvents\(game, playerId, edit\)/, "Pitching edits should replace stat-source defensive events");
 mustMatch(pitchingEventsBody, /editedPlayerIds\.has\(event\.pitcherId\)/, "Edited pitcher events should replace original pitcher events");
 
+const boxScoreBattingEventsBody = functionBody(appJs, "boxScoreBattingEvents");
+mustMatch(boxScoreBattingEventsBody, /offensiveEventsForStatsGame\(game\)/, "Lions box score batting events should read through manual hitting edits");
+const boxScoreBattingRowsBody = functionBody(appJs, "boxScoreBattingRows");
+mustMatch(boxScoreBattingRowsBody, /Object\.entries\(hittingStatEditMap\(game\)\)/, "Box score batting rows should include manual hitting stat lines");
+mustMatch(boxScoreBattingRowsBody, /normalizeHittingStatEdit\(edit, playerId, game\)/, "Box score batting rows should normalize manual hitting edits");
+["ab", "runs", "h", "rbi", "bb", "k"].forEach((field) => {
+  mustMatch(boxScoreBattingRowsBody, new RegExp(`stats\\.${field}`), `Box score batting rows should map manual ${field}`);
+});
+const boxScorePitchingRowsBody = functionBody(appJs, "boxScorePitchingRows");
+mustMatch(boxScorePitchingRowsBody, /Object\.entries\(pitchingStatEditMap\(game\)\)/, "Box score pitching rows should include manual pitching stat lines");
+mustMatch(boxScorePitchingRowsBody, /normalizePitchingStatEdit\(edit, playerId, game\)/, "Box score pitching rows should normalize manual pitching edits");
+["batters", "outs", "h", "runs", "earnedRuns", "bb", "k"].forEach((field) => {
+  mustMatch(boxScorePitchingRowsBody, new RegExp(`stats\\.${field}`), `Box score pitching rows should map manual ${field}`);
+});
+
 const savePitchingBody = functionBody(appJs, "savePitchingStatEditGameStats");
 mustMatch(savePitchingBody, /pitchingStatEditMap\(game\)\[player\.id\] = edit/, "Saving should write the pitching edit to the selected game");
 mustMatch(savePitchingBody, /saveStateWithOptions\(\{ liveSyncReason: "pitching-stat-edit" \}\)/, "Saving should persist the pitching edit");

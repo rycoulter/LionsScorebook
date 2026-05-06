@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.72";
+const APP_VERSION = "v.1.1.73";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -14974,7 +14974,8 @@ function boxScoreInnings(game) {
 
 function boxScoreBattingEvents(game, team) {
   const scope = team.key === "lions" ? "offense" : "defense";
-  return (game.events || []).filter((event) => event.scope === scope && eventRules[event.result]?.pa);
+  const sourceEvents = team.key === "lions" ? offensiveEventsForStatsGame(game) : (game.events || []);
+  return sourceEvents.filter((event) => event.scope === scope && eventRules[event.result]?.pa);
 }
 
 function boxScoreFieldingErrorEvents(game, team) {
@@ -15068,6 +15069,24 @@ function boxScoreBattingRows(game, team) {
     row.rbi += event.rbi || 0;
     row.r += boxScoreRunsScoredByBatter(event, id);
   });
+  if (team.key === "lions") {
+    Object.entries(hittingStatEditMap(game)).forEach(([playerId, edit]) => {
+      const normalized = normalizeHittingStatEdit(edit, playerId, game);
+      const stats = normalized.stats;
+      const player = state.roster.find((item) => item.id === playerId);
+      const lineupEntry = gameLineupEntries(game).find((entry) => entry.playerId === playerId);
+      const name = player ? `#${player.number} ${player.name}` : "Unknown Lion";
+      const row = ensureRow(playerId, name, lineupEntry?.role || (player ? playerPrimaryPosition(player) : ""));
+      row.pa = stats.ab + stats.bb + stats.hbp + stats.sac;
+      row.ab = stats.ab;
+      row.r = stats.runs;
+      row.h = stats.h;
+      row.rbi = stats.rbi;
+      row.bb = stats.bb;
+      row.so = stats.k;
+      row.manualStatEdit = true;
+    });
+  }
   return [...rows.values()].filter((row) => row.pa || row.ab || row.r || row.h || row.rbi || row.bb || row.so);
 }
 
@@ -15121,6 +15140,23 @@ function boxScorePitchingRows(game, team) {
     row.bb += event.result === "BB" ? 1 : 0;
     row.so += event.result === "K" ? 1 : 0;
   });
+  if (team.key === "lions") {
+    Object.entries(pitchingStatEditMap(game)).forEach(([playerId, edit]) => {
+      const normalized = normalizePitchingStatEdit(edit, playerId, game);
+      const stats = normalized.stats;
+      const player = state.roster.find((item) => item.id === playerId);
+      const row = ensureRow(playerId, player ? `#${player.number} ${player.name}` : "Lions pitching");
+      row.pa = stats.batters;
+      row.outs = stats.outs;
+      row.h = stats.h;
+      row.r = stats.runs;
+      row.er = stats.earnedRuns;
+      row.erUnknown = false;
+      row.bb = stats.bb;
+      row.so = stats.k;
+      row.manualStatEdit = true;
+    });
+  }
   return [...rows.values()].filter((row) => row.pa || row.outs || row.h || row.r || row.er || row.bb || row.so);
 }
 
