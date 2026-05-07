@@ -29,7 +29,7 @@ mustMatch(indexHtml, /id="statEditGameSelectModal"[\s\S]*Select Game to Edit/, "
 mustMatch(indexHtml, /id="statEditGameModal"[\s\S]*Edit Game Stats/, "Edit Game Stats modal should exist");
 mustMatch(indexHtml, /id="pitchingStatEditGameSelectModal"[\s\S]*Select Game to Edit/, "Select Game to Edit modal should exist for pitching");
 mustMatch(indexHtml, /id="pitchingStatEditGameModal"[\s\S]*Edit Pitching Stats/, "Edit Pitching Stats modal should exist");
-["Ab", "H", "Singles", "Doubles", "Triples", "Hr", "Bb", "Hbp", "K", "Roe", "Errors", "Fc", "Sac", "Dp", "Go", "Lo", "Fo", "Sb", "Cs", "Po", "Rbi", "Runs"].forEach((field) => {
+["Ab", "H", "RispAB", "RispH", "Singles", "Doubles", "Triples", "Hr", "Bb", "Hbp", "K", "Roe", "Errors", "Fc", "Sac", "Dp", "Go", "Lo", "Fo", "Sb", "Cs", "Po", "Rbi", "Runs"].forEach((field) => {
   mustMatch(indexHtml, new RegExp(`id="statEdit${field}"`), `${field} input should exist`);
 });
 ["Ip", "Pitches", "Balls", "Strikes", "Batters", "H", "Hr", "Runs", "EarnedRuns", "Bb", "Hbp", "K", "Decision"].forEach((field) => {
@@ -60,14 +60,20 @@ mustMatch(sprayBody, /manualSprayEventsForGame\(game, playerId, edit\)/, "Edited
 mustMatch(sprayBody, /!editedPlayerIds\.has\(event\.playerId\)/, "Edited spray dots should replace original dots for that player/game");
 
 const normalizeStatsBody = functionBody(appJs, "normalizeManualHittingStats");
-["roe", "errors", "fc", "sac", "dp", "go", "lo", "fo", "sb", "cs", "po"].forEach((field) => {
+["rispAB", "rispH", "roe", "errors", "fc", "sac", "dp", "go", "lo", "fo", "sb", "cs", "po"].forEach((field) => {
   mustMatch(normalizeStatsBody, new RegExp(`\\b${field}\\b`), `${field} should be normalized as an editable count`);
 });
+mustMatch(normalizeStatsBody, /if \(rispAB > ab\) rispAB = ab/, "Manual RISP AB should not exceed total at-bats");
+mustMatch(normalizeStatsBody, /if \(rispH > rispAB\) rispH = rispAB/, "Manual RISP hits should not exceed RISP at-bats");
+mustMatch(normalizeStatsBody, /if \(rispH > h\) rispH = h/, "Manual RISP hits should not exceed total hits");
 
 const manualEventsBody = functionBody(appJs, "manualHittingStatEvents");
 ["ROE", "FC", "SAC", "DP", "GO", "LO", "FO", "SB", "CS", "PO"].forEach((result) => {
   mustMatch(manualEventsBody, new RegExp(`pushEvents\\("${result}"`), `${result} edits should become stat-source events`);
 });
+mustMatch(appJs, /function applyManualHittingRispToEvents/, "Manual RISP counts should be mapped to stat-source events");
+mustMatch(appJs, /event\.hasRISP = true/, "Manual RISP mapping should flag selected synthetic events");
+mustMatch(manualEventsBody, /applyManualHittingRispToEvents\(events, stats\)/, "Manual hitting events should apply RISP flags before stat calculation");
 
 const normalizeSpraysBody = functionBody(appJs, "normalizeStatEditSprays");
 mustMatch(normalizeSpraysBody, /normalizeStatEditSprayResult\(spray\?\.result, fallback\)/, "Edited spray dots should preserve selected result types");

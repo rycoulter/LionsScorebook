@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.74";
+const APP_VERSION = "v.1.1.75";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -1281,6 +1281,8 @@ const els = {
   statEditInputs: {
     ab: document.getElementById("statEditAb"),
     h: document.getElementById("statEditH"),
+    rispAB: document.getElementById("statEditRispAB"),
+    rispH: document.getElementById("statEditRispH"),
     singles: document.getElementById("statEditSingles"),
     doubles: document.getElementById("statEditDoubles"),
     triples: document.getElementById("statEditTriples"),
@@ -16569,6 +16571,8 @@ function hittingStatEditDraft(playerId, game) {
     stats: {
       ab: hit.ab,
       h: hit.h,
+      rispAB: hit.rispAB,
+      rispH: hit.rispH,
       singles: hit.singles,
       doubles: hit.doubles,
       triples: hit.triples,
@@ -17434,9 +17438,17 @@ function normalizeManualHittingStats(input = {}) {
   const explicitAtBats = h + k + roe + fc + dp + go + lo + fo;
   let ab = manualStatValue(input, "ab", "AB") ?? explicitAtBats;
   if (ab < explicitAtBats) ab = explicitAtBats;
+  let rispAB = manualStatValue(input, "rispAB", "rispAb", "RISPAB", "RISP AB");
+  let rispH = manualStatValue(input, "rispH", "RISPH", "RISP H") ?? 0;
+  if (rispAB === null) rispAB = rispH;
+  if (rispAB > ab) rispAB = ab;
+  if (rispH > rispAB) rispH = rispAB;
+  if (rispH > h) rispH = h;
   return {
     ab,
     h,
+    rispAB,
+    rispH,
     singles,
     doubles,
     triples,
@@ -17581,6 +17593,7 @@ function manualHittingStatEvent(game, playerId, result, index, edit, extras = {}
     result,
     runs: 0,
     rbi: extras.rbi || 0,
+    hasRISP: Boolean(extras.hasRISP),
     contact: "none",
     launch: rule.launch || "none",
     leverage: "neutral",
@@ -17597,6 +17610,25 @@ function manualHittingStatEvent(game, playerId, result, index, edit, extras = {}
     createdAt: edit.updatedAt || new Date().toISOString(),
     manualStatEdit: true
   };
+}
+
+function applyManualHittingRispToEvents(events = [], stats = {}) {
+  let rispHitsRemaining = Math.max(0, Number(stats.rispH) || 0);
+  events
+    .filter((event) => eventRules[event.result]?.ab && eventRules[event.result]?.hit)
+    .forEach((event) => {
+      if (rispHitsRemaining <= 0) return;
+      event.hasRISP = true;
+      rispHitsRemaining -= 1;
+    });
+  let rispAtBatsRemaining = Math.max(0, Number(stats.rispAB) || 0) - Math.max(0, Number(stats.rispH) || 0);
+  events
+    .filter((event) => eventRules[event.result]?.ab && !event.hasRISP)
+    .forEach((event) => {
+      if (rispAtBatsRemaining <= 0) return;
+      event.hasRISP = true;
+      rispAtBatsRemaining -= 1;
+    });
 }
 
 function manualHittingStatEvents(game, playerId, rawEdit = {}) {
@@ -17631,6 +17663,7 @@ function manualHittingStatEvents(game, playerId, rawEdit = {}) {
   if (!events.length && (stats.rbi || stats.runs)) {
     events.push(manualHittingStatEvent(game, playerId, "SUB", events.length, edit));
   }
+  applyManualHittingRispToEvents(events, stats);
   if (events.length) {
     events[0].rbi = stats.rbi;
     events[0].runnerAdvancements = manualRunAdvancements(playerId, stats.runs);
