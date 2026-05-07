@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.75";
+const APP_VERSION = "v.1.1.76";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -17170,6 +17170,7 @@ function mobileHittingSortLabel() {
     obp: "OBP",
     slg: "SLG",
     ops: "OPS",
+    risp: "RISP",
     h: "Hits",
     rbi: "RBI",
     bb: "BB",
@@ -17216,6 +17217,7 @@ function mobilePitchingSortLabel() {
 function formatMobileHittingSortValue(hit, gp, player) {
   if (hittingSort.key === "name") return player.name;
   if (hittingSort.key === "gp") return String(gp);
+  if (hittingSort.key === "risp") return formatRispRate(hit);
   const value = hit[hittingSort.key] ?? 0;
   if (["avg", "obp", "slg", "ops"].includes(hittingSort.key)) return formatRate(value);
   return String(value);
