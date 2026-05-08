@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.76";
+const APP_VERSION = "v.1.1.77";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -809,8 +809,8 @@ const els = {
   adminAuthSubmitBtn: document.getElementById("adminAuthSubmitBtn"),
   homeRecord: document.getElementById("homeRecord"),
   homeWinPct: document.getElementById("homeWinPct"),
-  homeRunsScored: document.getElementById("homeRunsScored"),
-  homeRunsAllowed: document.getElementById("homeRunsAllowed"),
+  homeLeagueStanding: document.getElementById("homeLeagueStanding"),
+  homeCurrentStreak: document.getElementById("homeCurrentStreak"),
   homeVisitCounterCard: document.getElementById("homeVisitCounterCard"),
   homeVisitTotal: document.getElementById("homeVisitTotal"),
   homeVisitMeta: document.getElementById("homeVisitMeta"),
@@ -8163,10 +8163,11 @@ function renderHome() {
   const upcoming = upcomingScheduledGames(3);
   const liveGame = inProgressGames()[0] || null;
   const next = liveGame || upcoming[0] || null;
+  const overview = homeOverviewLeagueSummary(record);
   els.homeRecord.textContent = `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""}`;
   if (els.homeWinPct) els.homeWinPct.textContent = winPct;
-  if (els.homeRunsScored) els.homeRunsScored.textContent = String(record.runsFor);
-  if (els.homeRunsAllowed) els.homeRunsAllowed.textContent = String(record.runsAgainst);
+  if (els.homeLeagueStanding) els.homeLeagueStanding.textContent = overview.standing;
+  if (els.homeCurrentStreak) els.homeCurrentStreak.textContent = overview.streak;
   renderSiteVisitCounter();
   if (isAdminMode()) requestSiteVisitSummaryRefresh("home");
   if (els.homeStartGameBtn) els.homeStartGameBtn.hidden = true;
@@ -8349,6 +8350,76 @@ function renderLeagueStandingsRow(row) {
     <td data-label="RA">${escapeHtml(row.ra ?? "--")}</td>
     <td data-label="Streak">${escapeHtml(row.streak || "--")}</td>
   </tr>`;
+}
+
+function leagueStandingRowsForOverview() {
+  if (leagueStandingsRows.length) return leagueStandingsRows;
+  const sourceRows = Array.isArray(scoutingData?.teams) && scoutingData.teams.length
+    ? scoutingData.teams
+    : AA_SCOUTING_SNAPSHOT.teams;
+  return sourceRows
+    .map((row, index) => normalizeLeagueStandingRow(row, index))
+    .filter(Boolean)
+    .sort((a, b) => (Number(b?.points) || 0) - (Number(a?.points) || 0) || String(a?.teamName || "").localeCompare(String(b?.teamName || "")))
+    .map((row, index) => ({ ...row, rank: Number(row.rank) || index + 1 }));
+}
+
+function shortStreakLabel(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "--" || text === "-") return localCurrentStreakLabel();
+  const match = text.match(/^(Won|Win|W|Lost|Loss|L|Tied|Tie|T)\s*([0-9]+)$/i);
+  if (!match) return text;
+  const type = match[1].toLowerCase();
+  const prefix = type.startsWith("w") ? "W" : type.startsWith("l") ? "L" : "T";
+  return formatCurrentStreakLabel(prefix, match[2]);
+}
+
+function formatCurrentStreakLabel(prefix, count) {
+  const safePrefix = ["W", "L", "T"].includes(prefix) ? prefix : "T";
+  const safeCount = Math.max(0, Number(count) || 0);
+  const label = `${safePrefix}${safeCount}`;
+  if (safeCount >= 3 && safePrefix === "W") return `🔥 ${label}`;
+  if (safeCount >= 3 && safePrefix === "L") return `🧊 ${label}`;
+  return label;
+}
+
+function localCurrentStreakLabel() {
+  const finals = completedGames();
+  if (!finals.length) return "--";
+  const firstResult = gameResultKey(finals[0]);
+  let count = 0;
+  finals.some((game) => {
+    if (gameResultKey(game) !== firstResult) return true;
+    count += 1;
+    return false;
+  });
+  return formatCurrentStreakLabel(firstResult, count);
+}
+
+function gameResultKey(game) {
+  const lionsScore = Number(game?.score?.lions || 0);
+  const opponentScore = Number(game?.score?.opponent || 0);
+  if (lionsScore > opponentScore) return "W";
+  if (lionsScore < opponentScore) return "L";
+  return "T";
+}
+
+function homeOverviewLeagueSummary(record = seasonRecord()) {
+  const rows = leagueStandingRowsForOverview();
+  const lionsIndex = rows.findIndex((row) => /oakmont lions/i.test(String(row?.teamName || "")));
+  if (lionsIndex >= 0) {
+    const row = rows[lionsIndex];
+    const rank = Number(row.rank) || lionsIndex + 1;
+    return {
+      standing: `${rank}${ordinalSuffix(rank)}`,
+      streak: shortStreakLabel(row.streak)
+    };
+  }
+  const totalGames = Number(record.wins || 0) + Number(record.losses || 0) + Number(record.ties || 0);
+  return {
+    standing: totalGames ? "--" : "Preseason",
+    streak: localCurrentStreakLabel()
+  };
 }
 
 function seasonRecord() {
