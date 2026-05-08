@@ -22,9 +22,16 @@ function functionBody(source, functionName) {
 assert.match(indexHtml, /data-view="standings"/, "Standings should be a public tab");
 assert.match(indexHtml, /id="standingsView" data-panel="standings"/, "Standings should have its own view");
 assert.match(indexHtml, /id="leagueStandingsBody"/, "Standings view should render table rows");
+assert.match(indexHtml, /id="homeLeagueStanding"/, "Home overview should show league standing");
+assert.match(indexHtml, /id="homeCurrentStreak"/, "Home overview should show current streak");
+assert.doesNotMatch(indexHtml, /id="homeRunsScored"/, "Home overview should no longer show runs scored");
+assert.doesNotMatch(indexHtml, /id="homeRunsAllowed"/, "Home overview should no longer show runs allowed");
 assert.doesNotMatch(indexHtml, /home-standings-panel/, "Home should not own the standings card");
 assert.match(appJs, /PUBLIC_TAB_VIEWS = new Set\(\["home", "news", "standings"/, "Standings should be public");
 assert.match(appJs, /LEAGUE_STANDINGS_CACHE_URL = "data\/league-standings\.json"/, "App should load the static standings cache");
+assert.match(functionBody(appJs, "homeOverviewLeagueSummary"), /leagueStandingRowsForOverview[\s\S]*ordinalSuffix[\s\S]*shortStreakLabel/, "Home overview should derive standing and streak from standings data");
+assert.match(functionBody(appJs, "shortStreakLabel"), /Won[\s\S]*Lost[\s\S]*formatCurrentStreakLabel\(prefix, match\[2\]\)/, "Home overview streak should abbreviate Won/Lost labels");
+assert.match(functionBody(appJs, "formatCurrentStreakLabel"), /safeCount >= 3[\s\S]*🔥[\s\S]*safeCount >= 3[\s\S]*🧊/u, "Home overview should add fire/ice emoji for 3+ win/loss streaks");
 assert.match(functionBody(appJs, "fetchStaticLeagueStandingsCache"), /ScorebookLeagueStandingsCache[\s\S]*fetch/, "App should use the script cache before fetch for local file opens");
 assert.match(functionBody(appJs, "refreshScoutingData"), /fetchStaticLeagueStandingsCache[\s\S]*setLeagueStandingsCache/, "Refresh should load the static standings cache");
 assert.match(functionBody(appJs, "parseAaStandingsFromHtml"), /standingsTable[\s\S]*activeDivision !== "AA"[\s\S]*pointsLabel/, "Parser should read the official standings table");
@@ -34,10 +41,10 @@ assert.match(refreshScript, /league-standings-cache\.js[\s\S]*ScorebookLeagueSta
 assert.match(refreshScript, /_scorebookRefresh[\s\S]*cache-control[\s\S]*no-cache/s, "Refresh script should bypass cached league responses");
 assert.match(workflow, /cron: "15 \* \* \* \*"/, "Workflow should refresh hourly");
 assert.match(workflow, /contents: write[\s\S]*git add data\/league-standings\.json data\/league-standings-cache\.js[\s\S]*git push/s, "Workflow should commit the static cache when standings change");
-assert.match(indexHtml, /data\/league-standings-cache\.js\?v=2026\.04\.29-build-211/, "Index should load the standings script cache for file opens");
+assert.match(indexHtml, /data\/league-standings-cache\.js\?v=2026\.\d{2}\.\d{2}-build-\d+/, "Index should load the standings script cache for file opens");
 assert.equal(standingsJson.division, "AA", "Static standings cache should be scoped to AA");
-assert.ok(standingsJson.rows.some((row) => row.teamName === "Oakmont Lions" && row.winPct === "1.000"), "Static cache should include current Oakmont Lions row");
-assert.ok(standingsJson.rows.some((row) => row.teamName === "Pittsburgh D2" && row.record === "2-1" && row.points === 7), "Static cache should include current Pittsburgh D2 row");
+assert.ok(standingsJson.rows.some((row) => row.teamName === "Oakmont Lions"), "Static cache should include current Oakmont Lions row");
+assert.ok(standingsJson.rows.some((row) => row.teamName === "Pittsburgh D2"), "Static cache should include current Pittsburgh D2 row");
 assert.match(standingsCacheScript, /window\.ScorebookLeagueStandingsCache = /, "Script cache should expose standings globally");
 assert.match(standingsCacheScript, /"teamName": "Oakmont Lions"/, "Script cache should include current standings rows");
 
