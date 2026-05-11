@@ -1,7 +1,7 @@
 window.ScorebookNabaRostersCache = {
   "season": 2026,
   "sourceLabel": "Pittsburgh NABA rosters",
-  "syncedAt": "2026-05-06T16:14:19.235Z",
+  "syncedAt": "2026-05-11T17:32:50.254Z",
   "teams": [
     {
       "teamName": "Oakmont Lions",
@@ -147,6 +147,14 @@ window.ScorebookNabaRostersCache = {
           "positions": "UT, IF, OF"
         },
         {
+          "id": "oakmont-lions-dylan-showalter-westwood",
+          "firstName": "Dylan",
+          "lastName": "Showalter-Westwood",
+          "name": "Dylan Showalter-Westwood",
+          "number": "",
+          "positions": "3B, 2B, UTIL., P"
+        },
+        {
           "id": "oakmont-lions-kolton-smittle",
           "firstName": "Kolton",
           "lastName": "Smittle",
@@ -171,7 +179,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "SS, CF, P, 2B"
         }
       ],
-      "syncedAt": "2026-05-06T16:14:19.235Z"
+      "syncedAt": "2026-05-11T17:32:50.254Z"
     },
     {
       "teamName": "Pittsburgh D2",
@@ -325,7 +333,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "C, P, UTIL."
         }
       ],
-      "syncedAt": "2026-05-06T16:14:19.235Z"
+      "syncedAt": "2026-05-11T17:32:50.254Z"
     },
     {
       "teamName": "BiscuitvilleTownSquare Bandidos",
@@ -365,6 +373,14 @@ window.ScorebookNabaRostersCache = {
           "name": "Shane Churma",
           "number": "",
           "positions": "2B, INF, OF"
+        },
+        {
+          "id": "biscuitvilletownsquare-bandidos-jesse-clary",
+          "firstName": "Jesse",
+          "lastName": "Clary",
+          "name": "Jesse Clary",
+          "number": "",
+          "positions": "2B, SS, INF, OF, P"
         },
         {
           "id": "biscuitvilletownsquare-bandidos-anthony-delbene",
@@ -479,7 +495,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "LF"
         }
       ],
-      "syncedAt": "2026-05-06T16:14:19.235Z"
+      "syncedAt": "2026-05-11T17:32:50.254Z"
     },
     {
       "teamName": "South Hills Devils",
@@ -673,7 +689,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "1B, P"
         }
       ],
-      "syncedAt": "2026-05-06T16:14:19.235Z"
+      "syncedAt": "2026-05-11T17:32:50.254Z"
     },
     {
       "teamName": "South Oakland Ducks",
@@ -731,6 +747,14 @@ window.ScorebookNabaRostersCache = {
           "positions": "3B, 1B"
         },
         {
+          "id": "south-oakland-ducks-jake-dockum",
+          "firstName": "Jake",
+          "lastName": "Dockum",
+          "name": "Jake Dockum",
+          "number": "",
+          "positions": "SS, 2B, UTIL., OF, 1B"
+        },
+        {
           "id": "south-oakland-ducks-james-fago",
           "firstName": "James",
           "lastName": "Fago",
@@ -745,6 +769,14 @@ window.ScorebookNabaRostersCache = {
           "name": "Ben Gwin",
           "number": "4",
           "positions": "CF, LF, 1B"
+        },
+        {
+          "id": "south-oakland-ducks-james-hensell",
+          "firstName": "James",
+          "lastName": "Hensell",
+          "name": "James Hensell",
+          "number": "",
+          "positions": "P, 1B"
         },
         {
           "id": "south-oakland-ducks-tyler-hronec",
@@ -851,7 +883,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "RF, LF, OF"
         }
       ],
-      "syncedAt": "2026-05-06T16:14:19.235Z"
+      "syncedAt": "2026-05-11T17:32:50.254Z"
     },
     {
       "teamName": "South Side Eagles",
@@ -997,7 +1029,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "P"
         }
       ],
-      "syncedAt": "2026-05-06T16:14:19.235Z"
+      "syncedAt": "2026-05-11T17:32:50.254Z"
     },
     {
       "teamName": "Bauerstown Turtles",
@@ -1143,7 +1175,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "SS, P, LF"
         }
       ],
-      "syncedAt": "2026-05-06T16:14:19.235Z"
+      "syncedAt": "2026-05-11T17:32:50.254Z"
     },
     {
       "teamName": "Keystone Oaks",
@@ -1233,6 +1265,14 @@ window.ScorebookNabaRostersCache = {
           "positions": "C, LF"
         },
         {
+          "id": "keystone-oaks-randy-schuetz",
+          "firstName": "Randy",
+          "lastName": "Schuetz",
+          "name": "Randy Schuetz",
+          "number": "4",
+          "positions": "3B, 1B"
+        },
+        {
           "id": "keystone-oaks-trevor-schuetz",
           "firstName": "Trevor",
           "lastName": "Schuetz",
@@ -1273,7 +1313,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "3B, SS"
         }
       ],
-      "syncedAt": "2026-05-06T16:14:19.235Z"
+      "syncedAt": "2026-05-11T17:32:50.254Z"
     },
     {
       "teamName": "Butler Buccos",
@@ -1289,6 +1329,30 @@ window.ScorebookNabaRostersCache = {
           "name": "Spencer Blackburn",
           "number": "",
           "positions": "SS, 2B, INF"
+        },
+        {
+          "id": "butler-buccos-ben-blucher",
+          "firstName": "Ben",
+          "lastName": "Blucher",
+          "name": "Ben Blucher",
+          "number": "",
+          "positions": "3B, 1B, UTIL., C"
+        },
+        {
+          "id": "butler-buccos-miles-bowman",
+          "firstName": "Miles",
+          "lastName": "Bowman",
+          "name": "Miles Bowman",
+          "number": "",
+          "positions": "1B, LF, UTIL."
+        },
+        {
+          "id": "butler-buccos-evan-garbowsky",
+          "firstName": "Evan",
+          "lastName": "Garbowsky",
+          "name": "Evan Garbowsky",
+          "number": "",
+          "positions": "P, CF, OF"
         },
         {
           "id": "butler-buccos-tim-hohos",
@@ -1331,7 +1395,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "P, 1B"
         }
       ],
-      "syncedAt": "2026-05-06T16:14:19.235Z"
+      "syncedAt": "2026-05-11T17:32:50.254Z"
     },
     {
       "teamName": "Ross Raiders",
@@ -1340,7 +1404,7 @@ window.ScorebookNabaRostersCache = {
       "nabaKey": "PITTSBUR-ROSSRAIDERS",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=roster&s=baseball&u=PITTSBUR-ROSSRAIDERS",
       "players": [],
-      "syncedAt": "2026-05-06T16:14:19.235Z"
+      "syncedAt": "2026-05-11T17:32:50.254Z"
     }
   ]
 };
