@@ -1,7 +1,7 @@
 window.ScorebookNabaRostersCache = {
   "season": 2026,
   "sourceLabel": "Pittsburgh NABA rosters",
-  "syncedAt": "2026-05-11T17:32:50.015Z",
+  "syncedAt": "2026-05-12T17:28:16.611Z",
   "teams": [
     {
       "teamName": "Oakmont Lions",
@@ -179,7 +179,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "SS, CF, P, 2B"
         }
       ],
-      "syncedAt": "2026-05-11T17:32:50.015Z"
+      "syncedAt": "2026-05-12T17:28:16.611Z"
     },
     {
       "teamName": "Pittsburgh D2",
@@ -333,7 +333,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "C, P, UTIL."
         }
       ],
-      "syncedAt": "2026-05-11T17:32:50.015Z"
+      "syncedAt": "2026-05-12T17:28:16.611Z"
     },
     {
       "teamName": "BiscuitvilleTownSquare Bandidos",
@@ -495,7 +495,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "LF"
         }
       ],
-      "syncedAt": "2026-05-11T17:32:50.015Z"
+      "syncedAt": "2026-05-12T17:28:16.611Z"
     },
     {
       "teamName": "South Hills Devils",
@@ -689,7 +689,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "1B, P"
         }
       ],
-      "syncedAt": "2026-05-11T17:32:50.015Z"
+      "syncedAt": "2026-05-12T17:28:16.611Z"
     },
     {
       "teamName": "South Oakland Ducks",
@@ -883,7 +883,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "RF, LF, OF"
         }
       ],
-      "syncedAt": "2026-05-11T17:32:50.015Z"
+      "syncedAt": "2026-05-12T17:28:16.611Z"
     },
     {
       "teamName": "South Side Eagles",
@@ -1029,7 +1029,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "P"
         }
       ],
-      "syncedAt": "2026-05-11T17:32:50.015Z"
+      "syncedAt": "2026-05-12T17:28:16.611Z"
     },
     {
       "teamName": "Bauerstown Turtles",
@@ -1091,8 +1091,8 @@ window.ScorebookNabaRostersCache = {
           "firstName": "Jacob",
           "lastName": "Herbst",
           "name": "Jacob Herbst",
-          "number": "",
-          "positions": "P, CF, UTIL., OF"
+          "number": "4",
+          "positions": "P, CF"
         },
         {
           "id": "bauerstown-turtles-maximilian-menner",
@@ -1175,7 +1175,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "SS, P, LF"
         }
       ],
-      "syncedAt": "2026-05-11T17:32:50.015Z"
+      "syncedAt": "2026-05-12T17:28:16.611Z"
     },
     {
       "teamName": "Keystone Oaks",
@@ -1197,7 +1197,7 @@ window.ScorebookNabaRostersCache = {
           "firstName": "Ian",
           "lastName": "Bickel",
           "name": "Ian Bickel",
-          "number": "",
+          "number": "42",
           "positions": "CF, LF, OF"
         },
         {
@@ -1207,6 +1207,14 @@ window.ScorebookNabaRostersCache = {
           "name": "Rick Devereaux",
           "number": "34",
           "positions": "1B"
+        },
+        {
+          "id": "keystone-oaks-charlie-eberle",
+          "firstName": "Charlie",
+          "lastName": "Eberle",
+          "name": "Charlie Eberle",
+          "number": "1",
+          "positions": "LF, 1B"
         },
         {
           "id": "keystone-oaks-jackson-geisler",
@@ -1281,6 +1289,14 @@ window.ScorebookNabaRostersCache = {
           "positions": "LF, CF"
         },
         {
+          "id": "keystone-oaks-matt-serakowski",
+          "firstName": "Matt",
+          "lastName": "Serakowski",
+          "name": "Matt Serakowski",
+          "number": "20",
+          "positions": "LF, CF"
+        },
+        {
           "id": "keystone-oaks-ty-serakowski",
           "firstName": "Ty",
           "lastName": "Serakowski",
@@ -1313,7 +1329,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "3B, SS"
         }
       ],
-      "syncedAt": "2026-05-11T17:32:50.015Z"
+      "syncedAt": "2026-05-12T17:28:16.611Z"
     },
     {
       "teamName": "Butler Buccos",
@@ -1395,7 +1411,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "P, 1B"
         }
       ],
-      "syncedAt": "2026-05-11T17:32:50.015Z"
+      "syncedAt": "2026-05-12T17:28:16.611Z"
     },
     {
       "teamName": "Ross Raiders",
@@ -1404,7 +1420,7 @@ window.ScorebookNabaRostersCache = {
       "nabaKey": "PITTSBUR-ROSSRAIDERS",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=roster&s=baseball&u=PITTSBUR-ROSSRAIDERS",
       "players": [],
-      "syncedAt": "2026-05-11T17:32:50.015Z"
+      "syncedAt": "2026-05-12T17:28:16.611Z"
     }
   ]
 };
