@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.77";
+const APP_VERSION = "v.1.1.78";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -607,6 +607,7 @@ const FIELD_LOCATIONS = [
   { name: "Herschel Park", address: "800 Herschel St, Pittsburgh, PA 15220" },
   { name: "John Herb Field", address: "1000 Ross Municipal Dr, Pittsburgh, PA 15237" },
   { name: "Bauerstown", address: "152 Koehler St, Pittsburgh, PA 15223" },
+  { name: "Joe Natoli Field", address: "100 Presidents Way, Pittsburgh, PA 15206" },
   { name: "Mellon Park", address: "6600 Fifth Ave, Pittsburgh, PA 15206" },
   { name: "Riverside Park", address: "100 Hulton Rd, Oakmont, PA 15139" },
   { name: "Graham Park", address: "UPMC Passavant Sportsplex at Graham Park, 260 Graham Park Drive, Cranberry Twp, PA 16066" }
