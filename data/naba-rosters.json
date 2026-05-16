@@ -1,7 +1,7 @@
 {
   "season": 2026,
   "sourceLabel": "Pittsburgh NABA rosters",
-  "syncedAt": "2026-05-15T16:20:29.081Z",
+  "syncedAt": "2026-05-16T12:12:44.447Z",
   "teams": [
     {
       "teamName": "Oakmont Lions",
@@ -16,15 +16,15 @@
           "lastName": "Arch",
           "name": "Raymond Arch",
           "number": "12",
-          "positions": "2B, OF, UT"
+          "positions": "IF, OF, RP"
         },
         {
           "id": "oakmont-lions-nicholas-buchser",
           "firstName": "Nicholas",
           "lastName": "Buchser",
           "name": "Nicholas Buchser",
-          "number": "7",
-          "positions": "3B, P, DH"
+          "number": "9",
+          "positions": "3B, P, UT"
         },
         {
           "id": "oakmont-lions-roy-butko",
@@ -32,7 +32,7 @@
           "lastName": "Butko",
           "name": "Roy Butko",
           "number": "",
-          "positions": "OF, 1B"
+          "positions": "RF, 1B, RP"
         },
         {
           "id": "oakmont-lions-ryan-coulter",
@@ -40,7 +40,7 @@
           "lastName": "Coulter",
           "name": "Ryan Coulter",
           "number": "",
-          "positions": "3B, C"
+          "positions": "C, 3B, EH"
         },
         {
           "id": "oakmont-lions-aidan-draxinger",
@@ -48,7 +48,7 @@
           "lastName": "Draxinger",
           "name": "Aidan Draxinger",
           "number": "24",
-          "positions": "C, LF, UT"
+          "positions": "C, RF, CR"
         },
         {
           "id": "oakmont-lions-christopher-draxinger",
@@ -64,7 +64,7 @@
           "lastName": "Kennedy",
           "name": "Raymonn Kennedy",
           "number": "",
-          "positions": "C, 3B, UTIL."
+          "positions": "3B, UT, EH"
         },
         {
           "id": "oakmont-lions-caleb-kilgore",
@@ -88,7 +88,7 @@
           "lastName": "Kysor",
           "name": "Samuel Kysor",
           "number": "",
-          "positions": "SS, 3B, P"
+          "positions": "SS, IF, P"
         },
         {
           "id": "oakmont-lions-zach-morse",
@@ -96,7 +96,7 @@
           "lastName": "Morse",
           "name": "Zach Morse",
           "number": "",
-          "positions": "P, CF, OF"
+          "positions": "SP, OF, DH"
         },
         {
           "id": "oakmont-lions-matt-pace",
@@ -128,7 +128,7 @@
           "lastName": "Reilly",
           "name": "Brady Reilly",
           "number": "",
-          "positions": "LF, OF"
+          "positions": "LF"
         },
         {
           "id": "oakmont-lions-cory-reilly",
@@ -136,7 +136,7 @@
           "lastName": "Reilly",
           "name": "Cory Reilly",
           "number": "4",
-          "positions": "OF, IF, UT"
+          "positions": "EH, DH, UT"
         },
         {
           "id": "oakmont-lions-goat-rodella",
@@ -160,7 +160,7 @@
           "lastName": "Smittle",
           "name": "Kolton Smittle",
           "number": "6",
-          "positions": "P, IF, C"
+          "positions": "SP, IF, C"
         },
         {
           "id": "oakmont-lions-ryan-turacy-shurtz",
@@ -179,7 +179,7 @@
           "positions": "SS, CF, P, 2B"
         }
       ],
-      "syncedAt": "2026-05-15T16:20:29.081Z"
+      "syncedAt": "2026-05-16T12:12:44.447Z"
     },
     {
       "teamName": "Pittsburgh D2",
@@ -333,7 +333,7 @@
           "positions": "C, P, UTIL."
         }
       ],
-      "syncedAt": "2026-05-15T16:20:29.081Z"
+      "syncedAt": "2026-05-16T12:12:44.447Z"
     },
     {
       "teamName": "BiscuitvilleTownSquare Bandidos",
@@ -495,7 +495,7 @@
           "positions": "LF"
         }
       ],
-      "syncedAt": "2026-05-15T16:20:29.081Z"
+      "syncedAt": "2026-05-16T12:12:44.447Z"
     },
     {
       "teamName": "South Hills Devils",
@@ -689,7 +689,7 @@
           "positions": "1B, P"
         }
       ],
-      "syncedAt": "2026-05-15T16:20:29.081Z"
+      "syncedAt": "2026-05-16T12:12:44.447Z"
     },
     {
       "teamName": "South Oakland Ducks",
@@ -883,7 +883,7 @@
           "positions": "RF, LF, OF"
         }
       ],
-      "syncedAt": "2026-05-15T16:20:29.081Z"
+      "syncedAt": "2026-05-16T12:12:44.447Z"
     },
     {
       "teamName": "South Side Eagles",
@@ -1037,7 +1037,7 @@
           "positions": "P"
         }
       ],
-      "syncedAt": "2026-05-15T16:20:29.081Z"
+      "syncedAt": "2026-05-16T12:12:44.447Z"
     },
     {
       "teamName": "Bauerstown Turtles",
@@ -1183,7 +1183,7 @@
           "positions": "SS, P, LF"
         }
       ],
-      "syncedAt": "2026-05-15T16:20:29.081Z"
+      "syncedAt": "2026-05-16T12:12:44.447Z"
     },
     {
       "teamName": "Keystone Oaks",
@@ -1337,7 +1337,7 @@
           "positions": "3B, SS"
         }
       ],
-      "syncedAt": "2026-05-15T16:20:29.081Z"
+      "syncedAt": "2026-05-16T12:12:44.447Z"
     },
     {
       "teamName": "Butler Buccos",
@@ -1419,7 +1419,7 @@
           "positions": "P, 1B"
         }
       ],
-      "syncedAt": "2026-05-15T16:20:29.081Z"
+      "syncedAt": "2026-05-16T12:12:44.447Z"
     },
     {
       "teamName": "Ross Raiders",
@@ -1428,7 +1428,7 @@
       "nabaKey": "PITTSBUR-ROSSRAIDERS",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=roster&s=baseball&u=PITTSBUR-ROSSRAIDERS",
       "players": [],
-      "syncedAt": "2026-05-15T16:20:29.081Z"
+      "syncedAt": "2026-05-16T12:12:44.447Z"
     }
   ]
 }
