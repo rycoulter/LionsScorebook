@@ -24,9 +24,11 @@ const publicViews = appJs.match(/const PUBLIC_TAB_VIEWS = new Set\(\[[^\]]+\]\);
 const adminViews = appJs.match(/const ADMIN_TAB_VIEWS = new Set\(\[[^\]]+\]\);/)?.[0] || "";
 
 mustMatch(adminViews, /"highlights"/, "Highlights should be an admin tab");
-assert.doesNotMatch(publicViews, /"highlights"/, "Highlights should not be a public tab");
-mustMatch(indexHtml, /<button class="tab" data-view="highlights" hidden>Highlights<\/button>/, "Admin nav should include the hidden Highlights tab");
+mustMatch(publicViews, /"highlights"/, "Highlights should be a public tab");
+mustMatch(indexHtml, /<button class="tab" data-view="highlights">[\s\S]*<span class="tab-label">Highlights<\/span><\/button>/, "Public nav should include the Highlights tab");
 mustMatch(indexHtml, /id="highlightsView"[\s\S]*data-panel="highlights"/, "Highlights view should be present");
+mustMatch(indexHtml, /id="publicHighlightsGrid"/, "Highlights page should include a public highlights grid");
+mustMatch(indexHtml, /id="highlightsAdminTools"/, "Highlights page should keep admin management tools isolated");
 mustMatch(indexHtml, /id="highlightForm"/, "Highlights management form should be present");
 mustMatch(indexHtml, /id="highlightsGameSelect"/, "Highlights form should select a completed game");
 mustMatch(indexHtml, /YouTube URL[\s\S]*id="highlightUrlInput"/, "Highlights form should collect a YouTube URL");
@@ -57,6 +59,8 @@ mustMatch(deleteBody, /supabaseStorage\.deleteHighlight\(highlight\.id\)/, "Dele
 
 mustMatch(functionBody(appJs, "youtubeEmbedUrl"), /youtube\.com\/embed/, "Highlights should render embedded YouTube players");
 mustMatch(functionBody(appJs, "renderHighlightEmbed"), /<iframe/, "Highlight cards should include an iframe embed");
+mustMatch(functionBody(appJs, "renderHighlightsPage"), /highlightsAdminTools[\s\S]*isAdminMode\(\)/, "Admin highlight tools should only show in admin mode");
+mustMatch(functionBody(appJs, "renderHighlightsPage"), /publicHighlightsGrid[\s\S]*renderPublicHighlightCard/, "Public Highlights page should render saved highlights");
 mustMatch(functionBody(appJs, "handleGameActionClick"), /gameAction === "highlights"[\s\S]*openGameHighlights\(gameId\)/, "Completed game highlight buttons should open the modal");
 
 mustMatch(supabaseStorageJs, /function fetchHighlights/, "Supabase storage should fetch highlights");

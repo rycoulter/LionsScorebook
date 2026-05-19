@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.78";
+const APP_VERSION = "v.1.1.79";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -598,9 +598,44 @@ const VISITOR_ID_STORAGE_KEY = "oakmont-lions-visitor-id-v1";
 const VISIT_SESSION_ID_STORAGE_KEY = "oakmont-lions-visit-session-id-v1";
 const VISIT_RECORDED_STORAGE_KEY = "oakmont-lions-visit-recorded-v1";
 const SITE_VISIT_SUMMARY_REFRESH_MS = 5 * 60 * 1000;
-const PUBLIC_TAB_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "archive"]);
-const PUBLIC_READ_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "archive", "scorebook", "boxscore"]);
+const PUBLIC_TAB_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "highlights", "archive"]);
+const PUBLIC_READ_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "highlights", "archive", "scorebook", "boxscore"]);
 const ADMIN_TAB_VIEWS = new Set(["home", "news", "standings", "newsEditor", "score", "games", "lineup", "roster", "stats", "highlights", "scouting", "archive", "analysis"]);
+const VIEW_ROUTES = {
+  home: "/",
+  news: "/news",
+  standings: "/standings",
+  games: "/schedule",
+  roster: "/roster",
+  stats: "/stats",
+  highlights: "/highlights",
+  archive: "/archive",
+  scorebook: "/scorebook",
+  boxscore: "/boxscore",
+  score: "/score-game"
+};
+const ROUTE_VIEW_ALIASES = {
+  "/": "home",
+  "/home": "home",
+  "/team-news": "news",
+  "/news": "news",
+  "/standings": "standings",
+  "/schedule": "games",
+  "/schedule-and-scores": "games",
+  "/games": "games",
+  "/roster": "roster",
+  "/stats": "stats",
+  "/statistics": "stats",
+  "/highlights": "highlights",
+  "/game-highlights": "highlights",
+  "/archive": "archive",
+  "/game-archive": "archive",
+  "/scorebook": "scorebook",
+  "/boxscore": "boxscore",
+  "/box-score": "boxscore",
+  "/score-game": "score",
+  "/score": "score"
+};
 const supabaseStorage = window.ScorebookSupabaseStorage || null;
 
 const FIELD_LOCATIONS = [
@@ -1215,6 +1250,9 @@ const els = {
   statEditSprayMarkers: document.getElementById("statEditSprayMarkers"),
   statEditSprayList: document.getElementById("statEditSprayList"),
   statEditSprayModeButtons: [...document.querySelectorAll("[data-stat-edit-spray-mode]")],
+  publicHighlightsGrid: document.getElementById("publicHighlightsGrid"),
+  publicHighlightsStatus: document.getElementById("publicHighlightsStatus"),
+  highlightsAdminTools: document.getElementById("highlightsAdminTools"),
   highlightsGameSelect: document.getElementById("highlightsGameSelect"),
   highlightUrlInput: document.getElementById("highlightUrlInput"),
   highlightTitleInput: document.getElementById("highlightTitleInput"),
@@ -1354,6 +1392,7 @@ async function initializeScorebookApp() {
     console.warn("Unable to finish IndexedDB startup before app boot; continuing with available local state.", error);
   }
   state = loadState();
+  const initialRouteView = routeViewFromLocation();
   nabaRosterCache = normalizeNabaRosterCache(window.ScorebookNabaRostersCache);
   populateFieldLocationSelects();
   populateOpponentSelect();
@@ -1362,6 +1401,7 @@ async function initializeScorebookApp() {
   initializeScoutingReport();
   restoreActiveGamePendingScoringState();
   render();
+  switchView(initialRouteView, { replaceRoute: true });
   initializeSiteVisitTracking();
   bootstrapSupabaseState();
   initializeSupabaseAuth();
@@ -3822,6 +3862,53 @@ function visibleTabViews() {
   return isAdminMode() ? ADMIN_TAB_VIEWS : PUBLIC_TAB_VIEWS;
 }
 
+function browserRoutingEnabled() {
+  if (typeof window === "undefined" || !window.history?.pushState) return false;
+  return window.location.protocol === "http:" || window.location.protocol === "https:";
+}
+
+function normalizeRoutePath(path = "") {
+  let normalized = String(path || "/").trim();
+  if (!normalized) return "/";
+  try {
+    normalized = decodeURIComponent(normalized);
+  } catch (error) {
+    // Keep the raw path if a copied URL contains a malformed escape sequence.
+  }
+  normalized = normalized.split("?")[0].split("#")[0].replace(/\/+/g, "/");
+  if (!normalized.startsWith("/")) normalized = `/${normalized}`;
+  if (normalized.length > 1) normalized = normalized.replace(/\/+$/, "");
+  if (normalized.toLowerCase().endsWith("/index.html")) {
+    normalized = normalized.slice(0, -"/index.html".length) || "/";
+  }
+  return normalized.toLowerCase() || "/";
+}
+
+function routeViewFromLocation(locationObject = window.location) {
+  if (!locationObject) return "home";
+  const params = new URLSearchParams(locationObject.search || "");
+  const routedPath = params.get("route") || "";
+  const hashPath = String(locationObject.hash || "").replace(/^#\/?/, "");
+  const path = routedPath || (hashPath ? `/${hashPath}` : locationObject.pathname || "/");
+  return ROUTE_VIEW_ALIASES[normalizeRoutePath(path)] || "home";
+}
+
+function updateBrowserRouteForView(view, options = {}) {
+  if (!browserRoutingEnabled()) return;
+  const route = VIEW_ROUTES[view];
+  if (!route) return;
+  const currentRoute = normalizeRoutePath(window.location.pathname || "/");
+  const currentParams = new URLSearchParams(window.location.search || "");
+  const routeParam = currentParams.get("route");
+  if (!routeParam && currentRoute === normalizeRoutePath(route)) return;
+  const method = options.replace ? "replaceState" : "pushState";
+  try {
+    window.history[method]({ view }, "", route);
+  } catch (error) {
+    console.warn("Unable to update browser route.", error);
+  }
+}
+
 function openAdminAuthModal(message = "Sign in with your Supabase admin account to unlock scoring and editing.") {
   if (!els.adminAuthModal) return;
   if (els.adminAuthMessage) els.adminAuthMessage.textContent = message;
@@ -4104,6 +4191,9 @@ function bindEvents() {
   });
   els.mobileBottomNavTabs.forEach((tab) => {
     tab.addEventListener("click", () => switchView(tab.dataset.view));
+  });
+  window.addEventListener("popstate", () => {
+    switchView(routeViewFromLocation(), { updateRoute: false });
   });
   els.accountMenuBtn?.addEventListener("click", () => {
     if (!isAdminMode()) {
@@ -5027,7 +5117,8 @@ window.addEventListener("resize", () => {
   });
 }
 
-function switchView(view) {
+function switchView(view, options = {}) {
+  const { updateRoute = true, replaceRoute = false } = options;
   const previousView = currentView;
   let nextView = view;
   if (!canAccessView(nextView)) {
@@ -5046,6 +5137,7 @@ function switchView(view) {
     tab.classList.toggle("is-active", tab.dataset.view === nextView);
   });
   els.views.forEach((panel) => panel.classList.toggle("is-visible", panel.dataset.panel === nextView));
+  if (updateRoute) updateBrowserRouteForView(nextView, { replace: replaceRoute });
   if (nextView === "standings") refreshScoutingData({ silent: true });
   if (previousView !== nextView) {
     requestAnimationFrame(() => {
@@ -8137,6 +8229,7 @@ function render() {
   renderGameSummary();
   renderSeasonStats();
   renderLeaders();
+  renderHighlightsPage();
   renderHighlightsManager();
   renderGameHighlightsModal();
   renderLineupBuilder();
@@ -13881,6 +13974,40 @@ function renderHighlightEmbed(highlight) {
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       allowfullscreen></iframe>
   </div>`;
+}
+
+function renderHighlightsPage() {
+  if (els.highlightsAdminTools) els.highlightsAdminTools.hidden = !isAdminMode();
+  if (!els.publicHighlightsGrid) return;
+  const highlights = normalizeHighlights(state.highlights || [], state.games)
+    .sort(sortHighlightsNewestFirst);
+  if (els.publicHighlightsStatus) {
+    els.publicHighlightsStatus.textContent = highlights.length
+      ? `${highlights.length} saved ${highlights.length === 1 ? "highlight" : "highlights"}`
+      : "No highlights saved yet.";
+  }
+  els.publicHighlightsGrid.innerHTML = highlights.length
+    ? highlights.map(renderPublicHighlightCard).join("")
+    : `<article class="empty-card public-highlights-empty">
+        <h3>No game highlights yet</h3>
+        <p class="player-meta">Completed game clips will appear here after an admin adds YouTube highlight links.</p>
+      </article>`;
+}
+
+function renderPublicHighlightCard(highlight) {
+  const game = state.games.find((item) => item.id === highlight.gameId);
+  const tag = highlightTagText(highlight);
+  const gameLabel = game ? gameMatchupLabel(game) : "Oakmont Lions";
+  const dateLabel = game ? formatGameDateWithYear(game.date || "") : "";
+  return `<article class="game-highlight-card public-highlight-card">
+    ${renderHighlightEmbed(highlight)}
+    <div class="game-highlight-copy">
+      <p class="eyebrow">${escapeHtml(dateLabel || "Highlight")}</p>
+      <h3>${escapeHtml(highlight.title || "Game highlight")}</h3>
+      <p class="player-meta">${escapeHtml(gameLabel)}${tag ? ` | ${escapeHtml(tag)}` : ""}</p>
+      ${highlight.description ? `<p>${escapeHtml(highlight.description)}</p>` : ""}
+    </div>
+  </article>`;
 }
 
 function renderHighlightsManager() {
