@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.83";
+const APP_VERSION = "v.1.1.84";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -645,6 +645,7 @@ const HIGHLIGHT_FILTERS = [
   { value: "pitching", label: "Pitching" },
   { value: "defense", label: "Defense" }
 ];
+const DEFAULT_HIGHLIGHT_CATEGORY = "top-plays";
 const supabaseStorage = window.ScorebookSupabaseStorage || null;
 
 const FIELD_LOCATIONS = [
@@ -1272,6 +1273,7 @@ const els = {
   highlightUrlInput: document.getElementById("highlightUrlInput"),
   highlightTitleInput: document.getElementById("highlightTitleInput"),
   highlightDescriptionInput: document.getElementById("highlightDescriptionInput"),
+  highlightCategoryInput: document.getElementById("highlightCategoryInput"),
   highlightInningInput: document.getElementById("highlightInningInput"),
   highlightPlayTypeInput: document.getElementById("highlightPlayTypeInput"),
   highlightPlayersSelect: document.getElementById("highlightPlayersSelect"),
@@ -2332,6 +2334,7 @@ function normalizeHighlight(highlight = {}, games = state?.games || []) {
     youtubeVideoId,
     title: String(highlight.title || "").trim(),
     description: String(highlight.description || "").trim(),
+    category: normalizeHighlightCategory(highlight.category || highlight.highlight_category || ""),
     inning: String(highlight.inning || "").trim(),
     playType: String(highlight.playType || highlight.play_type || "").trim(),
     playerIds,
@@ -4112,6 +4115,7 @@ async function applySupabaseAdminState(user, options = {}) {
       console.warn("Unable to seed Supabase from local scorebook data.", seedError);
     });
   }
+  requestLiveGameSnapshotSync("admin-ready-live-game");
   requestCompletedGameSyncRetry("admin-ready");
   requestLifecycleSupabaseRefresh("admin-ready", { force: true, skipWhenHidden: false });
   recordSiteVisitOnce("admin-ready", { force: true });
@@ -4135,33 +4139,44 @@ async function submitAdminCredentials() {
   }
   setAdminAuthBusy(true);
   if (els.adminAuthMessage) els.adminAuthMessage.textContent = "Signing in...";
-  const { data, error } = await client.auth.signInWithPassword({ email, password });
-  if (error || !data?.user) {
-    if (els.adminAuthMessage) els.adminAuthMessage.textContent = error?.message || "Sign-in failed. Check your email and password.";
-    setAdminAuthBusy(false);
+  try {
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error || !data?.user) {
+      if (els.adminAuthMessage) els.adminAuthMessage.textContent = error?.message || "Sign-in failed. Check your email and password.";
+      els.adminPasswordInput?.focus();
+      els.adminPasswordInput?.select();
+      return;
+    }
+    const granted = await applySupabaseAdminState(data.user, { allowSeed: false, preserveModal: true, allowOfflineCache: true });
+    if (granted && els.adminAuthMessage && !els.adminAuthModal?.hidden) els.adminAuthMessage.textContent = `Signed in as ${data.user.email}.`;
+  } catch (error) {
+    console.warn("Admin sign-in failed.", error);
+    if (els.adminAuthMessage) els.adminAuthMessage.textContent = error?.message || "Sign-in failed. Try again.";
     els.adminPasswordInput?.focus();
     els.adminPasswordInput?.select();
-    return;
+  } finally {
+    setAdminAuthBusy(false);
   }
-  const granted = await applySupabaseAdminState(data.user, { allowSeed: false, preserveModal: true, allowOfflineCache: true });
-  if (granted && els.adminAuthMessage) els.adminAuthMessage.textContent = `Signed in as ${data.user.email}.`;
-  setAdminAuthBusy(false);
 }
 
 async function signOutAdmin() {
   const client = supabaseStorage?.getClient?.();
   pendingAdminView = "";
-  if (!client) {
-    setAccessMode("public");
-    return;
-  }
-  const { error } = await client.auth.signOut({ scope: "local" });
-  if (error) {
+  try {
+    if (client) {
+      const { error } = await client.auth.signOut({ scope: "local" });
+      if (error) console.warn("Supabase sign-out failed.", error);
+    }
+  } catch (error) {
     console.warn("Supabase sign-out failed.", error);
+  } finally {
+    supabaseAdminEmail = "";
+    siteVisitSummary = null;
+    siteVisitSummaryState = "idle";
+    siteVisitSummaryLoadedAt = 0;
+    saveStoredAdminEmail("");
+    setAccessMode("public");
   }
-  supabaseAdminEmail = "";
-  saveStoredAdminEmail("");
-  setAccessMode("public");
 }
 
 async function initializeSupabaseAuth() {
@@ -4218,8 +4233,11 @@ function renderAccessMode() {
     });
   }
   if (els.mobileBottomNavTabs?.length) {
+    const allowedTabs = visibleTabViews();
     els.mobileBottomNavTabs.forEach((tab) => {
-      tab.classList.toggle("is-active", tab.dataset.view === currentView);
+      const visible = allowedTabs.has(tab.dataset.view);
+      tab.hidden = !visible;
+      tab.classList.toggle("is-active", visible && tab.dataset.view === currentView);
     });
   }
 }
@@ -4853,6 +4871,7 @@ function bindEvents() {
     recordSiteVisitOnce("online");
     requestSiteVisitSummaryRefresh("online", { force: true });
     requestCompletedGameSyncRetry("online");
+    requestLiveGameSnapshotSync("online-live-game");
     requestLifecycleSupabaseRefresh("online", { skipWhenHidden: false });
   });
   window.addEventListener("offline", render);
@@ -5190,7 +5209,9 @@ function switchView(view, options = {}) {
     tab.classList.toggle("is-active", visible && tab.dataset.view === nextView);
   });
   els.mobileBottomNavTabs.forEach((tab) => {
-    tab.classList.toggle("is-active", tab.dataset.view === nextView);
+    const visible = allowedTabs.has(tab.dataset.view);
+    tab.hidden = !visible;
+    tab.classList.toggle("is-active", visible && tab.dataset.view === nextView);
   });
   els.views.forEach((panel) => panel.classList.toggle("is-visible", panel.dataset.panel === nextView));
   if (updateRoute) updateBrowserRouteForView(nextView, { replace: replaceRoute });
@@ -14012,11 +14033,7 @@ function highlightPlayerNames(highlight) {
 }
 
 function highlightTagText(highlight) {
-  return [
-    highlight?.inning ? `Inning ${highlight.inning}` : "",
-    highlight?.playType || "",
-    highlightPlayerNames(highlight)
-  ].filter(Boolean).join(" | ");
+  return highlightDisplayTags(highlight).join(" | ");
 }
 
 function renderHighlightEmbed(highlight) {
@@ -14231,13 +14248,35 @@ function highlightDateLabel(highlight) {
 
 function highlightDisplayTags(highlight) {
   return [
+    highlightCategoryLabel(highlightCategory(highlight)),
     highlight?.inning ? `Inning ${highlight.inning}` : "",
     highlight?.playType || "",
     highlightPlayerNames(highlight)
   ].filter(Boolean);
 }
 
+function normalizeHighlightCategory(category = "") {
+  const raw = String(category || "").trim();
+  if (!raw) return "";
+  const normalized = normalizeLocationKey(raw).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  if (HIGHLIGHT_FILTERS.some((filter) => filter.value === normalized && filter.value !== "all")) return normalized;
+  if (["game-recap", "game-recaps", "recap", "recaps"].includes(normalized)) return "game-recaps";
+  if (["walk-off", "walk-offs", "walkoff", "walkoffs"].includes(normalized)) return "walk-offs";
+  if (["top-play", "top-plays", "highlight", "highlights"].includes(normalized)) return "top-plays";
+  if (["player", "player-highlight", "player-highlights"].includes(normalized)) return "player-highlights";
+  if (["pitch", "pitching", "pitcher"].includes(normalized)) return "pitching";
+  if (["defense", "defensive", "fielding", "fielding-gem", "web-gem"].includes(normalized)) return "defense";
+  return "";
+}
+
+function highlightCategoryLabel(category = "") {
+  const normalized = normalizeHighlightCategory(category);
+  return HIGHLIGHT_FILTERS.find((filter) => filter.value === normalized)?.label || "";
+}
+
 function highlightCategory(highlight) {
+  const savedCategory = normalizeHighlightCategory(highlight?.category || "");
+  if (savedCategory) return savedCategory;
   const haystack = normalizeLocationKey([
     highlight?.title,
     highlight?.description,
@@ -14306,6 +14345,7 @@ function resetHighlightForm() {
   if (els.highlightUrlInput) els.highlightUrlInput.value = "";
   if (els.highlightTitleInput) els.highlightTitleInput.value = "";
   if (els.highlightDescriptionInput) els.highlightDescriptionInput.value = "";
+  if (els.highlightCategoryInput) els.highlightCategoryInput.value = DEFAULT_HIGHLIGHT_CATEGORY;
   if (els.highlightInningInput) els.highlightInningInput.value = "";
   if (els.highlightPlayTypeInput) els.highlightPlayTypeInput.value = "";
   if (els.highlightPlayersSelect) [...els.highlightPlayersSelect.options].forEach((option) => { option.selected = false; });
@@ -14322,6 +14362,7 @@ function beginHighlightEdit(highlightId) {
   if (els.highlightUrlInput) els.highlightUrlInput.value = highlight.youtubeUrl || "";
   if (els.highlightTitleInput) els.highlightTitleInput.value = highlight.title || "";
   if (els.highlightDescriptionInput) els.highlightDescriptionInput.value = highlight.description || "";
+  if (els.highlightCategoryInput) els.highlightCategoryInput.value = highlightCategory(highlight);
   if (els.highlightInningInput) els.highlightInningInput.value = highlight.inning || "";
   if (els.highlightPlayTypeInput) els.highlightPlayTypeInput.value = highlight.playType || "";
   if (els.highlightPlayersSelect) {
@@ -14369,6 +14410,7 @@ async function saveHighlightRecord(event) {
     youtubeVideoId,
     title,
     description: els.highlightDescriptionInput?.value || "",
+    category: els.highlightCategoryInput?.value || DEFAULT_HIGHLIGHT_CATEGORY,
     inning: els.highlightInningInput?.value || "",
     playType: els.highlightPlayTypeInput?.value || "",
     playerIds: [...els.highlightPlayersSelect?.selectedOptions || []].map((option) => option.value),

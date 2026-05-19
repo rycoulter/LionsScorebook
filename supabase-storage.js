@@ -83,6 +83,18 @@
       || (table && text.includes(table) && (text.includes("could not find") || text.includes("does not exist")));
   }
 
+  function isMissingColumnError(error, columnName) {
+    if (!error) return false;
+    const text = `${error.code || ""} ${error.message || ""} ${error.details || ""}`.toLowerCase();
+    const column = String(columnName || "").toLowerCase();
+    return Boolean(column) && text.includes(column) && (
+      text.includes("could not find")
+      || text.includes("column")
+      || text.includes("schema cache")
+      || text.includes("pgrst204")
+    );
+  }
+
   function isMissingRoutineError(error, routineName) {
     if (!error) return false;
     const text = `${error.code || ""} ${error.message || ""} ${error.details || ""}`.toLowerCase();
@@ -169,6 +181,7 @@
 
   function highlightFromRow(row) {
     if (!row?.id || !row?.game_id) return null;
+    const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
     const playerIds = Array.isArray(row.player_ids)
       ? row.player_ids.map((id) => String(id || "").trim()).filter(Boolean)
       : [];
@@ -179,6 +192,7 @@
       youtubeVideoId: String(row.youtube_video_id || "").trim(),
       title: String(row.title || "").trim(),
       description: String(row.description || "").trim(),
+      category: String(row.category || metadata.category || metadata.highlight_category || "").trim(),
       inning: String(row.inning || "").trim(),
       playType: String(row.play_type || "").trim(),
       playerIds,
@@ -188,6 +202,7 @@
   }
 
   function buildHighlightRow(highlight) {
+    const category = String(highlight?.category || highlight?.highlight_category || "").trim();
     return {
       id: String(highlight?.id || "").trim(),
       game_id: String(highlight?.gameId || highlight?.game_id || "").trim(),
@@ -195,13 +210,15 @@
       youtube_video_id: String(highlight?.youtubeVideoId || highlight?.youtube_video_id || "").trim(),
       title: String(highlight?.title || "").trim(),
       description: String(highlight?.description || "").trim(),
+      category,
       inning: String(highlight?.inning || "").trim(),
       play_type: String(highlight?.playType || highlight?.play_type || "").trim(),
       player_ids: Array.isArray(highlight?.playerIds)
         ? highlight.playerIds.map((id) => String(id || "").trim()).filter(Boolean)
         : [],
       metadata: {
-        updated_from: "scorebook-app"
+        updated_from: "scorebook-app",
+        category
       }
     };
   }
@@ -597,6 +614,18 @@
       .upsert(row, { onConflict: "id" })
       .select("*")
       .single();
+    if (isMissingColumnError(response.error, "category")) {
+      const { category, ...legacyRow } = row;
+      const retry = await client
+        .from("game_highlights")
+        .upsert(legacyRow, { onConflict: "id" })
+        .select("*")
+        .single();
+      return {
+        ...retry,
+        data: highlightFromRow(retry.data)
+      };
+    }
     if (isMissingTableError(response.error, "game_highlights")) {
       return {
         data: null,
