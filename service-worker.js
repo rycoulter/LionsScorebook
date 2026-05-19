@@ -1,7 +1,8 @@
-const CACHE_NAME = "baseball-scorebook-v1-1-78-build-242";
+const CACHE_NAME = "baseball-scorebook-v1-1-81-build-245";
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
+  "./404.html",
   "./styles.css",
   "./dexie.min.js",
   "./db.js",
@@ -78,8 +79,9 @@ self.addEventListener("fetch", (event) => {
           if (response.ok) {
             const copy = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put("./index.html", copy));
+            return response;
           }
-          return response;
+          return caches.match("./index.html").then((cached) => cached || response);
         })
         .catch(() => caches.match("./index.html"))
     );

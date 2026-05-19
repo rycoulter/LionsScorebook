@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.78";
+const APP_VERSION = "v.1.1.81";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -598,9 +598,151 @@ const VISITOR_ID_STORAGE_KEY = "oakmont-lions-visitor-id-v1";
 const VISIT_SESSION_ID_STORAGE_KEY = "oakmont-lions-visit-session-id-v1";
 const VISIT_RECORDED_STORAGE_KEY = "oakmont-lions-visit-recorded-v1";
 const SITE_VISIT_SUMMARY_REFRESH_MS = 5 * 60 * 1000;
-const PUBLIC_TAB_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "archive"]);
-const PUBLIC_READ_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "archive", "scorebook", "boxscore"]);
+const PUBLIC_TAB_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "highlights", "archive"]);
+const PUBLIC_READ_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "highlights", "archive", "scorebook", "boxscore"]);
 const ADMIN_TAB_VIEWS = new Set(["home", "news", "standings", "newsEditor", "score", "games", "lineup", "roster", "stats", "highlights", "scouting", "archive", "analysis"]);
+const VIEW_ROUTES = {
+  home: "/",
+  news: "/news",
+  standings: "/standings",
+  games: "/schedule",
+  roster: "/roster",
+  stats: "/stats",
+  highlights: "/highlights",
+  archive: "/archive",
+  scorebook: "/scorebook",
+  boxscore: "/boxscore",
+  score: "/score-game"
+};
+const ROUTE_VIEW_ALIASES = {
+  "/": "home",
+  "/home": "home",
+  "/team-news": "news",
+  "/news": "news",
+  "/standings": "standings",
+  "/schedule": "games",
+  "/schedule-and-scores": "games",
+  "/games": "games",
+  "/roster": "roster",
+  "/stats": "stats",
+  "/statistics": "stats",
+  "/highlights": "highlights",
+  "/game-highlights": "highlights",
+  "/archive": "archive",
+  "/game-archive": "archive",
+  "/scorebook": "scorebook",
+  "/boxscore": "boxscore",
+  "/box-score": "boxscore",
+  "/score-game": "score",
+  "/score": "score"
+};
+const HIGHLIGHT_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "game-recaps", label: "Game Recaps" },
+  { value: "walk-offs", label: "Walk-Offs" },
+  { value: "top-plays", label: "Top Plays" },
+  { value: "player-highlights", label: "Player Highlights" },
+  { value: "pitching", label: "Pitching" },
+  { value: "defense", label: "Defense" }
+];
+const MOCK_HIGHLIGHTS = [
+  {
+    id: "mock-highlight-walkoff-bandidos",
+    title: "Lions 4, Bandidos 3 Walk-Off Win Under the Lights",
+    youtubeUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
+    youtubeId: "M7lc1UVf-VE",
+    gameId: "mock-game-bandidos-2026-05-15",
+    opponent: "Bandidos",
+    lionsScore: 4,
+    opponentScore: 3,
+    date: "2026-05-15",
+    category: "walk-offs",
+    tags: ["Walk-Off", "Game Highlights", "Home Win"],
+    description: "A dramatic bottom of the 7th walk-off gives the Lions a huge win against the Bandidos under the lights.",
+    featured: true,
+    published: true
+  },
+  {
+    id: "mock-highlight-devils-rematch",
+    title: "Lions vs Devils - The Rematch",
+    youtubeUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
+    youtubeId: "M7lc1UVf-VE",
+    gameId: "mock-game-devils-2026-05-09",
+    opponent: "Devils",
+    lionsScore: 6,
+    opponentScore: 2,
+    date: "2026-05-09",
+    category: "game-recaps",
+    tags: ["Pitching", "Game Recap", "Rivalry"],
+    description: "Strong pitching and clutch hitting lead to a statement win over our rivals.",
+    featured: false,
+    published: true
+  },
+  {
+    id: "mock-highlight-defense-may",
+    title: "Defensive Gems Compilation",
+    youtubeUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
+    youtubeId: "M7lc1UVf-VE",
+    gameId: "mock-defense-may",
+    opponent: "May 2026",
+    lionsScore: 0,
+    opponentScore: 0,
+    date: "2026-05-12",
+    category: "defense",
+    tags: ["Defense", "Top Plays"],
+    description: "The best defensive plays from the month of May. Web gems, diving stops, and more.",
+    featured: false,
+    published: true
+  },
+  {
+    id: "mock-highlight-rbi-night",
+    title: "Brayden Smith - 3 RBI Night",
+    youtubeUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
+    youtubeId: "M7lc1UVf-VE",
+    gameId: "mock-game-hawks-2026-05-07",
+    opponent: "Hawks",
+    lionsScore: 7,
+    opponentScore: 4,
+    date: "2026-05-07",
+    category: "player-highlights",
+    tags: ["Player Highlights", "Offense"],
+    description: "Brayden comes through with a big night at the plate driving in three.",
+    featured: false,
+    published: true
+  },
+  {
+    id: "mock-highlight-complete-game",
+    title: "Noah Johnson - Complete Game Shutout",
+    youtubeUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
+    youtubeId: "M7lc1UVf-VE",
+    gameId: "mock-game-wolves-2026-05-03",
+    opponent: "Wolves",
+    lionsScore: 5,
+    opponentScore: 0,
+    date: "2026-05-03",
+    category: "pitching",
+    tags: ["Pitching", "Shutout", "Player Highlights"],
+    description: "Noah dominates on the mound with a complete game shutout performance.",
+    featured: false,
+    published: true
+  },
+  {
+    id: "mock-highlight-walkoffs-season",
+    title: "Walk-Offs of the Season So Far",
+    youtubeUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
+    youtubeId: "M7lc1UVf-VE",
+    gameId: "mock-walkoffs-season",
+    opponent: "Season Recap",
+    lionsScore: 0,
+    opponentScore: 0,
+    date: "2026-05-01",
+    category: "top-plays",
+    tags: ["Walk-Off", "Top Plays"],
+    description: "All of our walk-off wins from the first part of the season.",
+    featured: false,
+    published: true
+  }
+];
 const supabaseStorage = window.ScorebookSupabaseStorage || null;
 
 const FIELD_LOCATIONS = [
@@ -638,6 +780,9 @@ let statEditSprays = [];
 let statEditSprayMode = "1B";
 let pitchingStatEditPlayerId = "";
 let pitchingStatEditGameId = "";
+let highlightCategoryFilter = "all";
+let highlightSearchQuery = "";
+let selectedFeaturedHighlightId = "";
 let highlightEditId = "";
 let highlightModalGameId = "";
 let newsEditId = "";
@@ -1215,6 +1360,12 @@ const els = {
   statEditSprayMarkers: document.getElementById("statEditSprayMarkers"),
   statEditSprayList: document.getElementById("statEditSprayList"),
   statEditSprayModeButtons: [...document.querySelectorAll("[data-stat-edit-spray-mode]")],
+  publicHighlightFeatured: document.getElementById("publicHighlightFeatured"),
+  highlightFilterChips: document.getElementById("highlightFilterChips"),
+  highlightSearchInput: document.getElementById("highlightSearchInput"),
+  publicHighlightsGrid: document.getElementById("publicHighlightsGrid"),
+  publicHighlightsStatus: document.getElementById("publicHighlightsStatus"),
+  highlightsAdminTools: document.getElementById("highlightsAdminTools"),
   highlightsGameSelect: document.getElementById("highlightsGameSelect"),
   highlightUrlInput: document.getElementById("highlightUrlInput"),
   highlightTitleInput: document.getElementById("highlightTitleInput"),
@@ -1354,6 +1505,7 @@ async function initializeScorebookApp() {
     console.warn("Unable to finish IndexedDB startup before app boot; continuing with available local state.", error);
   }
   state = loadState();
+  const initialRouteView = routeViewFromLocation();
   nabaRosterCache = normalizeNabaRosterCache(window.ScorebookNabaRostersCache);
   populateFieldLocationSelects();
   populateOpponentSelect();
@@ -1362,6 +1514,7 @@ async function initializeScorebookApp() {
   initializeScoutingReport();
   restoreActiveGamePendingScoringState();
   render();
+  switchView(initialRouteView, { replaceRoute: true });
   initializeSiteVisitTracking();
   bootstrapSupabaseState();
   initializeSupabaseAuth();
@@ -3822,6 +3975,77 @@ function visibleTabViews() {
   return isAdminMode() ? ADMIN_TAB_VIEWS : PUBLIC_TAB_VIEWS;
 }
 
+function browserRoutingEnabled() {
+  if (typeof window === "undefined" || !window.history?.pushState) return false;
+  return window.location.protocol === "http:" || window.location.protocol === "https:";
+}
+
+function deploymentBasePath(locationObject = window.location) {
+  if (!locationObject) return "";
+  const host = String(locationObject.hostname || "").toLowerCase();
+  if (!host.endsWith(".github.io")) return "";
+  const rawPath = String(locationObject.pathname || "/").split("?")[0].split("#")[0];
+  const firstSegment = rawPath.split("/").filter(Boolean)[0] || "";
+  if (!firstSegment) return "";
+  if (ROUTE_VIEW_ALIASES[`/${firstSegment.toLowerCase()}`]) return "";
+  return `/${firstSegment}`;
+}
+
+function normalizeRoutePath(path = "") {
+  let normalized = String(path || "/").trim();
+  if (!normalized) return "/";
+  try {
+    normalized = decodeURIComponent(normalized);
+  } catch (error) {
+    // Keep the raw path if a copied URL contains a malformed escape sequence.
+  }
+  normalized = normalized.split("?")[0].split("#")[0].replace(/\/+/g, "/");
+  if (!normalized.startsWith("/")) normalized = `/${normalized}`;
+  if (normalized.length > 1) normalized = normalized.replace(/\/+$/, "");
+  if (normalized.toLowerCase().endsWith("/index.html")) {
+    normalized = normalized.slice(0, -"/index.html".length) || "/";
+  }
+  return normalized.toLowerCase() || "/";
+}
+
+function routePathWithoutBase(path = "", locationObject = window.location) {
+  const normalizedPath = normalizeRoutePath(path);
+  const base = normalizeRoutePath(deploymentBasePath(locationObject));
+  if (base === "/" || !base) return normalizedPath;
+  if (normalizedPath === base) return "/";
+  if (normalizedPath.startsWith(`${base}/`)) {
+    return normalizeRoutePath(normalizedPath.slice(base.length) || "/");
+  }
+  return normalizedPath;
+}
+
+function routeViewFromLocation(locationObject = window.location) {
+  if (!locationObject) return "home";
+  const params = new URLSearchParams(locationObject.search || "");
+  const routedPath = params.get("route") || "";
+  const hashPath = String(locationObject.hash || "").replace(/^#\/?/, "");
+  const path = routedPath || (hashPath ? `/${hashPath}` : locationObject.pathname || "/");
+  return ROUTE_VIEW_ALIASES[routePathWithoutBase(path, locationObject)] || "home";
+}
+
+function updateBrowserRouteForView(view, options = {}) {
+  if (!browserRoutingEnabled()) return;
+  const route = VIEW_ROUTES[view];
+  if (!route) return;
+  const currentRoute = routePathWithoutBase(window.location.pathname || "/", window.location);
+  const currentParams = new URLSearchParams(window.location.search || "");
+  const routeParam = currentParams.get("route");
+  if (!routeParam && currentRoute === normalizeRoutePath(route)) return;
+  const method = options.replace ? "replaceState" : "pushState";
+  const base = deploymentBasePath(window.location);
+  const routedUrl = `${base}${route}` || "/";
+  try {
+    window.history[method]({ view }, "", routedUrl || "/");
+  } catch (error) {
+    console.warn("Unable to update browser route.", error);
+  }
+}
+
 function openAdminAuthModal(message = "Sign in with your Supabase admin account to unlock scoring and editing.") {
   if (!els.adminAuthModal) return;
   if (els.adminAuthMessage) els.adminAuthMessage.textContent = message;
@@ -4105,6 +4329,9 @@ function bindEvents() {
   els.mobileBottomNavTabs.forEach((tab) => {
     tab.addEventListener("click", () => switchView(tab.dataset.view));
   });
+  window.addEventListener("popstate", () => {
+    switchView(routeViewFromLocation(), { updateRoute: false });
+  });
   els.accountMenuBtn?.addEventListener("click", () => {
     if (!isAdminMode()) {
       openAdminAuthModal();
@@ -4178,6 +4405,23 @@ function bindEvents() {
     newsLayoutMode = "article";
     renderTeamNews();
     els.newsFeaturedStory?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  els.highlightFilterChips?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-highlight-filter]");
+    if (!button) return;
+    highlightCategoryFilter = button.dataset.highlightFilter || "all";
+    renderHighlightsPage();
+  });
+  els.highlightSearchInput?.addEventListener("input", () => {
+    highlightSearchQuery = els.highlightSearchInput.value || "";
+    renderHighlightsPage();
+  });
+  els.publicHighlightsGrid?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-highlight-feature]");
+    if (!button) return;
+    selectedFeaturedHighlightId = button.dataset.highlightFeature || "";
+    renderHighlightsPage();
+    els.publicHighlightFeatured?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
   els.newsEditorForm?.addEventListener("submit", saveNewsArticle);
   els.newsEditorResetBtn?.addEventListener("click", resetNewsEditorForm);
@@ -5027,7 +5271,8 @@ window.addEventListener("resize", () => {
   });
 }
 
-function switchView(view) {
+function switchView(view, options = {}) {
+  const { updateRoute = true, replaceRoute = false } = options;
   const previousView = currentView;
   let nextView = view;
   if (!canAccessView(nextView)) {
@@ -5046,6 +5291,7 @@ function switchView(view) {
     tab.classList.toggle("is-active", tab.dataset.view === nextView);
   });
   els.views.forEach((panel) => panel.classList.toggle("is-visible", panel.dataset.panel === nextView));
+  if (updateRoute) updateBrowserRouteForView(nextView, { replace: replaceRoute });
   if (nextView === "standings") refreshScoutingData({ silent: true });
   if (previousView !== nextView) {
     requestAnimationFrame(() => {
@@ -8137,6 +8383,7 @@ function render() {
   renderGameSummary();
   renderSeasonStats();
   renderLeaders();
+  renderHighlightsPage();
   renderHighlightsManager();
   renderGameHighlightsModal();
   renderLineupBuilder();
@@ -13881,6 +14128,172 @@ function renderHighlightEmbed(highlight) {
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       allowfullscreen></iframe>
   </div>`;
+}
+
+function renderHighlightsPage() {
+  if (els.highlightsAdminTools) els.highlightsAdminTools.hidden = true;
+  if (!els.publicHighlightsGrid) return;
+  if (els.highlightSearchInput && els.highlightSearchInput.value !== highlightSearchQuery) {
+    els.highlightSearchInput.value = highlightSearchQuery;
+  }
+  renderHighlightFilterChips();
+  const allHighlights = highlightSourceData();
+  const highlights = filteredPublicHighlights(allHighlights);
+  const featured = selectedFeaturedHighlight(highlights, allHighlights);
+  if (els.publicHighlightFeatured) {
+    els.publicHighlightFeatured.innerHTML = featured
+      ? renderFeaturedHighlight(featured)
+      : renderHighlightsEmptyState("No featured highlight available", "Published highlights will appear here once they are added.");
+  }
+  if (els.publicHighlightsStatus) {
+    els.publicHighlightsStatus.textContent = highlights.length
+      ? `${highlights.length} ${highlights.length === 1 ? "highlight" : "highlights"} showing`
+      : "No highlights match the current filters.";
+  }
+  els.publicHighlightsGrid.innerHTML = highlights.length
+    ? highlights.map(renderPublicHighlightCard).join("")
+    : renderHighlightsEmptyState("No highlights found", "Try another category or search term.");
+}
+
+function highlightSourceData() {
+  return MOCK_HIGHLIGHTS
+    .filter((highlight) => highlight.published !== false)
+    .sort((left, right) => String(right.date || "").localeCompare(String(left.date || "")));
+}
+
+function filteredPublicHighlights(highlights = highlightSourceData()) {
+  const query = normalizeLocationKey(highlightSearchQuery);
+  return highlights.filter((highlight) => {
+    const categoryMatch = highlightCategoryFilter === "all" || highlight.category === highlightCategoryFilter;
+    const searchMatch = !query || normalizeLocationKey([
+      highlight.title,
+      highlight.opponent,
+      highlight.category,
+      ...(highlight.tags || []),
+      highlight.description
+    ].join(" ")).includes(query);
+    return categoryMatch && searchMatch;
+  });
+}
+
+function selectedFeaturedHighlight(filteredHighlights = [], allHighlights = highlightSourceData()) {
+  const candidatePools = [filteredHighlights, allHighlights];
+  for (const pool of candidatePools) {
+    const selected = selectedFeaturedHighlightId
+      ? pool.find((highlight) => highlight.id === selectedFeaturedHighlightId)
+      : null;
+    if (selected) return selected;
+    const featured = pool.find((highlight) => highlight.featured);
+    if (featured) return featured;
+    if (pool[0]) return pool[0];
+  }
+  return null;
+}
+
+function renderHighlightFilterChips() {
+  if (!els.highlightFilterChips) return;
+  els.highlightFilterChips.innerHTML = HIGHLIGHT_FILTERS.map((filter) => {
+    const active = filter.value === highlightCategoryFilter;
+    return `<button type="button" class="highlight-filter-chip${active ? " is-active" : ""}" data-highlight-filter="${escapeHtml(filter.value)}" aria-pressed="${active ? "true" : "false"}">${escapeHtml(filter.label)}</button>`;
+  }).join("");
+}
+
+function renderFeaturedHighlight(highlight) {
+  const scoreLabel = highlightScoreLabel(highlight);
+  const tags = renderHighlightTags(highlight.tags);
+  const outcome = highlightOutcome(highlight);
+  return `<div class="featured-highlight-media">
+      ${renderHighlightEmbed({
+        title: highlight.title,
+        youtubeUrl: highlight.youtubeUrl,
+        youtubeVideoId: highlight.youtubeId
+      })}
+    </div>
+    <div class="featured-highlight-copy">
+      <p class="eyebrow">Featured Highlight</p>
+      <h3>${escapeHtml(highlight.title)}</h3>
+      <div class="featured-highlight-meta">
+        <span>${escapeHtml(formatGameDateWithYear(highlight.date))}</span>
+        <span>${escapeHtml(scoreLabel)}</span>
+      </div>
+      <div class="highlight-feature-scoreline highlight-feature-scoreline-${escapeHtml(outcome.key)}">
+        <div class="home-recent-result-team home-recent-result-team-lions">
+          <img class="home-recent-result-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.("Lions", "lions") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
+          <strong>Lions</strong>
+        </div>
+        <div class="home-recent-result-score-center">
+          <div class="home-recent-result-score-pair">
+            <strong class="home-recent-result-score home-recent-result-score-lions">${escapeHtml(String(Number(highlight.lionsScore || 0)))}</strong>
+            <span class="home-recent-result-dash">-</span>
+            <strong class="home-recent-result-score home-recent-result-score-opponent">${escapeHtml(String(Number(highlight.opponentScore || 0)))}</strong>
+          </div>
+          <span class="home-recent-result-outcome-pill home-recent-result-outcome-${escapeHtml(outcome.key)}">${escapeHtml(outcome.label)}</span>
+        </div>
+        <div class="home-recent-result-team home-recent-result-team-opponent">
+          <img class="home-recent-result-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.(highlight.opponent, "opponent") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
+          <strong>${escapeHtml(highlight.opponent || "Opponent")}</strong>
+        </div>
+      </div>
+      ${tags}
+      <p>${escapeHtml(highlight.description)}</p>
+      <a class="secondary-action highlight-youtube-link" href="${escapeHtml(highlight.youtubeUrl)}" target="_blank" rel="noopener">Watch on YouTube</a>
+    </div>`;
+}
+
+function highlightOutcome(highlight) {
+  const lions = Number(highlight?.lionsScore || 0);
+  const opponent = Number(highlight?.opponentScore || 0);
+  if (lions > opponent) return { key: "win", label: "Win" };
+  if (lions < opponent) return { key: "loss", label: "Loss" };
+  return { key: "tie", label: "Tie" };
+}
+
+function renderPublicHighlightCard(highlight) {
+  const thumbnail = youtubeThumbnailUrl(highlight.youtubeId);
+  return `<article class="game-highlight-card public-highlight-card">
+    <button type="button" class="highlight-card-media" data-highlight-feature="${escapeHtml(highlight.id)}" aria-label="Feature ${escapeHtml(highlight.title)}">
+      <img src="${escapeHtml(thumbnail)}" alt="" loading="lazy" decoding="async">
+      <span class="highlight-play-overlay" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5L18 12L8 18.5V5.5Z"></path></svg>
+      </span>
+    </button>
+    <div class="game-highlight-copy highlight-card-copy">
+      <h3>${escapeHtml(highlight.title)}</h3>
+      <div class="highlight-card-meta">
+        <span>${escapeHtml(formatGameDateWithYear(highlight.date))}</span>
+        <span>vs ${escapeHtml(highlight.opponent)}</span>
+      </div>
+      <div class="highlight-card-score">
+        <strong>Lions ${escapeHtml(highlight.lionsScore)}</strong>
+        <span>Final</span>
+        <strong>${escapeHtml(highlight.opponent)} ${escapeHtml(highlight.opponentScore)}</strong>
+      </div>
+      <p>${escapeHtml(highlight.description)}</p>
+      ${renderHighlightTags(highlight.tags)}
+    </div>
+  </article>`;
+}
+
+function renderHighlightTags(tags = []) {
+  const visibleTags = Array.isArray(tags) ? tags.filter(Boolean) : [];
+  if (!visibleTags.length) return "";
+  return `<div class="highlight-tags">${visibleTags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div>`;
+}
+
+function renderHighlightsEmptyState(title, body) {
+  return `<article class="empty-card public-highlights-empty">
+    <h3>${escapeHtml(title)}</h3>
+    <p class="player-meta">${escapeHtml(body)}</p>
+  </article>`;
+}
+
+function youtubeThumbnailUrl(youtubeId = "") {
+  const id = String(youtubeId || "").trim();
+  return id ? `https://img.youtube.com/vi/${encodeURIComponent(id)}/hqdefault.jpg` : "assets/backgrounds/lions-no-game-hero.png";
+}
+
+function highlightScoreLabel(highlight) {
+  return `Lions ${Number(highlight?.lionsScore || 0)} - ${Number(highlight?.opponentScore || 0)} ${highlight?.opponent || "Opponent"}`;
 }
 
 function renderHighlightsManager() {
