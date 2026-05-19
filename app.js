@@ -598,8 +598,8 @@ const VISITOR_ID_STORAGE_KEY = "oakmont-lions-visitor-id-v1";
 const VISIT_SESSION_ID_STORAGE_KEY = "oakmont-lions-visit-session-id-v1";
 const VISIT_RECORDED_STORAGE_KEY = "oakmont-lions-visit-recorded-v1";
 const SITE_VISIT_SUMMARY_REFRESH_MS = 5 * 60 * 1000;
-const PUBLIC_TAB_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "highlights", "archive"]);
-const PUBLIC_READ_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "highlights", "archive", "scorebook", "boxscore"]);
+const PUBLIC_TAB_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "archive"]);
+const PUBLIC_READ_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "archive", "scorebook", "boxscore"]);
 const ADMIN_TAB_VIEWS = new Set(["home", "news", "standings", "newsEditor", "score", "games", "lineup", "roster", "stats", "highlights", "scouting", "archive", "analysis"]);
 const VIEW_ROUTES = {
   home: "/",

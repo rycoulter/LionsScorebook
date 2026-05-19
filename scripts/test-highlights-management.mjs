@@ -21,17 +21,20 @@ function functionBody(source, functionName) {
 }
 
 const publicViews = appJs.match(/const PUBLIC_TAB_VIEWS = new Set\(\[[^\]]+\]\);/)?.[0] || "";
+const publicReadViews = appJs.match(/const PUBLIC_READ_VIEWS = new Set\(\[[^\]]+\]\);/)?.[0] || "";
 const adminViews = appJs.match(/const ADMIN_TAB_VIEWS = new Set\(\[[^\]]+\]\);/)?.[0] || "";
 
 mustMatch(adminViews, /"highlights"/, "Highlights should be an admin tab");
-mustMatch(publicViews, /"highlights"/, "Highlights should be a public tab");
-mustMatch(indexHtml, /<button class="tab" data-view="highlights">[\s\S]*<span class="tab-label">Highlights<\/span><\/button>/, "Public nav should include the Highlights tab");
+assert.doesNotMatch(publicViews, /"highlights"/, "Highlights should be rolled out of the public tab list");
+assert.doesNotMatch(publicReadViews, /"highlights"/, "Direct Highlights routes should require admin access while rolled back");
+mustMatch(indexHtml, /<button class="tab" data-view="highlights" hidden>[\s\S]*<span class="tab-label">Highlights<\/span><\/button>/, "Highlights tab should stay hidden until admin mode");
+mustMatch(indexHtml, /<button class="mobile-bottom-nav-tab" data-view="highlights" type="button" hidden>/, "Mobile Highlights nav should stay hidden while public page is rolled back");
 mustMatch(indexHtml, /id="highlightsView"[\s\S]*data-panel="highlights"/, "Highlights view should be present");
 mustMatch(indexHtml, /id="publicHighlightFeatured"/, "Highlights page should include a featured highlight section");
 mustMatch(indexHtml, /id="highlightFilterChips"/, "Highlights page should include filter chips");
 mustMatch(indexHtml, /id="highlightSearchInput"/, "Highlights page should include a search input");
 mustMatch(indexHtml, /id="publicHighlightsGrid"/, "Highlights page should include a public highlights grid");
-mustMatch(indexHtml, /id="highlightsAdminTools" hidden/, "Admin highlight tools should stay hidden from the public page for now");
+mustMatch(indexHtml, /id="highlightsAdminTools" hidden/, "Admin highlight tools should be hidden by default until admin mode");
 mustMatch(indexHtml, /id="highlightForm"/, "Highlights management form should be present");
 mustMatch(indexHtml, /id="highlightsGameSelect"/, "Highlights form should select a completed game");
 mustMatch(indexHtml, /YouTube URL[\s\S]*id="highlightUrlInput"/, "Highlights form should collect a YouTube URL");
