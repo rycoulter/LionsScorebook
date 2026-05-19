@@ -9,10 +9,40 @@
         var path = window.location.pathname || "/";
         var search = window.location.search || "";
         var hash = window.location.hash || "";
-        var route = path.replace(/\/+$/, "") || "/";
+        var routeRoots = {
+          archive: true,
+          boxscore: true,
+          "box-score": true,
+          games: true,
+          "game-archive": true,
+          "game-highlights": true,
+          highlights: true,
+          home: true,
+          news: true,
+          roster: true,
+          schedule: true,
+          "schedule-and-scores": true,
+          score: true,
+          "score-game": true,
+          scorebook: true,
+          standings: true,
+          statistics: true,
+          stats: true,
+          "team-news": true
+        };
+        var parts = path.split("/").filter(Boolean);
+        var firstPart = (parts[0] || "").toLowerCase();
+        var base = "";
+        var routeParts = parts;
+        if (/\.github\.io$/i.test(window.location.hostname || "") && firstPart && !routeRoots[firstPart]) {
+          base = "/" + parts[0];
+          routeParts = parts.slice(1);
+        }
+        var route = "/" + routeParts.join("/");
+        route = route.replace(/\/+$/, "") || "/";
         var params = new URLSearchParams(search);
         params.set("route", route);
-        window.location.replace("/?" + params.toString() + hash);
+        window.location.replace(base + "/?" + params.toString() + hash);
       }());
     </script>
   </head>

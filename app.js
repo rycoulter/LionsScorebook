@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.79";
+const APP_VERSION = "v.1.1.80";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -3867,6 +3867,17 @@ function browserRoutingEnabled() {
   return window.location.protocol === "http:" || window.location.protocol === "https:";
 }
 
+function deploymentBasePath(locationObject = window.location) {
+  if (!locationObject) return "";
+  const host = String(locationObject.hostname || "").toLowerCase();
+  if (!host.endsWith(".github.io")) return "";
+  const rawPath = String(locationObject.pathname || "/").split("?")[0].split("#")[0];
+  const firstSegment = rawPath.split("/").filter(Boolean)[0] || "";
+  if (!firstSegment) return "";
+  if (ROUTE_VIEW_ALIASES[`/${firstSegment.toLowerCase()}`]) return "";
+  return `/${firstSegment}`;
+}
+
 function normalizeRoutePath(path = "") {
   let normalized = String(path || "/").trim();
   if (!normalized) return "/";
@@ -3884,26 +3895,39 @@ function normalizeRoutePath(path = "") {
   return normalized.toLowerCase() || "/";
 }
 
+function routePathWithoutBase(path = "", locationObject = window.location) {
+  const normalizedPath = normalizeRoutePath(path);
+  const base = normalizeRoutePath(deploymentBasePath(locationObject));
+  if (base === "/" || !base) return normalizedPath;
+  if (normalizedPath === base) return "/";
+  if (normalizedPath.startsWith(`${base}/`)) {
+    return normalizeRoutePath(normalizedPath.slice(base.length) || "/");
+  }
+  return normalizedPath;
+}
+
 function routeViewFromLocation(locationObject = window.location) {
   if (!locationObject) return "home";
   const params = new URLSearchParams(locationObject.search || "");
   const routedPath = params.get("route") || "";
   const hashPath = String(locationObject.hash || "").replace(/^#\/?/, "");
   const path = routedPath || (hashPath ? `/${hashPath}` : locationObject.pathname || "/");
-  return ROUTE_VIEW_ALIASES[normalizeRoutePath(path)] || "home";
+  return ROUTE_VIEW_ALIASES[routePathWithoutBase(path, locationObject)] || "home";
 }
 
 function updateBrowserRouteForView(view, options = {}) {
   if (!browserRoutingEnabled()) return;
   const route = VIEW_ROUTES[view];
   if (!route) return;
-  const currentRoute = normalizeRoutePath(window.location.pathname || "/");
+  const currentRoute = routePathWithoutBase(window.location.pathname || "/", window.location);
   const currentParams = new URLSearchParams(window.location.search || "");
   const routeParam = currentParams.get("route");
   if (!routeParam && currentRoute === normalizeRoutePath(route)) return;
   const method = options.replace ? "replaceState" : "pushState";
+  const base = deploymentBasePath(window.location);
+  const routedUrl = `${base}${route}` || "/";
   try {
-    window.history[method]({ view }, "", route);
+    window.history[method]({ view }, "", routedUrl || "/");
   } catch (error) {
     console.warn("Unable to update browser route.", error);
   }
