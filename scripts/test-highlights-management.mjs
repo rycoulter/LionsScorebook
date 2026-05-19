@@ -42,7 +42,7 @@ mustMatch(indexHtml, /id="gameHighlightsModal"/, "Public game highlights modal s
 
 mustMatch(appJs, /highlights:\s*\[\]/, "Seed state should include highlights");
 mustMatch(appJs, /const HIGHLIGHT_FILTERS = \[[\s\S]*Game Recaps[\s\S]*Walk-Offs[\s\S]*Top Plays[\s\S]*Player Highlights[\s\S]*Pitching[\s\S]*Defense/, "Highlights page should define the requested filters");
-mustMatch(appJs, /const MOCK_HIGHLIGHTS = \[[\s\S]*youtubeUrl[\s\S]*youtubeId[\s\S]*lionsScore[\s\S]*opponentScore[\s\S]*featured[\s\S]*published/, "Mock highlights should use the future Supabase-ready shape");
+assert.doesNotMatch(appJs, /const MOCK_HIGHLIGHTS/, "Public highlights should not render mock/example data");
 mustMatch(appJs, /nextState\.highlights = normalizeHighlights\(nextState\.highlights, nextState\.games\)/, "State normalization should normalize highlights");
 mustMatch(appJs, /fetchBootstrap\(\)[\s\S]*data\.highlights/, "Supabase bootstrap should merge highlight rows");
 mustMatch(appJs, /remoteBootstrap\.data\.highlights/, "Sync baseline should merge highlight rows");
@@ -64,7 +64,9 @@ mustMatch(deleteBody, /supabaseStorage\.deleteHighlight\(highlight\.id\)/, "Dele
 
 mustMatch(functionBody(appJs, "youtubeEmbedUrl"), /youtube\.com\/embed/, "Highlights should render embedded YouTube players");
 mustMatch(functionBody(appJs, "renderHighlightEmbed"), /<iframe/, "Highlight cards should include an iframe embed");
-mustMatch(functionBody(appJs, "renderHighlightsPage"), /highlightsAdminTools[\s\S]*hidden = true/, "Admin highlight tools should stay out of the read-only page");
+mustMatch(functionBody(appJs, "renderHighlightsPage"), /highlightsAdminTools[\s\S]*hidden = !isAdminMode\(\)/, "Admin highlight tools should show in admin mode");
+mustMatch(functionBody(appJs, "highlightSourceData"), /normalizeHighlights\(state\.highlights \|\| \[\], state\.games\)/, "Public Highlights page should use saved highlight records");
+mustMatch(functionBody(appJs, "highlightSourceData"), /gameIsFinal\(game\)/, "Public Highlights page should only show highlights tied to completed games");
 mustMatch(functionBody(appJs, "renderHighlightsPage"), /publicHighlightFeatured[\s\S]*renderFeaturedHighlight/, "Public Highlights page should render a featured highlight");
 mustMatch(functionBody(appJs, "renderHighlightsPage"), /publicHighlightsGrid[\s\S]*renderPublicHighlightCard/, "Public Highlights page should render highlight cards");
 mustMatch(functionBody(appJs, "filteredPublicHighlights"), /highlightSearchQuery[\s\S]*highlightCategoryFilter/, "Highlights page should filter by category and search query");

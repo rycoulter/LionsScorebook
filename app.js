@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.81";
+const APP_VERSION = "v.1.1.83";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -644,104 +644,6 @@ const HIGHLIGHT_FILTERS = [
   { value: "player-highlights", label: "Player Highlights" },
   { value: "pitching", label: "Pitching" },
   { value: "defense", label: "Defense" }
-];
-const MOCK_HIGHLIGHTS = [
-  {
-    id: "mock-highlight-walkoff-bandidos",
-    title: "Lions 4, Bandidos 3 Walk-Off Win Under the Lights",
-    youtubeUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
-    youtubeId: "M7lc1UVf-VE",
-    gameId: "mock-game-bandidos-2026-05-15",
-    opponent: "Bandidos",
-    lionsScore: 4,
-    opponentScore: 3,
-    date: "2026-05-15",
-    category: "walk-offs",
-    tags: ["Walk-Off", "Game Highlights", "Home Win"],
-    description: "A dramatic bottom of the 7th walk-off gives the Lions a huge win against the Bandidos under the lights.",
-    featured: true,
-    published: true
-  },
-  {
-    id: "mock-highlight-devils-rematch",
-    title: "Lions vs Devils - The Rematch",
-    youtubeUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
-    youtubeId: "M7lc1UVf-VE",
-    gameId: "mock-game-devils-2026-05-09",
-    opponent: "Devils",
-    lionsScore: 6,
-    opponentScore: 2,
-    date: "2026-05-09",
-    category: "game-recaps",
-    tags: ["Pitching", "Game Recap", "Rivalry"],
-    description: "Strong pitching and clutch hitting lead to a statement win over our rivals.",
-    featured: false,
-    published: true
-  },
-  {
-    id: "mock-highlight-defense-may",
-    title: "Defensive Gems Compilation",
-    youtubeUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
-    youtubeId: "M7lc1UVf-VE",
-    gameId: "mock-defense-may",
-    opponent: "May 2026",
-    lionsScore: 0,
-    opponentScore: 0,
-    date: "2026-05-12",
-    category: "defense",
-    tags: ["Defense", "Top Plays"],
-    description: "The best defensive plays from the month of May. Web gems, diving stops, and more.",
-    featured: false,
-    published: true
-  },
-  {
-    id: "mock-highlight-rbi-night",
-    title: "Brayden Smith - 3 RBI Night",
-    youtubeUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
-    youtubeId: "M7lc1UVf-VE",
-    gameId: "mock-game-hawks-2026-05-07",
-    opponent: "Hawks",
-    lionsScore: 7,
-    opponentScore: 4,
-    date: "2026-05-07",
-    category: "player-highlights",
-    tags: ["Player Highlights", "Offense"],
-    description: "Brayden comes through with a big night at the plate driving in three.",
-    featured: false,
-    published: true
-  },
-  {
-    id: "mock-highlight-complete-game",
-    title: "Noah Johnson - Complete Game Shutout",
-    youtubeUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
-    youtubeId: "M7lc1UVf-VE",
-    gameId: "mock-game-wolves-2026-05-03",
-    opponent: "Wolves",
-    lionsScore: 5,
-    opponentScore: 0,
-    date: "2026-05-03",
-    category: "pitching",
-    tags: ["Pitching", "Shutout", "Player Highlights"],
-    description: "Noah dominates on the mound with a complete game shutout performance.",
-    featured: false,
-    published: true
-  },
-  {
-    id: "mock-highlight-walkoffs-season",
-    title: "Walk-Offs of the Season So Far",
-    youtubeUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
-    youtubeId: "M7lc1UVf-VE",
-    gameId: "mock-walkoffs-season",
-    opponent: "Season Recap",
-    lionsScore: 0,
-    opponentScore: 0,
-    date: "2026-05-01",
-    category: "top-plays",
-    tags: ["Walk-Off", "Top Plays"],
-    description: "All of our walk-off wins from the first part of the season.",
-    featured: false,
-    published: true
-  }
 ];
 const supabaseStorage = window.ScorebookSupabaseStorage || null;
 
@@ -14131,7 +14033,7 @@ function renderHighlightEmbed(highlight) {
 }
 
 function renderHighlightsPage() {
-  if (els.highlightsAdminTools) els.highlightsAdminTools.hidden = true;
+  if (els.highlightsAdminTools) els.highlightsAdminTools.hidden = !isAdminMode();
   if (!els.publicHighlightsGrid) return;
   if (els.highlightSearchInput && els.highlightSearchInput.value !== highlightSearchQuery) {
     els.highlightSearchInput.value = highlightSearchQuery;
@@ -14148,29 +14050,38 @@ function renderHighlightsPage() {
   if (els.publicHighlightsStatus) {
     els.publicHighlightsStatus.textContent = highlights.length
       ? `${highlights.length} ${highlights.length === 1 ? "highlight" : "highlights"} showing`
-      : "No highlights match the current filters.";
+      : allHighlights.length ? "No highlights match the current filters." : "No saved highlights yet.";
   }
   els.publicHighlightsGrid.innerHTML = highlights.length
     ? highlights.map(renderPublicHighlightCard).join("")
-    : renderHighlightsEmptyState("No highlights found", "Try another category or search term.");
+    : renderHighlightsEmptyState(
+        allHighlights.length ? "No highlights found" : "No game highlights yet",
+        allHighlights.length ? "Try another category or search term." : "Saved YouTube highlights from completed games will appear here."
+      );
 }
 
 function highlightSourceData() {
-  return MOCK_HIGHLIGHTS
-    .filter((highlight) => highlight.published !== false)
-    .sort((left, right) => String(right.date || "").localeCompare(String(left.date || "")));
+  return normalizeHighlights(state.highlights || [], state.games)
+    .filter((highlight) => {
+      const game = highlightGame(highlight);
+      return game && gameIsFinal(game);
+    })
+    .sort(sortHighlightsNewestFirst);
 }
 
 function filteredPublicHighlights(highlights = highlightSourceData()) {
   const query = normalizeLocationKey(highlightSearchQuery);
   return highlights.filter((highlight) => {
-    const categoryMatch = highlightCategoryFilter === "all" || highlight.category === highlightCategoryFilter;
+    const tags = highlightDisplayTags(highlight);
+    const category = highlightCategory(highlight);
+    const categoryMatch = highlightCategoryFilter === "all" || category === highlightCategoryFilter;
     const searchMatch = !query || normalizeLocationKey([
       highlight.title,
-      highlight.opponent,
-      highlight.category,
-      ...(highlight.tags || []),
-      highlight.description
+      highlightOpponentName(highlight),
+      category,
+      highlight.playType,
+      highlight.description,
+      ...tags
     ].join(" ")).includes(query);
     return categoryMatch && searchMatch;
   });
@@ -14200,20 +14111,20 @@ function renderHighlightFilterChips() {
 
 function renderFeaturedHighlight(highlight) {
   const scoreLabel = highlightScoreLabel(highlight);
-  const tags = renderHighlightTags(highlight.tags);
+  const tags = renderHighlightTags(highlightDisplayTags(highlight));
   const outcome = highlightOutcome(highlight);
   return `<div class="featured-highlight-media">
       ${renderHighlightEmbed({
         title: highlight.title,
         youtubeUrl: highlight.youtubeUrl,
-        youtubeVideoId: highlight.youtubeId
+        youtubeVideoId: highlight.youtubeVideoId
       })}
     </div>
     <div class="featured-highlight-copy">
       <p class="eyebrow">Featured Highlight</p>
       <h3>${escapeHtml(highlight.title)}</h3>
       <div class="featured-highlight-meta">
-        <span>${escapeHtml(formatGameDateWithYear(highlight.date))}</span>
+        <span>${escapeHtml(highlightDateLabel(highlight))}</span>
         <span>${escapeHtml(scoreLabel)}</span>
       </div>
       <div class="highlight-feature-scoreline highlight-feature-scoreline-${escapeHtml(outcome.key)}">
@@ -14223,15 +14134,15 @@ function renderFeaturedHighlight(highlight) {
         </div>
         <div class="home-recent-result-score-center">
           <div class="home-recent-result-score-pair">
-            <strong class="home-recent-result-score home-recent-result-score-lions">${escapeHtml(String(Number(highlight.lionsScore || 0)))}</strong>
+            <strong class="home-recent-result-score home-recent-result-score-lions">${escapeHtml(String(highlightLionsScore(highlight)))}</strong>
             <span class="home-recent-result-dash">-</span>
-            <strong class="home-recent-result-score home-recent-result-score-opponent">${escapeHtml(String(Number(highlight.opponentScore || 0)))}</strong>
+            <strong class="home-recent-result-score home-recent-result-score-opponent">${escapeHtml(String(highlightOpponentScore(highlight)))}</strong>
           </div>
           <span class="home-recent-result-outcome-pill home-recent-result-outcome-${escapeHtml(outcome.key)}">${escapeHtml(outcome.label)}</span>
         </div>
         <div class="home-recent-result-team home-recent-result-team-opponent">
-          <img class="home-recent-result-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.(highlight.opponent, "opponent") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
-          <strong>${escapeHtml(highlight.opponent || "Opponent")}</strong>
+          <img class="home-recent-result-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.(highlightOpponentName(highlight), "opponent") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
+          <strong>${escapeHtml(highlightOpponentName(highlight))}</strong>
         </div>
       </div>
       ${tags}
@@ -14241,15 +14152,15 @@ function renderFeaturedHighlight(highlight) {
 }
 
 function highlightOutcome(highlight) {
-  const lions = Number(highlight?.lionsScore || 0);
-  const opponent = Number(highlight?.opponentScore || 0);
+  const lions = highlightLionsScore(highlight);
+  const opponent = highlightOpponentScore(highlight);
   if (lions > opponent) return { key: "win", label: "Win" };
   if (lions < opponent) return { key: "loss", label: "Loss" };
   return { key: "tie", label: "Tie" };
 }
 
 function renderPublicHighlightCard(highlight) {
-  const thumbnail = youtubeThumbnailUrl(highlight.youtubeId);
+  const thumbnail = youtubeThumbnailUrl(highlight.youtubeVideoId);
   return `<article class="game-highlight-card public-highlight-card">
     <button type="button" class="highlight-card-media" data-highlight-feature="${escapeHtml(highlight.id)}" aria-label="Feature ${escapeHtml(highlight.title)}">
       <img src="${escapeHtml(thumbnail)}" alt="" loading="lazy" decoding="async">
@@ -14260,16 +14171,16 @@ function renderPublicHighlightCard(highlight) {
     <div class="game-highlight-copy highlight-card-copy">
       <h3>${escapeHtml(highlight.title)}</h3>
       <div class="highlight-card-meta">
-        <span>${escapeHtml(formatGameDateWithYear(highlight.date))}</span>
-        <span>vs ${escapeHtml(highlight.opponent)}</span>
+        <span>${escapeHtml(highlightDateLabel(highlight))}</span>
+        <span>vs ${escapeHtml(highlightOpponentName(highlight))}</span>
       </div>
       <div class="highlight-card-score">
-        <strong>Lions ${escapeHtml(highlight.lionsScore)}</strong>
+        <strong>Lions ${escapeHtml(String(highlightLionsScore(highlight)))}</strong>
         <span>Final</span>
-        <strong>${escapeHtml(highlight.opponent)} ${escapeHtml(highlight.opponentScore)}</strong>
+        <strong>${escapeHtml(highlightOpponentName(highlight))} ${escapeHtml(String(highlightOpponentScore(highlight)))}</strong>
       </div>
       <p>${escapeHtml(highlight.description)}</p>
-      ${renderHighlightTags(highlight.tags)}
+      ${renderHighlightTags(highlightDisplayTags(highlight))}
     </div>
   </article>`;
 }
@@ -14293,7 +14204,52 @@ function youtubeThumbnailUrl(youtubeId = "") {
 }
 
 function highlightScoreLabel(highlight) {
-  return `Lions ${Number(highlight?.lionsScore || 0)} - ${Number(highlight?.opponentScore || 0)} ${highlight?.opponent || "Opponent"}`;
+  return `Lions ${highlightLionsScore(highlight)} - ${highlightOpponentScore(highlight)} ${highlightOpponentName(highlight)}`;
+}
+
+function highlightGame(highlight) {
+  return state.games.find((game) => game.id === highlight?.gameId) || null;
+}
+
+function highlightOpponentName(highlight) {
+  const game = highlightGame(highlight);
+  return game ? homeOpponentName(game) : "Opponent";
+}
+
+function highlightLionsScore(highlight) {
+  return Number(highlightGame(highlight)?.score?.lions || 0);
+}
+
+function highlightOpponentScore(highlight) {
+  return Number(highlightGame(highlight)?.score?.opponent || 0);
+}
+
+function highlightDateLabel(highlight) {
+  const game = highlightGame(highlight);
+  return game?.date ? formatGameDateWithYear(game.date) : "Game date TBD";
+}
+
+function highlightDisplayTags(highlight) {
+  return [
+    highlight?.inning ? `Inning ${highlight.inning}` : "",
+    highlight?.playType || "",
+    highlightPlayerNames(highlight)
+  ].filter(Boolean);
+}
+
+function highlightCategory(highlight) {
+  const haystack = normalizeLocationKey([
+    highlight?.title,
+    highlight?.description,
+    highlight?.playType,
+    highlightPlayerNames(highlight)
+  ].filter(Boolean).join(" "));
+  if (haystack.includes("walk off") || haystack.includes("walkoff")) return "walk-offs";
+  if (haystack.includes("pitch") || haystack.includes("strikeout") || haystack.includes("shutout")) return "pitching";
+  if (haystack.includes("defense") || haystack.includes("double play") || haystack.includes("catch") || haystack.includes("web gem")) return "defense";
+  if (haystack.includes("recap")) return "game-recaps";
+  if ((highlight?.playerIds || []).length) return "player-highlights";
+  return "top-plays";
 }
 
 function renderHighlightsManager() {
