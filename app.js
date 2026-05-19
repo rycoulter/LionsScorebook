@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.81";
+const APP_VERSION = "v.1.1.82";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -598,8 +598,8 @@ const VISITOR_ID_STORAGE_KEY = "oakmont-lions-visitor-id-v1";
 const VISIT_SESSION_ID_STORAGE_KEY = "oakmont-lions-visit-session-id-v1";
 const VISIT_RECORDED_STORAGE_KEY = "oakmont-lions-visit-recorded-v1";
 const SITE_VISIT_SUMMARY_REFRESH_MS = 5 * 60 * 1000;
-const PUBLIC_TAB_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "highlights", "archive"]);
-const PUBLIC_READ_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "highlights", "archive", "scorebook", "boxscore"]);
+const PUBLIC_TAB_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "archive"]);
+const PUBLIC_READ_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "archive", "scorebook", "boxscore"]);
 const ADMIN_TAB_VIEWS = new Set(["home", "news", "standings", "newsEditor", "score", "games", "lineup", "roster", "stats", "highlights", "scouting", "archive", "analysis"]);
 const VIEW_ROUTES = {
   home: "/",
@@ -4316,7 +4316,10 @@ function renderAccessMode() {
     });
   }
   if (els.mobileBottomNavTabs?.length) {
+    const allowedTabs = visibleTabViews();
     els.mobileBottomNavTabs.forEach((tab) => {
+      const visible = allowedTabs.has(tab.dataset.view);
+      tab.hidden = !visible;
       tab.classList.toggle("is-active", tab.dataset.view === currentView);
     });
   }
@@ -5288,7 +5291,9 @@ function switchView(view, options = {}) {
     tab.classList.toggle("is-active", visible && tab.dataset.view === nextView);
   });
   els.mobileBottomNavTabs.forEach((tab) => {
-    tab.classList.toggle("is-active", tab.dataset.view === nextView);
+    const visible = allowedTabs.has(tab.dataset.view);
+    tab.hidden = !visible;
+    tab.classList.toggle("is-active", visible && tab.dataset.view === nextView);
   });
   els.views.forEach((panel) => panel.classList.toggle("is-visible", panel.dataset.panel === nextView));
   if (updateRoute) updateBrowserRouteForView(nextView, { replace: replaceRoute });
@@ -14131,7 +14136,7 @@ function renderHighlightEmbed(highlight) {
 }
 
 function renderHighlightsPage() {
-  if (els.highlightsAdminTools) els.highlightsAdminTools.hidden = true;
+  if (els.highlightsAdminTools) els.highlightsAdminTools.hidden = !isAdminMode();
   if (!els.publicHighlightsGrid) return;
   if (els.highlightSearchInput && els.highlightSearchInput.value !== highlightSearchQuery) {
     els.highlightSearchInput.value = highlightSearchQuery;
