@@ -3,24 +3,24 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <link rel="manifest" href="manifest.json?v=2026.05.19-build-244">
-    <link rel="icon" href="favicon.ico?v=2026.05.19-build-244" sizes="any">
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png?v=2026.05.19-build-244">
-    <link rel="icon" type="image/png" sizes="48x48" href="assets/icons/favicon-48.png?v=2026.05.19-build-244">
-    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png?v=2026.05.19-build-244">
+    <link rel="manifest" href="manifest.json?v=2026.05.19-build-245">
+    <link rel="icon" href="favicon.ico?v=2026.05.19-build-245" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png?v=2026.05.19-build-245">
+    <link rel="icon" type="image/png" sizes="48x48" href="assets/icons/favicon-48.png?v=2026.05.19-build-245">
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png?v=2026.05.19-build-245">
     <meta name="theme-color" content="#1f2937">
   <title>Oakmont Lions</title>
     <link rel="preconnect" href="https://images.unsplash.com">
-    <link rel="stylesheet" href="styles.css?v=2026.05.19-build-244">
+    <link rel="stylesheet" href="styles.css?v=2026.05.19-build-245">
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-block">
-          <img src="assets/team-logos/lions-header-mark.png?v=2026.05.19-build-244" alt="" class="brand-logo" width="48" height="48">
+          <img src="assets/team-logos/lions-header-mark.png?v=2026.05.19-build-245" alt="" class="brand-logo" width="48" height="48">
           <div class="brand-copy">
             <h1 class="sr-only">Oakmont Lions</h1>
-            <img src="assets/team-logos/lions-header-wordmark-cropped.png?v=2026.05.19-build-244" alt="" class="brand-wordmark" width="170" height="67" aria-hidden="true">
+            <img src="assets/team-logos/lions-header-wordmark-cropped.png?v=2026.05.19-build-245" alt="" class="brand-wordmark" width="170" height="67" aria-hidden="true">
           </div>
         </div>
         <nav class="tabs" aria-label="Scorebook sections">
@@ -91,7 +91,7 @@
                   </p>
                 </div>
                 <img
-                src="assets/backgrounds/lions-no-game-hero.png?v=2026.05.19-build-244"
+                src="assets/backgrounds/lions-no-game-hero.png?v=2026.05.19-build-245"
                   alt="Oakmont Lions"
                   id="homeMatchupImage"
                   class="home-field-image is-no-game-hero">
@@ -524,7 +524,7 @@
                   </div>
                   <div class="spray-chart" id="sprayChart" role="button" tabindex="0" aria-label="Tap to set batted ball location">
                     <div class="field-layer field-background" aria-hidden="true">
-                      <img class="field-background-art" src="assets/updated-field.png?v=2026.05.19-build-244" alt="" aria-hidden="true">
+                      <img class="field-background-art" src="assets/updated-field.png?v=2026.05.19-build-245" alt="" aria-hidden="true">
                     </div>
                     <div class="field-layer position-marker-layer" aria-hidden="true"></div>
                     <div class="field-layer spray-chart-overlay">
@@ -1345,7 +1345,7 @@
             <div class="stats-spray-feature">
               <div class="stats-spray-preview" aria-hidden="true">
                 <div class="field-layer field-background stats-field-background">
-                  <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.05.19-build-244" alt="" aria-hidden="true">
+                  <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.05.19-build-245" alt="" aria-hidden="true">
                 </div>
                 <span class="stats-spray-preview-dot hit" style="left:18%;top:28%;"></span>
                 <span class="stats-spray-preview-dot hit" style="left:31%;top:18%;"></span>
@@ -1492,17 +1492,33 @@
           </div>
         </section>
 
-        <section class="view" id="highlightsView" data-panel="highlights">
-          <div class="section-head">
+        <section class="view highlights-page" id="highlightsView" data-panel="highlights">
+          <div class="section-head highlights-page-head">
             <div>
-              <p class="eyebrow">Game Highlights</p>
-              <h2>Game Highlights</h2>
-              <p class="player-meta">Watch saved clips from completed Oakmont Lions games.</p>
+              <p class="eyebrow">Highlights</p>
+              <h2>Game highlights</h2>
+              <p class="player-meta">Game recaps, walk-offs, defensive gems, and player moments.</p>
             </div>
-            <span class="player-meta" id="publicHighlightsStatus">No highlights loaded.</span>
           </div>
-          <div class="public-highlights-grid" id="publicHighlightsGrid"></div>
-          <div class="highlights-admin-tools" id="highlightsAdminTools">
+          <section class="public-highlight-featured" id="publicHighlightFeatured" aria-label="Featured highlight"></section>
+          <section class="highlights-library-panel" aria-label="Highlight library">
+            <div class="highlights-controls">
+              <div class="highlight-filter-chips" id="highlightFilterChips" role="list" aria-label="Filter highlights"></div>
+              <label class="highlight-search-wrap">
+                <span class="sr-only">Search highlights</span>
+                <span class="highlight-search-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="6.5"></circle>
+                    <path d="M16 16l4 4"></path>
+                  </svg>
+                </span>
+                <input id="highlightSearchInput" type="search" placeholder="Search highlights..." autocomplete="off">
+              </label>
+            </div>
+            <div class="public-highlights-grid" id="publicHighlightsGrid"></div>
+            <p class="player-meta public-highlights-status" id="publicHighlightsStatus">No highlights loaded.</p>
+          </section>
+          <div class="highlights-admin-tools" id="highlightsAdminTools" hidden>
             <div class="mini-head highlights-admin-head">
               <div>
                 <p class="eyebrow">Admin</p>
@@ -2145,7 +2161,7 @@
           </div>
           <div class="spray-chart stats-spray-chart" id="statsSprayChart" aria-label="Player spray chart">
             <div class="field-layer field-background stats-field-background" aria-hidden="true">
-                <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.05.19-build-244" alt="" aria-hidden="true">
+                <img class="field-background-art stats-field-background-art" src="assets/updated-field.png?v=2026.05.19-build-245" alt="" aria-hidden="true">
             </div>
             <div class="field-layer stats-spray-chart-overlay">
               <div class="spray-markers stats-spray-markers" id="statsSprayMarkers"></div>
@@ -2225,7 +2241,7 @@
             </div>
             <div class="spray-chart stat-edit-spray-chart" id="statEditSprayChart" role="button" tabindex="0" aria-label="Tap to add a spray chart location">
               <div class="field-layer field-background" aria-hidden="true">
-                <img class="field-background-art" src="assets/updated-field.png?v=2026.05.19-build-244" alt="" aria-hidden="true">
+                <img class="field-background-art" src="assets/updated-field.png?v=2026.05.19-build-245" alt="" aria-hidden="true">
               </div>
               <div class="field-layer stats-spray-chart-overlay">
                 <div class="spray-markers stats-spray-markers" id="statEditSprayMarkers"></div>
@@ -2297,16 +2313,16 @@
       </div>
     </div>
 
-    <script src="dexie.min.js?v=2026.05.19-build-244"></script>
-    <script src="db.js?v=2026.05.19-build-244"></script>
-    <script src="storage.js?v=2026.05.19-build-244"></script>
-    <script src="matchup-images.js?v=2026.05.19-build-244"></script>
+    <script src="dexie.min.js?v=2026.05.19-build-245"></script>
+    <script src="db.js?v=2026.05.19-build-245"></script>
+    <script src="storage.js?v=2026.05.19-build-245"></script>
+    <script src="matchup-images.js?v=2026.05.19-build-245"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=2026.05.19-build-244"></script>
-    <script src="supabase-storage.js?v=2026.05.19-build-244"></script>
-    <script src="data/league-standings-cache.js?v=2026.05.19-build-244"></script>
-    <script src="data/naba-rosters-cache.js?v=2026.05.19-build-244"></script>
+    <script src="supabase-config.js?v=2026.05.19-build-245"></script>
+    <script src="supabase-storage.js?v=2026.05.19-build-245"></script>
+    <script src="data/league-standings-cache.js?v=2026.05.19-build-245"></script>
+    <script src="data/naba-rosters-cache.js?v=2026.05.19-build-245"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
-    <script src="app.js?v=2026.05.19-build-244"></script>
+    <script src="app.js?v=2026.05.19-build-245"></script>
   </body>
 </html>

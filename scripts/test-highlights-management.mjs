@@ -27,8 +27,11 @@ mustMatch(adminViews, /"highlights"/, "Highlights should be an admin tab");
 mustMatch(publicViews, /"highlights"/, "Highlights should be a public tab");
 mustMatch(indexHtml, /<button class="tab" data-view="highlights">[\s\S]*<span class="tab-label">Highlights<\/span><\/button>/, "Public nav should include the Highlights tab");
 mustMatch(indexHtml, /id="highlightsView"[\s\S]*data-panel="highlights"/, "Highlights view should be present");
+mustMatch(indexHtml, /id="publicHighlightFeatured"/, "Highlights page should include a featured highlight section");
+mustMatch(indexHtml, /id="highlightFilterChips"/, "Highlights page should include filter chips");
+mustMatch(indexHtml, /id="highlightSearchInput"/, "Highlights page should include a search input");
 mustMatch(indexHtml, /id="publicHighlightsGrid"/, "Highlights page should include a public highlights grid");
-mustMatch(indexHtml, /id="highlightsAdminTools"/, "Highlights page should keep admin management tools isolated");
+mustMatch(indexHtml, /id="highlightsAdminTools" hidden/, "Admin highlight tools should stay hidden from the public page for now");
 mustMatch(indexHtml, /id="highlightForm"/, "Highlights management form should be present");
 mustMatch(indexHtml, /id="highlightsGameSelect"/, "Highlights form should select a completed game");
 mustMatch(indexHtml, /YouTube URL[\s\S]*id="highlightUrlInput"/, "Highlights form should collect a YouTube URL");
@@ -38,6 +41,8 @@ mustMatch(indexHtml, /id="highlightInningInput"[\s\S]*id="highlightPlayTypeInput
 mustMatch(indexHtml, /id="gameHighlightsModal"/, "Public game highlights modal should be present");
 
 mustMatch(appJs, /highlights:\s*\[\]/, "Seed state should include highlights");
+mustMatch(appJs, /const HIGHLIGHT_FILTERS = \[[\s\S]*Game Recaps[\s\S]*Walk-Offs[\s\S]*Top Plays[\s\S]*Player Highlights[\s\S]*Pitching[\s\S]*Defense/, "Highlights page should define the requested filters");
+mustMatch(appJs, /const MOCK_HIGHLIGHTS = \[[\s\S]*youtubeUrl[\s\S]*youtubeId[\s\S]*lionsScore[\s\S]*opponentScore[\s\S]*featured[\s\S]*published/, "Mock highlights should use the future Supabase-ready shape");
 mustMatch(appJs, /nextState\.highlights = normalizeHighlights\(nextState\.highlights, nextState\.games\)/, "State normalization should normalize highlights");
 mustMatch(appJs, /fetchBootstrap\(\)[\s\S]*data\.highlights/, "Supabase bootstrap should merge highlight rows");
 mustMatch(appJs, /remoteBootstrap\.data\.highlights/, "Sync baseline should merge highlight rows");
@@ -59,8 +64,11 @@ mustMatch(deleteBody, /supabaseStorage\.deleteHighlight\(highlight\.id\)/, "Dele
 
 mustMatch(functionBody(appJs, "youtubeEmbedUrl"), /youtube\.com\/embed/, "Highlights should render embedded YouTube players");
 mustMatch(functionBody(appJs, "renderHighlightEmbed"), /<iframe/, "Highlight cards should include an iframe embed");
-mustMatch(functionBody(appJs, "renderHighlightsPage"), /highlightsAdminTools[\s\S]*isAdminMode\(\)/, "Admin highlight tools should only show in admin mode");
-mustMatch(functionBody(appJs, "renderHighlightsPage"), /publicHighlightsGrid[\s\S]*renderPublicHighlightCard/, "Public Highlights page should render saved highlights");
+mustMatch(functionBody(appJs, "renderHighlightsPage"), /highlightsAdminTools[\s\S]*hidden = true/, "Admin highlight tools should stay out of the read-only page");
+mustMatch(functionBody(appJs, "renderHighlightsPage"), /publicHighlightFeatured[\s\S]*renderFeaturedHighlight/, "Public Highlights page should render a featured highlight");
+mustMatch(functionBody(appJs, "renderHighlightsPage"), /publicHighlightsGrid[\s\S]*renderPublicHighlightCard/, "Public Highlights page should render highlight cards");
+mustMatch(functionBody(appJs, "filteredPublicHighlights"), /highlightSearchQuery[\s\S]*highlightCategoryFilter/, "Highlights page should filter by category and search query");
+mustMatch(functionBody(appJs, "renderPublicHighlightCard"), /youtubeThumbnailUrl[\s\S]*data-highlight-feature[\s\S]*highlight-play-overlay/, "Highlight cards should use YouTube thumbnails with a play overlay");
 mustMatch(functionBody(appJs, "handleGameActionClick"), /gameAction === "highlights"[\s\S]*openGameHighlights\(gameId\)/, "Completed game highlight buttons should open the modal");
 
 mustMatch(supabaseStorageJs, /function fetchHighlights/, "Supabase storage should fetch highlights");
