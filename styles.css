@@ -1137,6 +1137,59 @@ textarea:disabled {
   resize: vertical;
 }
 
+.highlight-tag-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.highlight-tag-picker legend {
+  grid-column: 1 / -1;
+  margin-bottom: 2px;
+  color: var(--white);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.highlight-tag-option {
+  position: relative;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.78) !important;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.highlight-tag-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.highlight-tag-option:has(input:checked) {
+  border-color: rgba(245, 189, 33, 0.84);
+  background: rgba(245, 189, 33, 0.16);
+  color: var(--lion-gold) !important;
+}
+
+.highlight-tag-option:focus-within {
+  outline: 2px solid rgba(245, 189, 33, 0.52);
+  outline-offset: 2px;
+}
+
 .highlight-tag-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.45fr) minmax(0, 1fr);

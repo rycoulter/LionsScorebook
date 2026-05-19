@@ -40,7 +40,7 @@ mustMatch(appJs, /window\.addEventListener\("popstate"[\s\S]*switchView\(routeVi
 mustMatch(indexHtml, /data-view="archive"/, "Archive tab should remain available");
 mustMatch(indexHtml, /data-view="highlights"/, "Highlights tab should be available");
 mustMatch(indexHtml, /<button class="tab" data-view="roster">/, "Desktop roster tab should remain available");
-assert.doesNotMatch(mobileBottomNav, /data-view="roster"/, "Roster should be removed from the mobile bottom navigation");
+mustMatch(mobileBottomNav, /data-view="roster"/, "Roster should be available in the mobile bottom navigation");
 mustMatch(notFoundHtml, /params\.set\("route", route\)/, "404 fallback should preserve the requested path as route");
 mustMatch(notFoundHtml, /routeRoots[\s\S]*archive/, "404 fallback should know the public route roots");
 mustMatch(notFoundHtml, /github\\.io[\s\S]*base = "\/" \+ parts\[0\]/, "404 fallback should preserve GitHub Pages project paths");

@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.84";
+const APP_VERSION = "v.1.1.85";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -598,8 +598,8 @@ const VISITOR_ID_STORAGE_KEY = "oakmont-lions-visitor-id-v1";
 const VISIT_SESSION_ID_STORAGE_KEY = "oakmont-lions-visit-session-id-v1";
 const VISIT_RECORDED_STORAGE_KEY = "oakmont-lions-visit-recorded-v1";
 const SITE_VISIT_SUMMARY_REFRESH_MS = 5 * 60 * 1000;
-const PUBLIC_TAB_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "archive"]);
-const PUBLIC_READ_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "archive", "scorebook", "boxscore"]);
+const PUBLIC_TAB_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "highlights", "archive"]);
+const PUBLIC_READ_VIEWS = new Set(["home", "news", "standings", "games", "roster", "stats", "highlights", "archive", "scorebook", "boxscore"]);
 const ADMIN_TAB_VIEWS = new Set(["home", "news", "standings", "newsEditor", "score", "games", "lineup", "roster", "stats", "highlights", "scouting", "archive", "analysis"]);
 const VIEW_ROUTES = {
   home: "/",
@@ -646,6 +646,7 @@ const HIGHLIGHT_FILTERS = [
   { value: "defense", label: "Defense" }
 ];
 const DEFAULT_HIGHLIGHT_CATEGORY = "top-plays";
+const DEFAULT_HIGHLIGHT_CATEGORIES = [DEFAULT_HIGHLIGHT_CATEGORY];
 const supabaseStorage = window.ScorebookSupabaseStorage || null;
 
 const FIELD_LOCATIONS = [
@@ -1273,7 +1274,7 @@ const els = {
   highlightUrlInput: document.getElementById("highlightUrlInput"),
   highlightTitleInput: document.getElementById("highlightTitleInput"),
   highlightDescriptionInput: document.getElementById("highlightDescriptionInput"),
-  highlightCategoryInput: document.getElementById("highlightCategoryInput"),
+  highlightTagInputs: document.querySelectorAll("[data-highlight-tag-input]"),
   highlightInningInput: document.getElementById("highlightInningInput"),
   highlightPlayTypeInput: document.getElementById("highlightPlayTypeInput"),
   highlightPlayersSelect: document.getElementById("highlightPlayersSelect"),
@@ -2327,6 +2328,10 @@ function normalizeHighlight(highlight = {}, games = state?.games || []) {
   const playerIds = Array.isArray(highlight.playerIds || highlight.player_ids)
     ? (highlight.playerIds || highlight.player_ids).map((id) => String(id || "").trim()).filter(Boolean)
     : [];
+  const categories = normalizeHighlightCategories(
+    highlight.categories || highlight.highlight_categories || highlight.tags,
+    highlight.category || highlight.highlight_category || ""
+  );
   return {
     id: String(highlight.id || createId("highlight")).trim(),
     gameId,
@@ -2334,7 +2339,8 @@ function normalizeHighlight(highlight = {}, games = state?.games || []) {
     youtubeVideoId,
     title: String(highlight.title || "").trim(),
     description: String(highlight.description || "").trim(),
-    category: normalizeHighlightCategory(highlight.category || highlight.highlight_category || ""),
+    category: categories[0] || "",
+    categories,
     inning: String(highlight.inning || "").trim(),
     playType: String(highlight.playType || highlight.play_type || "").trim(),
     playerIds,
@@ -14090,12 +14096,13 @@ function filteredPublicHighlights(highlights = highlightSourceData()) {
   const query = normalizeLocationKey(highlightSearchQuery);
   return highlights.filter((highlight) => {
     const tags = highlightDisplayTags(highlight);
-    const category = highlightCategory(highlight);
-    const categoryMatch = highlightCategoryFilter === "all" || category === highlightCategoryFilter;
+    const categories = highlightCategories(highlight);
+    const categoryMatch = highlightCategoryFilter === "all" || categories.includes(highlightCategoryFilter);
     const searchMatch = !query || normalizeLocationKey([
       highlight.title,
       highlightOpponentName(highlight),
-      category,
+      ...categories,
+      ...categories.map(highlightCategoryLabel),
       highlight.playType,
       highlight.description,
       ...tags
@@ -14248,7 +14255,7 @@ function highlightDateLabel(highlight) {
 
 function highlightDisplayTags(highlight) {
   return [
-    highlightCategoryLabel(highlightCategory(highlight)),
+    ...highlightCategories(highlight).map(highlightCategoryLabel),
     highlight?.inning ? `Inning ${highlight.inning}` : "",
     highlight?.playType || "",
     highlightPlayerNames(highlight)
@@ -14274,9 +14281,25 @@ function highlightCategoryLabel(category = "") {
   return HIGHLIGHT_FILTERS.find((filter) => filter.value === normalized)?.label || "";
 }
 
-function highlightCategory(highlight) {
-  const savedCategory = normalizeHighlightCategory(highlight?.category || "");
-  if (savedCategory) return savedCategory;
+function normalizeHighlightCategories(categories = [], fallbackCategory = "") {
+  const source = Array.isArray(categories)
+    ? [...categories]
+    : String(categories || "")
+      .split(/[|,]/)
+      .map((category) => category.trim())
+      .filter(Boolean);
+  if (fallbackCategory) source.unshift(fallbackCategory);
+  const seen = new Set();
+  return source
+    .map(normalizeHighlightCategory)
+    .filter((category) => {
+      if (!category || seen.has(category)) return false;
+      seen.add(category);
+      return true;
+    });
+}
+
+function inferredHighlightCategory(highlight) {
   const haystack = normalizeLocationKey([
     highlight?.title,
     highlight?.description,
@@ -14285,10 +14308,19 @@ function highlightCategory(highlight) {
   ].filter(Boolean).join(" "));
   if (haystack.includes("walk off") || haystack.includes("walkoff")) return "walk-offs";
   if (haystack.includes("pitch") || haystack.includes("strikeout") || haystack.includes("shutout")) return "pitching";
-  if (haystack.includes("defense") || haystack.includes("double play") || haystack.includes("catch") || haystack.includes("web gem")) return "defense";
+  if (haystack.includes("defense") || haystack.includes("fielding") || haystack.includes("double play") || haystack.includes("catch") || haystack.includes("web gem")) return "defense";
   if (haystack.includes("recap")) return "game-recaps";
   if ((highlight?.playerIds || []).length) return "player-highlights";
-  return "top-plays";
+  return DEFAULT_HIGHLIGHT_CATEGORY;
+}
+
+function highlightCategories(highlight) {
+  const savedCategories = normalizeHighlightCategories(highlight?.categories || highlight?.highlight_categories || highlight?.tags, highlight?.category || "");
+  return savedCategories.length ? savedCategories : [inferredHighlightCategory(highlight)];
+}
+
+function highlightCategory(highlight) {
+  return highlightCategories(highlight)[0] || DEFAULT_HIGHLIGHT_CATEGORY;
 }
 
 function renderHighlightsManager() {
@@ -14339,13 +14371,27 @@ function renderHighlightManagerCard(highlight) {
   </article>`;
 }
 
+function selectedHighlightTags() {
+  const tags = [...(els.highlightTagInputs || [])]
+    .filter((input) => input.checked)
+    .map((input) => input.value);
+  return normalizeHighlightCategories(tags, tags.length ? "" : DEFAULT_HIGHLIGHT_CATEGORY);
+}
+
+function setHighlightTagInputs(tags = DEFAULT_HIGHLIGHT_CATEGORIES) {
+  const selected = new Set(normalizeHighlightCategories(tags, tags.length ? "" : DEFAULT_HIGHLIGHT_CATEGORY));
+  [...(els.highlightTagInputs || [])].forEach((input) => {
+    input.checked = selected.has(input.value);
+  });
+}
+
 function resetHighlightForm() {
   highlightEditId = "";
   if (els.highlightFormTitle) els.highlightFormTitle.textContent = "Add Highlight";
   if (els.highlightUrlInput) els.highlightUrlInput.value = "";
   if (els.highlightTitleInput) els.highlightTitleInput.value = "";
   if (els.highlightDescriptionInput) els.highlightDescriptionInput.value = "";
-  if (els.highlightCategoryInput) els.highlightCategoryInput.value = DEFAULT_HIGHLIGHT_CATEGORY;
+  setHighlightTagInputs(DEFAULT_HIGHLIGHT_CATEGORIES);
   if (els.highlightInningInput) els.highlightInningInput.value = "";
   if (els.highlightPlayTypeInput) els.highlightPlayTypeInput.value = "";
   if (els.highlightPlayersSelect) [...els.highlightPlayersSelect.options].forEach((option) => { option.selected = false; });
@@ -14362,7 +14408,7 @@ function beginHighlightEdit(highlightId) {
   if (els.highlightUrlInput) els.highlightUrlInput.value = highlight.youtubeUrl || "";
   if (els.highlightTitleInput) els.highlightTitleInput.value = highlight.title || "";
   if (els.highlightDescriptionInput) els.highlightDescriptionInput.value = highlight.description || "";
-  if (els.highlightCategoryInput) els.highlightCategoryInput.value = highlightCategory(highlight);
+  setHighlightTagInputs(highlightCategories(highlight));
   if (els.highlightInningInput) els.highlightInningInput.value = highlight.inning || "";
   if (els.highlightPlayTypeInput) els.highlightPlayTypeInput.value = highlight.playType || "";
   if (els.highlightPlayersSelect) {
@@ -14410,7 +14456,7 @@ async function saveHighlightRecord(event) {
     youtubeVideoId,
     title,
     description: els.highlightDescriptionInput?.value || "",
-    category: els.highlightCategoryInput?.value || DEFAULT_HIGHLIGHT_CATEGORY,
+    categories: selectedHighlightTags(),
     inning: els.highlightInningInput?.value || "",
     playType: els.highlightPlayTypeInput?.value || "",
     playerIds: [...els.highlightPlayersSelect?.selectedOptions || []].map((option) => option.value),

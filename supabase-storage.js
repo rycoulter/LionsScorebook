@@ -112,6 +112,24 @@
     return Boolean(game && isFinalGameStatus(game.status));
   }
 
+  function normalizeHighlightCategoryList(categories, fallbackCategory = "") {
+    const source = Array.isArray(categories)
+      ? [...categories]
+      : String(categories || "")
+        .split(/[|,]/)
+        .map((category) => category.trim())
+        .filter(Boolean);
+    if (fallbackCategory) source.unshift(fallbackCategory);
+    const seen = new Set();
+    return source
+      .map((category) => String(category || "").trim())
+      .filter((category) => {
+        if (!category || seen.has(category)) return false;
+        seen.add(category);
+        return true;
+      });
+  }
+
   function isPostponedGameData(game) {
     return Boolean(game && game.status === "postponed");
   }
@@ -182,6 +200,7 @@
   function highlightFromRow(row) {
     if (!row?.id || !row?.game_id) return null;
     const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+    const categories = normalizeHighlightCategoryList(row.categories || metadata.categories || metadata.highlight_categories, row.category || metadata.category || metadata.highlight_category || "");
     const playerIds = Array.isArray(row.player_ids)
       ? row.player_ids.map((id) => String(id || "").trim()).filter(Boolean)
       : [];
@@ -192,7 +211,8 @@
       youtubeVideoId: String(row.youtube_video_id || "").trim(),
       title: String(row.title || "").trim(),
       description: String(row.description || "").trim(),
-      category: String(row.category || metadata.category || metadata.highlight_category || "").trim(),
+      category: categories[0] || "",
+      categories,
       inning: String(row.inning || "").trim(),
       playType: String(row.play_type || "").trim(),
       playerIds,
@@ -202,7 +222,8 @@
   }
 
   function buildHighlightRow(highlight) {
-    const category = String(highlight?.category || highlight?.highlight_category || "").trim();
+    const categories = normalizeHighlightCategoryList(highlight?.categories || highlight?.highlight_categories || highlight?.tags, highlight?.category || highlight?.highlight_category || "");
+    const category = categories[0] || "";
     return {
       id: String(highlight?.id || "").trim(),
       game_id: String(highlight?.gameId || highlight?.game_id || "").trim(),
@@ -211,6 +232,7 @@
       title: String(highlight?.title || "").trim(),
       description: String(highlight?.description || "").trim(),
       category,
+      categories,
       inning: String(highlight?.inning || "").trim(),
       play_type: String(highlight?.playType || highlight?.play_type || "").trim(),
       player_ids: Array.isArray(highlight?.playerIds)
@@ -218,7 +240,8 @@
         : [],
       metadata: {
         updated_from: "scorebook-app",
-        category
+        category,
+        categories
       }
     };
   }
@@ -609,22 +632,26 @@
     if (!client) return { data: null, error: new Error("Supabase client not ready.") };
     const row = buildHighlightRow(highlight);
     if (!row.id || !row.game_id) return { data: null, error: new Error("Highlight is missing an id or game id.") };
-    const response = await client
+    let response = await client
       .from("game_highlights")
       .upsert(row, { onConflict: "id" })
       .select("*")
       .single();
-    if (isMissingColumnError(response.error, "category")) {
-      const { category, ...legacyRow } = row;
-      const retry = await client
+    if (isMissingColumnError(response.error, "categories")) {
+      const { categories, ...legacyRow } = row;
+      response = await client
         .from("game_highlights")
         .upsert(legacyRow, { onConflict: "id" })
         .select("*")
         .single();
-      return {
-        ...retry,
-        data: highlightFromRow(retry.data)
-      };
+    }
+    if (isMissingColumnError(response.error, "category")) {
+      const { category, categories, ...legacyRow } = row;
+      response = await client
+        .from("game_highlights")
+        .upsert(legacyRow, { onConflict: "id" })
+        .select("*")
+        .single();
     }
     if (isMissingTableError(response.error, "game_highlights")) {
       return {

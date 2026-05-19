@@ -8,6 +8,7 @@ const appJs = readFileSync(join(rootDir, "app.js"), "utf8");
 const indexHtml = readFileSync(join(rootDir, "index.html"), "utf8");
 const supabaseStorageJs = readFileSync(join(rootDir, "supabase-storage.js"), "utf8");
 const supabaseSchemaSql = readFileSync(join(rootDir, "supabase-schema.sql"), "utf8");
+const highlightTagPicker = indexHtml.match(/id="highlightTagPicker"[\s\S]*?<\/fieldset>/)?.[0] || "";
 
 function mustMatch(source, pattern, label) {
   assert.match(source, pattern, label);
@@ -25,10 +26,10 @@ const publicReadViews = appJs.match(/const PUBLIC_READ_VIEWS = new Set\(\[[^\]]+
 const adminViews = appJs.match(/const ADMIN_TAB_VIEWS = new Set\(\[[^\]]+\]\);/)?.[0] || "";
 
 mustMatch(adminViews, /"highlights"/, "Highlights should be an admin tab");
-assert.doesNotMatch(publicViews, /"highlights"/, "Highlights should be rolled out of the public tab list");
-assert.doesNotMatch(publicReadViews, /"highlights"/, "Direct Highlights routes should require admin access while rolled back");
-mustMatch(indexHtml, /<button class="tab" data-view="highlights" hidden>[\s\S]*<span class="tab-label">Highlights<\/span><\/button>/, "Highlights tab should stay hidden until admin mode");
-mustMatch(indexHtml, /<button class="mobile-bottom-nav-tab" data-view="highlights" type="button" hidden>/, "Mobile Highlights nav should stay hidden while public page is rolled back");
+mustMatch(publicViews, /"highlights"/, "Highlights should be a public tab");
+mustMatch(publicReadViews, /"highlights"/, "Direct Highlights routes should be public");
+mustMatch(indexHtml, /<button class="tab" data-view="highlights">[\s\S]*<span class="tab-label">Highlights<\/span><\/button>/, "Public nav should include the Highlights tab");
+mustMatch(indexHtml, /<button class="mobile-bottom-nav-tab" data-view="highlights" type="button">/, "Mobile nav should include Clips");
 mustMatch(indexHtml, /id="highlightsView"[\s\S]*data-panel="highlights"/, "Highlights view should be present");
 mustMatch(indexHtml, /id="publicHighlightFeatured"/, "Highlights page should include a featured highlight section");
 mustMatch(indexHtml, /id="highlightFilterChips"/, "Highlights page should include filter chips");
@@ -40,7 +41,10 @@ mustMatch(indexHtml, /id="highlightsGameSelect"/, "Highlights form should select
 mustMatch(indexHtml, /YouTube URL[\s\S]*id="highlightUrlInput"/, "Highlights form should collect a YouTube URL");
 mustMatch(indexHtml, /id="highlightTitleInput"/, "Highlights form should collect a title");
 mustMatch(indexHtml, /id="highlightDescriptionInput"/, "Highlights form should collect a description");
-mustMatch(indexHtml, /id="highlightCategoryInput"[\s\S]*game-recaps[\s\S]*walk-offs[\s\S]*top-plays[\s\S]*player-highlights[\s\S]*pitching[\s\S]*defense/, "Highlights form should collect filter-aligned categories");
+mustMatch(highlightTagPicker, /data-highlight-tag-input/, "Highlights form should collect multiple filter-aligned tags");
+for (const tag of ["game-recaps", "walk-offs", "top-plays", "player-highlights", "pitching", "defense"]) {
+  mustMatch(highlightTagPicker, new RegExp(`value="${tag}"`), `Highlights tag picker should include ${tag}`);
+}
 mustMatch(indexHtml, /id="highlightInningInput"[\s\S]*id="highlightPlayTypeInput"[\s\S]*id="highlightPlayersSelect"/, "Highlights form should support optional tags");
 mustMatch(indexHtml, /id="gameHighlightsModal"/, "Public game highlights modal should be present");
 
@@ -61,7 +65,7 @@ mustMatch(saveBody, /requireAdminAccess\("Admin sign-in required to manage highl
 mustMatch(saveBody, /supabaseStorage\.upsertGames\(\[game\]\)/, "Saving highlights should ensure the completed game exists remotely");
 mustMatch(saveBody, /supabaseStorage\.upsertHighlight\(highlight\)/, "Saving highlights should write to the highlight table");
 mustMatch(saveBody, /youtubeVideoIdFromUrl\(youtubeUrl\)/, "Saving highlights should validate YouTube URLs");
-mustMatch(saveBody, /category:\s*els\.highlightCategoryInput\?\.value/, "Saving highlights should persist the selected category");
+mustMatch(saveBody, /categories:\s*selectedHighlightTags\(\)/, "Saving highlights should persist selected tags");
 
 const deleteBody = functionBody(appJs, "deleteHighlightRecord");
 mustMatch(deleteBody, /requireAdminAccess\("Admin sign-in required to delete highlights\."\)/, "Highlight deletes should require admin access in the UI");
@@ -75,20 +79,24 @@ mustMatch(functionBody(appJs, "highlightSourceData"), /gameIsFinal\(game\)/, "Pu
 mustMatch(functionBody(appJs, "renderHighlightsPage"), /publicHighlightFeatured[\s\S]*renderFeaturedHighlight/, "Public Highlights page should render a featured highlight");
 mustMatch(functionBody(appJs, "renderHighlightsPage"), /publicHighlightsGrid[\s\S]*renderPublicHighlightCard/, "Public Highlights page should render highlight cards");
 mustMatch(functionBody(appJs, "filteredPublicHighlights"), /highlightSearchQuery[\s\S]*highlightCategoryFilter/, "Highlights page should filter by category and search query");
-mustMatch(appJs, /function highlightCategory\(highlight\) \{[\s\S]*normalizeHighlightCategory\(highlight\?\.category/, "Highlights filtering should prefer saved categories before text fallbacks");
+mustMatch(functionBody(appJs, "filteredPublicHighlights"), /highlightCategories\(highlight\)[\s\S]*categories\.includes\(highlightCategoryFilter\)/, "Highlights filtering should match any saved tag");
+mustMatch(appJs, /function highlightCategories\(highlight\) \{[\s\S]*normalizeHighlightCategories\(highlight\?\.categories/, "Highlights filtering should prefer saved tags before text fallbacks");
 mustMatch(functionBody(appJs, "renderPublicHighlightCard"), /youtubeThumbnailUrl[\s\S]*data-highlight-feature[\s\S]*highlight-play-overlay/, "Highlight cards should use YouTube thumbnails with a play overlay");
 mustMatch(functionBody(appJs, "handleGameActionClick"), /gameAction === "highlights"[\s\S]*openGameHighlights\(gameId\)/, "Completed game highlight buttons should open the modal");
 
 mustMatch(supabaseStorageJs, /function fetchHighlights/, "Supabase storage should fetch highlights");
 mustMatch(supabaseStorageJs, /\.from\("game_highlights"\)/, "Supabase storage should target game_highlights");
 mustMatch(supabaseStorageJs, /function upsertHighlight/, "Supabase storage should upsert highlight records");
-mustMatch(supabaseStorageJs, /const category = String\(highlight\?\.category/, "Supabase highlight rows should include category");
+mustMatch(supabaseStorageJs, /const categories = normalizeHighlightCategoryList\(highlight\?\.categories/, "Supabase highlight rows should include selected tags");
+mustMatch(supabaseStorageJs, /categories,\s*\n\s*inning:/, "Supabase highlight rows should include multiple categories");
 mustMatch(supabaseStorageJs, /isMissingColumnError\(response\.error, "category"\)/, "Highlight saves should tolerate a stale Supabase schema cache while category is rolling out");
+mustMatch(supabaseStorageJs, /isMissingColumnError\(response\.error, "categories"\)/, "Highlight saves should tolerate a stale Supabase schema cache while tags are rolling out");
 mustMatch(supabaseStorageJs, /function deleteHighlight/, "Supabase storage should delete highlight records");
 mustMatch(supabaseStorageJs, /Supabase game_highlights table is not available to the app/, "Missing highlight table should produce an actionable error");
 
 mustMatch(supabaseSchemaSql, /create table if not exists public\.game_highlights/i, "Schema should create game_highlights");
 mustMatch(supabaseSchemaSql, /category text not null default 'top-plays'/i, "Schema should store a highlight category");
+mustMatch(supabaseSchemaSql, /categories jsonb not null default '\["top-plays"\]'::jsonb/i, "Schema should store multiple highlight tags");
 mustMatch(supabaseSchemaSql, /alter table public\.game_highlights enable row level security/i, "game_highlights should have RLS enabled");
 mustMatch(supabaseSchemaSql, /Public read game_highlights/i, "game_highlights should have a public read policy");
 mustMatch(supabaseSchemaSql, /Authenticated write game_highlights[\s\S]*public\.app_admins/i, "game_highlights writes should be restricted to app admins");
