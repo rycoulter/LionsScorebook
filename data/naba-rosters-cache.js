@@ -1,7 +1,7 @@
 window.ScorebookNabaRostersCache = {
   "season": 2026,
   "sourceLabel": "Pittsburgh NABA rosters",
-  "syncedAt": "2026-05-19T12:27:09.196Z",
+  "syncedAt": "2026-05-20T12:07:30.837Z",
   "teams": [
     {
       "teamName": "Oakmont Lions",
@@ -179,7 +179,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "SS, CF, P, 2B"
         }
       ],
-      "syncedAt": "2026-05-19T12:27:09.196Z"
+      "syncedAt": "2026-05-20T12:07:30.837Z"
     },
     {
       "teamName": "Pittsburgh D2",
@@ -333,7 +333,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "C, P, UTIL."
         }
       ],
-      "syncedAt": "2026-05-19T12:27:09.196Z"
+      "syncedAt": "2026-05-20T12:07:30.837Z"
     },
     {
       "teamName": "BiscuitvilleTownSquare Bandidos",
@@ -495,7 +495,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "LF"
         }
       ],
-      "syncedAt": "2026-05-19T12:27:09.196Z"
+      "syncedAt": "2026-05-20T12:07:30.837Z"
     },
     {
       "teamName": "South Hills Devils",
@@ -689,7 +689,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "1B, P"
         }
       ],
-      "syncedAt": "2026-05-19T12:27:09.196Z"
+      "syncedAt": "2026-05-20T12:07:30.837Z"
     },
     {
       "teamName": "South Oakland Ducks",
@@ -883,7 +883,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "RF, LF, OF"
         }
       ],
-      "syncedAt": "2026-05-19T12:27:09.196Z"
+      "syncedAt": "2026-05-20T12:07:30.837Z"
     },
     {
       "teamName": "South Side Eagles",
@@ -1037,7 +1037,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "P"
         }
       ],
-      "syncedAt": "2026-05-19T12:27:09.196Z"
+      "syncedAt": "2026-05-20T12:07:30.837Z"
     },
     {
       "teamName": "Bauerstown Turtles",
@@ -1183,7 +1183,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "SS, P, LF"
         }
       ],
-      "syncedAt": "2026-05-19T12:27:09.196Z"
+      "syncedAt": "2026-05-20T12:07:30.837Z"
     },
     {
       "teamName": "Keystone Oaks",
@@ -1337,7 +1337,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "3B, SS"
         }
       ],
-      "syncedAt": "2026-05-19T12:27:09.196Z"
+      "syncedAt": "2026-05-20T12:07:30.837Z"
     },
     {
       "teamName": "Butler Buccos",
@@ -1353,6 +1353,14 @@ window.ScorebookNabaRostersCache = {
           "name": "Joe Babusci",
           "number": "",
           "positions": "C, 2B, UTIL., P"
+        },
+        {
+          "id": "butler-buccos-sam-baic",
+          "firstName": "Sam",
+          "lastName": "Baic",
+          "name": "Sam Baic",
+          "number": "24",
+          "positions": "RF, LF, 1B"
         },
         {
           "id": "butler-buccos-spencer-blackburn",
@@ -1379,6 +1387,46 @@ window.ScorebookNabaRostersCache = {
           "positions": "1B, LF, UTIL."
         },
         {
+          "id": "butler-buccos-aj-capizzi",
+          "firstName": "Aj",
+          "lastName": "Capizzi",
+          "name": "Aj Capizzi",
+          "number": "31",
+          "positions": "2B, SS, P"
+        },
+        {
+          "id": "butler-buccos-connor-dague",
+          "firstName": "Connor",
+          "lastName": "Dague",
+          "name": "Connor Dague",
+          "number": "11",
+          "positions": "2B, P, C"
+        },
+        {
+          "id": "butler-buccos-aidan-domencic",
+          "firstName": "Aidan",
+          "lastName": "Domencic",
+          "name": "Aidan Domencic",
+          "number": "87",
+          "positions": "CF, P"
+        },
+        {
+          "id": "butler-buccos-justin-domencic",
+          "firstName": "Justin",
+          "lastName": "Domencic",
+          "name": "Justin Domencic",
+          "number": "58",
+          "positions": "LF, 2B, P"
+        },
+        {
+          "id": "butler-buccos-shayan-farooq",
+          "firstName": "Shayan",
+          "lastName": "Farooq",
+          "name": "Shayan Farooq",
+          "number": "10",
+          "positions": "RF, LF, P"
+        },
+        {
           "id": "butler-buccos-evan-garbowsky",
           "firstName": "Evan",
           "lastName": "Garbowsky",
@@ -1393,6 +1441,22 @@ window.ScorebookNabaRostersCache = {
           "name": "Tim Hohos",
           "number": "",
           "positions": "SS, 2B, P"
+        },
+        {
+          "id": "butler-buccos-jon-mccullough",
+          "firstName": "Jon",
+          "lastName": "Mccullough",
+          "name": "Jon Mccullough",
+          "number": "99",
+          "positions": "3B, SS, SP"
+        },
+        {
+          "id": "butler-buccos-nick-merola",
+          "firstName": "Nick",
+          "lastName": "Merola",
+          "name": "Nick Merola",
+          "number": "3",
+          "positions": "SS, P"
         },
         {
           "id": "butler-buccos-michael-morrone",
@@ -1411,6 +1475,22 @@ window.ScorebookNabaRostersCache = {
           "positions": "SS, P, UTIL."
         },
         {
+          "id": "butler-buccos-ryan-pospistle",
+          "firstName": "Ryan",
+          "lastName": "Pospistle",
+          "name": "Ryan Pospistle",
+          "number": "2",
+          "positions": "LF, RF, P"
+        },
+        {
+          "id": "butler-buccos-josh-probst",
+          "firstName": "Josh",
+          "lastName": "Probst",
+          "name": "Josh Probst",
+          "number": "",
+          "positions": "C, CF, UTIL., OF, LF, RF"
+        },
+        {
           "id": "butler-buccos-domencic-ryan",
           "firstName": "Domencic",
           "lastName": "Ryan",
@@ -1419,15 +1499,55 @@ window.ScorebookNabaRostersCache = {
           "positions": "C, RF, UTIL., 1B"
         },
         {
+          "id": "butler-buccos-zachary-snyder",
+          "firstName": "Zachary",
+          "lastName": "Snyder",
+          "name": "Zachary Snyder",
+          "number": "17",
+          "positions": "3B, 2B, P"
+        },
+        {
+          "id": "butler-buccos-matt-stanick",
+          "firstName": "Matt",
+          "lastName": "Stanick",
+          "name": "Matt Stanick",
+          "number": "34",
+          "positions": "CF, P"
+        },
+        {
+          "id": "butler-buccos-ethan-staudt",
+          "firstName": "Ethan",
+          "lastName": "Staudt",
+          "name": "Ethan Staudt",
+          "number": "8",
+          "positions": "3B, P"
+        },
+        {
           "id": "butler-buccos-ben-tharpe",
           "firstName": "Ben",
           "lastName": "Tharpe",
           "name": "Ben Tharpe",
           "number": "",
           "positions": "P, 1B"
+        },
+        {
+          "id": "butler-buccos-aidan-treu",
+          "firstName": "Aidan",
+          "lastName": "Treu",
+          "name": "Aidan Treu",
+          "number": "",
+          "positions": "C, 2B"
+        },
+        {
+          "id": "butler-buccos-michael-waitlevertch",
+          "firstName": "Michael",
+          "lastName": "Waitlevertch",
+          "name": "Michael Waitlevertch",
+          "number": "31",
+          "positions": "LF, P"
         }
       ],
-      "syncedAt": "2026-05-19T12:27:09.196Z"
+      "syncedAt": "2026-05-20T12:07:30.837Z"
     },
     {
       "teamName": "Ross Raiders",
@@ -1436,7 +1556,7 @@ window.ScorebookNabaRostersCache = {
       "nabaKey": "PITTSBUR-ROSSRAIDERS",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=roster&s=baseball&u=PITTSBUR-ROSSRAIDERS",
       "players": [],
-      "syncedAt": "2026-05-19T12:27:09.196Z"
+      "syncedAt": "2026-05-20T12:07:30.837Z"
     }
   ]
 };
