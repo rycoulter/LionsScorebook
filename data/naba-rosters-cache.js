@@ -1,7 +1,7 @@
 window.ScorebookNabaRostersCache = {
   "season": 2026,
   "sourceLabel": "Pittsburgh NABA rosters",
-  "syncedAt": "2026-05-23T10:53:26.099Z",
+  "syncedAt": "2026-05-25T12:49:20.755Z",
   "teams": [
     {
       "teamName": "Oakmont Lions",
@@ -51,14 +51,6 @@ window.ScorebookNabaRostersCache = {
           "positions": "C, RF, CR"
         },
         {
-          "id": "oakmont-lions-christopher-draxinger",
-          "firstName": "Christopher",
-          "lastName": "Draxinger",
-          "name": "Christopher Draxinger",
-          "number": "50",
-          "positions": "3B, 1B, RP"
-        },
-        {
           "id": "oakmont-lions-raymonn-kennedy",
           "firstName": "Raymonn",
           "lastName": "Kennedy",
@@ -97,14 +89,6 @@ window.ScorebookNabaRostersCache = {
           "name": "Zach Morse",
           "number": "",
           "positions": "SP, OF, DH"
-        },
-        {
-          "id": "oakmont-lions-matt-pace",
-          "firstName": "Matt",
-          "lastName": "Pace",
-          "name": "Matt Pace",
-          "number": "11",
-          "positions": "SP, DH, OF"
         },
         {
           "id": "oakmont-lions-john-patsey",
@@ -179,7 +163,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "SS, CF, P, 2B"
         }
       ],
-      "syncedAt": "2026-05-23T10:53:26.099Z"
+      "syncedAt": "2026-05-25T12:49:20.755Z"
     },
     {
       "teamName": "Pittsburgh D2",
@@ -333,7 +317,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "C, P, UTIL."
         }
       ],
-      "syncedAt": "2026-05-23T10:53:26.099Z"
+      "syncedAt": "2026-05-25T12:49:20.755Z"
     },
     {
       "teamName": "BiscuitvilleTownSquare Bandidos",
@@ -495,7 +479,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "LF"
         }
       ],
-      "syncedAt": "2026-05-23T10:53:26.099Z"
+      "syncedAt": "2026-05-25T12:49:20.755Z"
     },
     {
       "teamName": "South Hills Devils",
@@ -689,7 +673,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "1B, P"
         }
       ],
-      "syncedAt": "2026-05-23T10:53:26.099Z"
+      "syncedAt": "2026-05-25T12:49:20.755Z"
     },
     {
       "teamName": "South Oakland Ducks",
@@ -883,7 +867,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "RF, LF, OF"
         }
       ],
-      "syncedAt": "2026-05-23T10:53:26.099Z"
+      "syncedAt": "2026-05-25T12:49:20.755Z"
     },
     {
       "teamName": "South Side Eagles",
@@ -1037,7 +1021,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "P"
         }
       ],
-      "syncedAt": "2026-05-23T10:53:26.099Z"
+      "syncedAt": "2026-05-25T12:49:20.755Z"
     },
     {
       "teamName": "Bauerstown Turtles",
@@ -1183,7 +1167,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "SS, P, LF"
         }
       ],
-      "syncedAt": "2026-05-23T10:53:26.099Z"
+      "syncedAt": "2026-05-25T12:49:20.755Z"
     },
     {
       "teamName": "Keystone Oaks",
@@ -1337,7 +1321,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "3B, SS"
         }
       ],
-      "syncedAt": "2026-05-23T10:53:26.099Z"
+      "syncedAt": "2026-05-25T12:49:20.755Z"
     },
     {
       "teamName": "Butler Buccos",
@@ -1547,7 +1531,7 @@ window.ScorebookNabaRostersCache = {
           "positions": "LF, P"
         }
       ],
-      "syncedAt": "2026-05-23T10:53:26.099Z"
+      "syncedAt": "2026-05-25T12:49:20.755Z"
     },
     {
       "teamName": "Ross Raiders",
@@ -1556,7 +1540,7 @@ window.ScorebookNabaRostersCache = {
       "nabaKey": "PITTSBUR-ROSSRAIDERS",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=roster&s=baseball&u=PITTSBUR-ROSSRAIDERS",
       "players": [],
-      "syncedAt": "2026-05-23T10:53:26.099Z"
+      "syncedAt": "2026-05-25T12:49:20.755Z"
     }
   ]
 };
