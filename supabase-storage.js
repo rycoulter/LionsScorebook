@@ -109,7 +109,7 @@
   }
 
   function isFinalGameData(game) {
-    return Boolean(game && isFinalGameStatus(game.status));
+    return Boolean(game && (isFinalGameStatus(game.status) || game.quickScored === true));
   }
 
   function normalizeHighlightCategoryList(categories, fallbackCategory = "") {
@@ -190,7 +190,7 @@
       opponent: game.opponent || "Opponent",
       game_date: game.date || null,
       game_time: game.time || "",
-      status: game.status || "scheduled",
+      status: isFinalGameData(game) ? "completed" : game.status || "scheduled",
       lions_side: game.lionsSide || "away",
       is_final: isFinalGameData(game),
       game_data: deepClone(game)

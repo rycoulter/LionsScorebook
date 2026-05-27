@@ -582,7 +582,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.85";
+const APP_VERSION = "v.1.1.86";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -2424,7 +2424,7 @@ function normalizeGame(game, nextState = state) {
     location: location.name,
     locationAddress: location.address,
     notes: game.notes || "",
-    status: game.status || "active",
+    status: game.quickScored === true ? "completed" : game.status || "active",
     lionsSide: normalizedLionsSide,
     teams: teamsForGame(game.opponent || game.teams?.home?.name || "Opponent", normalizedLionsSide),
     lineups: {
@@ -7636,6 +7636,23 @@ function quickScoreInputValue(input) {
   return Math.min(99, Math.max(0, score));
 }
 
+function completeGameLocally(game, options = {}) {
+  if (!game) return;
+  if (game.status === "active") syncGameCurrent(game);
+  game.status = "completed";
+  if (options.scoringSource) game.scoringSource = options.scoringSource;
+  if (options.quickScored) game.quickScored = true;
+  if (!game.completedAt) game.completedAt = new Date().toISOString();
+  game.currentPlateAppearanceId = "";
+  game.atBat = makeAtBat();
+  game.pendingScoring = null;
+  clearPendingPlayState(game, true);
+  markSharedGamesDirty(game.id);
+  markGameSyncPending(game);
+  moveActiveGameOffFinal(game.id);
+  clearLiveGameSnapshotSyncTimer();
+}
+
 function openQuickScoreModal(gameId) {
   if (!requireAdminAccess("Admin sign-in required to enter final scores.")) return;
   const game = state.games.find((item) => item.id === gameId);
@@ -7673,16 +7690,7 @@ async function saveQuickScoreResult(event) {
     opponent: quickScoreInputValue(els.quickScoreOpponentInput)
   };
   syncScoreBySide(game);
-  game.status = "completed";
-  game.scoringSource = "quick-score";
-  game.quickScored = true;
-  game.currentPlateAppearanceId = "";
-  game.atBat = makeAtBat();
-  game.pendingScoring = null;
-  clearPendingPlayState(game, true);
-  markSharedGamesDirty(game.id);
-  markGameSyncPending(game);
-  moveActiveGameOffFinal(game.id);
+  completeGameLocally(game, { scoringSource: "quick-score", quickScored: true });
   closeQuickScoreModal();
   saveStateWithOptions({ markLiveGamesDirty: false });
   render();
@@ -8022,13 +8030,10 @@ function completeScheduledGame(gameId) {
   const game = state.games.find((item) => item.id === gameId);
   if (!game) return;
   if (game.status !== "active") return;
-  game.status = "completed";
-  markSharedGamesDirty(game.id);
-  markGameSyncPending(game);
-  clearPendingPlayState(game, true);
-  moveActiveGameOffFinal(game.id);
+  completeGameLocally(game);
   saveStateWithOptions({ markLiveGamesDirty: false });
   render();
+  requestSharedSnapshotSync("complete-game");
 }
 
 function postponeGame(game, options = {}) {
@@ -8614,7 +8619,7 @@ function seasonRecord() {
 }
 
 function gameIsFinal(game) {
-  return Boolean(game && (game.status === "completed" || game.status === "final"));
+  return Boolean(game && (game.status === "completed" || game.status === "final" || game.quickScored === true));
 }
 
 function gameIsPostponed(game) {

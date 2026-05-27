@@ -4,6 +4,11 @@ Track user-facing changes to the Oakmont Lions baseball scorebook app here.
 
 Add a new dated entry whenever app behavior, UI, scoring logic, storage, PWA assets, or data handling changes. Keep the newest entry at the top.
 
+## 2026-05-27
+
+### Fixed
+- Hardened Quick Score and Mark Final completion so partially scored games publish as completed, clear stale live checkpoint timers, and no longer stay in future/upcoming schedule cards after a final score is entered.
+
 ## 2026-04-23
 
 ### Changed

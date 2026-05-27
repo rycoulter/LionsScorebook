@@ -14,19 +14,22 @@ function functionBody(source, functionName) {
   return nextFunction === -1 ? source.slice(start) : source.slice(start, nextFunction);
 }
 
-const appFinalGuardBody = functionBody(appJs, "remoteFinalGameBlocksLocalSync");
+const appFinalGuardBody = functionBody(appJs, "remoteGameBlocksLocalSync");
 assert.match(appFinalGuardBody, /gameIsFinal\(remoteGame\)[\s\S]*!gameIsFinal\(localGame\)/, "remote final games should block stale local active checkpoints");
 
 const overlayBody = functionBody(appJs, "overlaySessionSharedChanges");
 assert.match(overlayBody, /const remoteGame = mergedGamesById\.get\(gameId\)/, "overlay should inspect the remote/baseline game before applying dirty local games");
-assert.match(overlayBody, /remoteFinalGameBlocksLocalSync\(remoteGame, localGame\)[\s\S]*pendingSharedGameIds\.delete\(gameId\)[\s\S]*return/, "dirty stale active games should be cleared instead of overlaying completed remote games");
+assert.match(overlayBody, /remoteGameBlocksLocalSync\(remoteGame, localGame\)[\s\S]*pendingSharedGameIds\.delete\(gameId\)[\s\S]*return/, "dirty stale active games should be cleared instead of overlaying completed remote games");
 
 const buildGameRowBody = functionBody(supabaseStorageJs, "buildGameRow");
 assert.match(buildGameRowBody, /is_final: isFinalGameData\(game\)/, "completed games should set Supabase is_final even when status is completed");
 
+const shouldUseLocalBody = functionBody(supabaseStorageJs, "shouldUseLocalGameOverRemote");
+assert.match(shouldUseLocalBody, /isFinalGameData\(remoteGame\) && !isFinalGameData\(localGame\)[\s\S]*return false/, "remote completed games should win over local stale active games while merging");
+assert.match(shouldUseLocalBody, /isFinalGameData\(localGame\) && !isFinalGameData\(remoteGame\)[\s\S]*return true/, "local completed games should still win over stale remote active games while merging");
+
 const mergeRemoteBody = functionBody(supabaseStorageJs, "mergeRemoteSnapshot");
-assert.match(mergeRemoteBody, /remoteGame && isFinalGameData\(remoteGame\) && !isFinalGameData\(game\)[\s\S]*mergedGames\.push\(remoteGame\)/, "remote completed games should win over local stale active games while merging");
-assert.match(mergeRemoteBody, /remoteGame && isFinalGameData\(game\) && !isFinalGameData\(remoteGame\)[\s\S]*mergedGames\.push\(game\)/, "local completed games should still win over stale remote active games while merging");
+assert.match(mergeRemoteBody, /shouldUseLocalGameOverRemote\(game, remoteGame\)/, "remote merge should use the shared final/postponed conflict guard");
 
 const upsertGamesBody = functionBody(supabaseStorageJs, "upsertGames");
 assert.match(upsertGamesBody, /\.select\("id,status,is_final,game_data"\)/, "game upserts should inspect existing remote rows before writing");

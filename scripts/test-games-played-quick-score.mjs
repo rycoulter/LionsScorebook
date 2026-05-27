@@ -16,7 +16,7 @@ function functionBody(source, functionName) {
 
 assert.match(
   functionBody(appJs, "saveQuickScoreResult"),
-  /game\.scoringSource = "quick-score";[\s\S]*game\.quickScored = true;/,
+  /completeGameLocally\(game, \{ scoringSource: "quick-score", quickScored: true \}\)/,
   "Quick-scored games should be marked so lineup-only GP is not inferred later"
 );
 assert.match(
