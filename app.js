@@ -308,6 +308,47 @@ const scorebookBaseRunningResults = new Set(["SB", "CS", "PO", "BK"]);
 const statEditSprayResults = ["1B", "2B", "3B", "HR", "GO", "LO", "FO"];
 const statEditSprayResultSet = new Set(statEditSprayResults);
 const statEditSprayHitResults = new Set(["1B", "2B", "3B", "HR"]);
+const bulkHittingStatFields = [
+  { key: "ab", label: "AB" },
+  { key: "h", label: "H" },
+  { key: "singles", label: "1B" },
+  { key: "doubles", label: "2B" },
+  { key: "triples", label: "3B" },
+  { key: "hr", label: "HR" },
+  { key: "bb", label: "BB" },
+  { key: "hbp", label: "HBP" },
+  { key: "k", label: "K" },
+  { key: "roe", label: "ROE" },
+  { key: "errors", label: "E" },
+  { key: "fc", label: "FC" },
+  { key: "sac", label: "SAC" },
+  { key: "dp", label: "DP" },
+  { key: "go", label: "GO" },
+  { key: "lo", label: "LO" },
+  { key: "fo", label: "FO" },
+  { key: "sb", label: "SB" },
+  { key: "cs", label: "CS" },
+  { key: "po", label: "PO" },
+  { key: "rbi", label: "RBI" },
+  { key: "runs", label: "R" },
+  { key: "rispAB", label: "RISP AB" },
+  { key: "rispH", label: "RISP H" }
+];
+const bulkPitchingStatFields = [
+  { key: "ip", label: "IP", type: "text", inputmode: "decimal", placeholder: "0.0" },
+  { key: "pitches", label: "NP" },
+  { key: "balls", label: "Balls" },
+  { key: "strikes", label: "Strikes" },
+  { key: "batters", label: "BF" },
+  { key: "h", label: "H" },
+  { key: "hr", label: "HR" },
+  { key: "runs", label: "R" },
+  { key: "earnedRuns", label: "ER" },
+  { key: "bb", label: "BB" },
+  { key: "hbp", label: "HBP" },
+  { key: "k", label: "K" },
+  { key: "decision", label: "Decision", type: "select" }
+];
 
 const PITTSBURGH_NABA_URL = "https://www.pittsburghnaba.org/teams/default.asp?s=baseball&u=PITTSBURGHNABA";
 const PITTSBURGH_NABA_STANDINGS_URL = "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA";
@@ -582,7 +623,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.86";
+const APP_VERSION = "v.1.1.87";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -684,6 +725,9 @@ let statEditSprays = [];
 let statEditSprayMode = "1B";
 let pitchingStatEditPlayerId = "";
 let pitchingStatEditGameId = "";
+let bulkStatEditGameId = "";
+let bulkStatEditMode = "hitting";
+let reopenBulkStatEditAfterStatModal = false;
 let highlightCategoryFilter = "all";
 let highlightSearchQuery = "";
 let selectedFeaturedHighlightId = "";
@@ -1229,6 +1273,7 @@ const els = {
   mobilePitPlayerSelect: document.getElementById("mobilePitPlayerSelect"),
   mobilePitGameSelect: document.getElementById("mobilePitGameSelect"),
   mobilePitchingStatsList: document.getElementById("mobilePitchingStatsList"),
+  bulkStatEditBtn: document.getElementById("bulkStatEditBtn"),
   recordSummary: document.getElementById("recordSummary"),
   gameEditPanel: document.getElementById("gameEditPanel"),
   gameEditTitle: document.getElementById("gameEditTitle"),
@@ -1248,6 +1293,14 @@ const els = {
   statsSprayPlayerSelect: document.getElementById("statsSprayPlayerSelect"),
   statsSprayGameSelect: document.getElementById("statsSprayGameSelect"),
   statsSprayMarkers: document.getElementById("statsSprayMarkers"),
+  bulkStatEditModal: document.getElementById("bulkStatEditModal"),
+  bulkStatEditGameSelect: document.getElementById("bulkStatEditGameSelect"),
+  bulkStatEditModeTabs: document.getElementById("bulkStatEditModeTabs"),
+  bulkStatEditMeta: document.getElementById("bulkStatEditMeta"),
+  bulkStatEditBody: document.getElementById("bulkStatEditBody"),
+  bulkStatEditForm: document.getElementById("bulkStatEditForm"),
+  bulkStatEditCloseBtn: document.getElementById("bulkStatEditCloseBtn"),
+  bulkStatEditCancelBtn: document.getElementById("bulkStatEditCancelBtn"),
   statEditGameSelectModal: document.getElementById("statEditGameSelectModal"),
   statEditGameSelectTitle: document.getElementById("statEditGameSelectTitle"),
   statEditGameSelectHint: document.getElementById("statEditGameSelectHint"),
@@ -3808,6 +3861,7 @@ function renderLiveSyncStatus(game = activeScoreGame()) {
 }
 
 function loadAccessMode() {
+  if (indexAdminAccessEnabled()) return "admin";
   try {
     return window.localStorage?.getItem(ACCESS_MODE_STORAGE_KEY) === "admin" ? "admin" : "public";
   } catch (error) {
@@ -3822,6 +3876,34 @@ function saveAccessMode() {
   } catch (error) {
     console.warn("Unable to save access mode.", error);
   }
+}
+
+function isProductionSiteHost(hostname = window.location?.hostname) {
+  const host = String(hostname || "").trim().toLowerCase();
+  return host === "oakmontlions.com" || host === "www.oakmontlions.com";
+}
+
+function indexAdminAccessEnabled() {
+  if (typeof window === "undefined") return false;
+  const protocol = String(window.location?.protocol || "").toLowerCase();
+  const host = String(window.location?.hostname || "").trim().toLowerCase();
+  if (isProductionSiteHost(host)) return false;
+  if (protocol === "file:") return true;
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return true;
+  return window.ScorebookSupabase?.environment === "qa";
+}
+
+function normalizeAccessMode(nextMode) {
+  return nextMode === "admin" || indexAdminAccessEnabled() ? "admin" : "public";
+}
+
+function ensureIndexAdminAccess() {
+  if (!indexAdminAccessEnabled()) return false;
+  if (accessMode !== "admin") {
+    accessMode = "admin";
+    saveAccessMode();
+  }
+  return true;
 }
 
 function boxScoreReturnLabel(view = boxScoreReturnView) {
@@ -3875,7 +3957,7 @@ function restoreOfflineTrustedAdminMode() {
 }
 
 function isAdminMode() {
-  return accessMode === "admin";
+  return accessMode === "admin" || indexAdminAccessEnabled();
 }
 
 function canAccessView(view) {
@@ -4003,7 +4085,7 @@ function requireAdminAccess(message = "Admin sign-in required.") {
 }
 
 function setAccessMode(nextMode) {
-  accessMode = nextMode === "admin" ? "admin" : "public";
+  accessMode = normalizeAccessMode(nextMode);
   saveAccessMode();
   if (!canAccessView(currentView)) currentView = "home";
   closeAdminAuthModal();
@@ -4021,6 +4103,12 @@ async function applySupabaseAdminState(user, options = {}) {
     siteVisitSummaryState = "idle";
     siteVisitSummaryLoadedAt = 0;
     saveStoredAdminEmail("");
+    if (ensureIndexAdminAccess()) {
+      if (preserveModal) closeAdminAuthModal();
+      render();
+      switchView(currentView);
+      return true;
+    }
     if (accessMode !== "public") {
       if (preserveModal) {
         accessMode = "public";
@@ -4186,8 +4274,15 @@ async function signOutAdmin() {
 }
 
 async function initializeSupabaseAuth() {
+  ensureIndexAdminAccess();
   const client = supabaseStorage?.getClient?.();
-  if (!client) return;
+  if (!client) {
+    if (indexAdminAccessEnabled()) {
+      render();
+      switchView(currentView);
+    }
+    return;
+  }
   client.auth.onAuthStateChange((event, session) => {
     setTimeout(() => {
       if (event === "SIGNED_OUT") {
@@ -4209,6 +4304,10 @@ async function initializeSupabaseAuth() {
     const sessionUser = data?.session?.user || null;
     if (sessionUser) {
       await applySupabaseAdminState(sessionUser, { allowSeed: false, allowOfflineCache: true });
+    } else if (ensureIndexAdminAccess()) {
+      console.info("Using non-production index admin access.");
+      render();
+      switchView(currentView);
     } else if (restoreOfflineTrustedAdminMode()) {
       console.info("Restored trusted admin mode for offline PWA use.");
     } else if (accessMode !== "public") {
@@ -4220,14 +4319,16 @@ async function initializeSupabaseAuth() {
 }
 
 function renderAccessMode() {
-  document.body.dataset.accessMode = accessMode;
-  if (els.accessModeBadge) els.accessModeBadge.textContent = isAdminMode() ? "Admin Mode" : "Public View";
+  const admin = isAdminMode();
+  const indexAdmin = indexAdminAccessEnabled();
+  document.body.dataset.accessMode = admin ? "admin" : "public";
+  if (els.accessModeBadge) els.accessModeBadge.textContent = admin ? (indexAdmin ? "QA Admin" : "Admin Mode") : "Public View";
   if (els.adminUnlockBtn) els.adminUnlockBtn.hidden = isAdminMode();
   if (els.adminLockBtn) els.adminLockBtn.hidden = !isAdminMode();
   if (els.accountMenuBtn) {
-    els.accountMenuBtn.dataset.admin = isAdminMode() ? "true" : "false";
-    els.accountMenuBtn.setAttribute("aria-label", isAdminMode() ? "Exit admin mode" : "Admin sign in");
-    els.accountMenuBtn.title = isAdminMode() ? "Exit admin mode" : "Admin sign in";
+    els.accountMenuBtn.dataset.admin = admin ? "true" : "false";
+    els.accountMenuBtn.setAttribute("aria-label", admin ? (indexAdmin ? "QA admin access active" : "Exit admin mode") : "Admin sign in");
+    els.accountMenuBtn.title = admin ? (indexAdmin ? "QA admin access active" : "Exit admin mode") : "Admin sign in";
   }
   if (els.boxScoreBackBtn) els.boxScoreBackBtn.textContent = `Back to ${boxScoreReturnLabel()}`;
   if (els.boxScoreMobileReturnBtn) els.boxScoreMobileReturnBtn.textContent = boxScoreReturnLabel();
@@ -4261,6 +4362,10 @@ function bindEvents() {
   els.accountMenuBtn?.addEventListener("click", () => {
     if (!isAdminMode()) {
       openAdminAuthModal();
+      return;
+    }
+    if (indexAdminAccessEnabled()) {
+      window.alert("QA/local index admin access is always on for this build.");
       return;
     }
     if (window.confirm("Exit Admin Mode? You can sign back in any time from the account icon.")) {
@@ -5030,6 +5135,24 @@ window.addEventListener("resize", () => {
   els.mobileHittingStatsList?.addEventListener("click", handleHittingStatsEditClick);
   els.pitchingStatsBody?.addEventListener("click", handlePitchingStatsEditClick);
   els.mobilePitchingStatsList?.addEventListener("click", handlePitchingStatsEditClick);
+  els.bulkStatEditBtn?.addEventListener("click", openBulkStatEditModal);
+  els.bulkStatEditCloseBtn?.addEventListener("click", closeBulkStatEditModal);
+  els.bulkStatEditCancelBtn?.addEventListener("click", closeBulkStatEditModal);
+  els.bulkStatEditModal?.addEventListener("click", (event) => {
+    if (event.target === els.bulkStatEditModal) closeBulkStatEditModal();
+  });
+  els.bulkStatEditGameSelect?.addEventListener("change", (event) => {
+    bulkStatEditGameId = event.target.value || "";
+    renderBulkStatEditModal();
+  });
+  els.bulkStatEditModeTabs?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-bulk-stat-mode]");
+    if (!button) return;
+    bulkStatEditMode = button.dataset.bulkStatMode === "pitching" ? "pitching" : "hitting";
+    renderBulkStatEditModal();
+  });
+  els.bulkStatEditForm?.addEventListener("submit", saveBulkStatEditGameStats);
+  els.bulkStatEditBody?.addEventListener("click", handleBulkStatEditBodyClick);
   els.closeStatEditGameSelectBtn?.addEventListener("click", closeStatEditGameSelectModal);
   els.statEditGameSelectModal?.addEventListener("click", (event) => {
     if (event.target === els.statEditGameSelectModal) closeStatEditGameSelectModal();
@@ -5172,6 +5295,10 @@ window.addEventListener("resize", () => {
     }
     if (els.boxScoreEditModal && !els.boxScoreEditModal.hidden) {
       closeBoxScoreEditModal();
+      return;
+    }
+    if (els.bulkStatEditModal && !els.bulkStatEditModal.hidden) {
+      closeBulkStatEditModal();
       return;
     }
     if (els.statEditGameModal && !els.statEditGameModal.hidden) {
@@ -16746,6 +16873,7 @@ function pitchingStatsEditButtonMarkup(player) {
 function renderSeasonStats() {
   populateStatsSeasonSelect();
   applyStatsPageMode();
+  if (els.bulkStatEditBtn) els.bulkStatEditBtn.hidden = !isAdminMode();
   if (!isPlayerFocusedStatsMode()) {
     renderStatsSnapshot();
   }
@@ -16980,6 +17108,303 @@ function renderStatsSprayChart() {
     : `<span class="spray-empty">No tracked batted balls</span>`;
 }
 
+function bulkStatEditGames() {
+  return statsGamesForSeason(statsSeasonFilter).sort(sortGamesNewestFirst);
+}
+
+function bulkStatEditGame() {
+  return state.games.find((game) => game.id === bulkStatEditGameId) || null;
+}
+
+function comparePlayersForBulkStats(a, b) {
+  const aNumber = Number.parseInt(a?.number, 10);
+  const bNumber = Number.parseInt(b?.number, 10);
+  if (Number.isFinite(aNumber) && Number.isFinite(bNumber) && aNumber !== bNumber) return aNumber - bNumber;
+  if (Number.isFinite(aNumber) && !Number.isFinite(bNumber)) return -1;
+  if (!Number.isFinite(aNumber) && Number.isFinite(bNumber)) return 1;
+  return String(a?.name || "").localeCompare(String(b?.name || ""));
+}
+
+function bulkStatRosterPlayers(game) {
+  const editedIds = new Set([
+    ...Object.keys(hittingStatEditMap(game)),
+    ...Object.keys(pitchingStatEditMap(game))
+  ]);
+  return state.roster
+    .filter((player) => player?.active !== false || editedIds.has(player.id))
+    .sort(comparePlayersForBulkStats);
+}
+
+function openBulkStatEditModal() {
+  if (!requireAdminAccess("Admin sign-in required to enter game stats.")) return;
+  if (!els.bulkStatEditModal) return;
+  const games = bulkStatEditGames();
+  if (!games.length) {
+    window.alert(`No completed or scored games are available in ${statsSeasonLabel()}.`);
+    return;
+  }
+  if (!games.some((game) => game.id === bulkStatEditGameId)) bulkStatEditGameId = games[0].id;
+  renderBulkStatEditModal();
+  els.bulkStatEditModal.hidden = false;
+  window.setTimeout(() => els.bulkStatEditGameSelect?.focus(), 0);
+}
+
+function closeBulkStatEditModal() {
+  if (els.bulkStatEditModal) els.bulkStatEditModal.hidden = true;
+}
+
+function renderBulkStatEditModal() {
+  if (!els.bulkStatEditBody) return;
+  const games = bulkStatEditGames();
+  if (!games.some((game) => game.id === bulkStatEditGameId)) bulkStatEditGameId = games[0]?.id || "";
+  const game = bulkStatEditGame();
+  if (els.bulkStatEditGameSelect) {
+    els.bulkStatEditGameSelect.innerHTML = games.length
+      ? games.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(statsGameOptionLabel(item))}</option>`).join("")
+      : `<option value="">No games available</option>`;
+    els.bulkStatEditGameSelect.value = bulkStatEditGameId;
+  }
+  els.bulkStatEditModeTabs?.querySelectorAll("[data-bulk-stat-mode]").forEach((button) => {
+    const active = button.dataset.bulkStatMode === bulkStatEditMode;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  if (!game) {
+    if (els.bulkStatEditMeta) els.bulkStatEditMeta.textContent = `No completed or scored games are available in ${statsSeasonLabel()}.`;
+    els.bulkStatEditBody.innerHTML = `<p class="stat-edit-empty">No games are available for bulk stat entry.</p>`;
+    return;
+  }
+  if (els.bulkStatEditMeta) {
+    const modeLabel = bulkStatEditMode === "pitching" ? "pitching" : "hitting";
+    els.bulkStatEditMeta.textContent = `${formatGameDateWithYear(game.date)} | ${gameMatchupLabel(game)} | ${gameScoreLabel(game)} | ${modeLabel}`;
+  }
+  els.bulkStatEditBody.innerHTML = bulkStatEditMode === "pitching"
+    ? renderBulkPitchingStatTable(game)
+    : renderBulkHittingStatTable(game);
+}
+
+function bulkStatInputValue(value) {
+  const number = Number(value || 0);
+  return number > 0 ? String(number) : "";
+}
+
+function bulkHittingStatDraft(playerId, game) {
+  const existing = hittingStatEditMap(game)[playerId];
+  return normalizeHittingStatEdit(existing || { playerId, gameId: game?.id || "", stats: {}, sprays: [] }, playerId, game);
+}
+
+function bulkPitchingStatDraft(playerId, game) {
+  const existing = pitchingStatEditMap(game)[playerId];
+  return normalizePitchingStatEdit(existing || { playerId, gameId: game?.id || "", stats: {} }, playerId, game);
+}
+
+function renderBulkStatPlayerCell(player, options = {}) {
+  const sprayButton = options.sprayAction
+    ? `<button type="button" class="secondary-action compact-action bulk-stat-spray-button" data-bulk-stat-spray-player="${escapeHtml(player.id)}" aria-label="Open spray chart for #${escapeHtml(player.number || "--")} ${escapeHtml(player.name || "Player")}">Spray</button>`
+    : "";
+  return `<th scope="row" class="bulk-stat-player-cell">
+    <strong>#${escapeHtml(player.number || "--")} ${escapeHtml(player.name || "Player")}</strong>
+    <span>${escapeHtml(formatPositions(player.positions))}</span>
+    ${sprayButton}
+  </th>`;
+}
+
+function renderBulkHittingStatTable(game) {
+  const players = bulkStatRosterPlayers(game);
+  if (!players.length) return `<p class="stat-edit-empty">No roster players are available for this game.</p>`;
+  return `<div class="bulk-stat-table-wrap">
+    <table class="bulk-stat-table">
+      <thead>
+        <tr>
+          <th scope="col">Player</th>
+          ${bulkHittingStatFields.map((field) => `<th scope="col">${escapeHtml(field.label)}</th>`).join("")}
+        </tr>
+      </thead>
+      <tbody>
+        ${players.map((player) => {
+          const draft = bulkHittingStatDraft(player.id, game);
+          return `<tr>
+            ${renderBulkStatPlayerCell(player, { sprayAction: true })}
+            ${bulkHittingStatFields.map((field) => `<td>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                inputmode="numeric"
+                aria-label="${escapeHtml(`${field.label} for #${player.number || "--"} ${player.name}`)}"
+                data-bulk-stat-player="${escapeHtml(player.id)}"
+                data-bulk-stat-key="${escapeHtml(field.key)}"
+                value="${escapeHtml(bulkStatInputValue(draft.stats[field.key]))}">
+            </td>`).join("")}
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function renderBulkPitchingInput(player, field, stats) {
+  const ariaLabel = `${field.label} for #${player.number || "--"} ${player.name}`;
+  if (field.type === "select") {
+    const value = normalizePitchingDecision(stats.decision);
+    return `<select
+      aria-label="${escapeHtml(ariaLabel)}"
+      data-bulk-stat-player="${escapeHtml(player.id)}"
+      data-bulk-stat-key="${escapeHtml(field.key)}">
+        <option value=""${!value ? " selected" : ""}>None</option>
+        <option value="win"${value === "win" ? " selected" : ""}>Win</option>
+        <option value="loss"${value === "loss" ? " selected" : ""}>Loss</option>
+        <option value="noDecision"${value === "noDecision" ? " selected" : ""}>No Decision</option>
+    </select>`;
+  }
+  const value = field.key === "ip" ? (Number(stats.outs || 0) > 0 ? formatInnings(stats.outs) : "") : bulkStatInputValue(stats[field.key]);
+  return `<input
+    type="${escapeHtml(field.type || "number")}"
+    ${field.type === "text" ? "" : 'min="0" step="1"'}
+    inputmode="${escapeHtml(field.inputmode || "numeric")}"
+    ${field.placeholder ? `placeholder="${escapeHtml(field.placeholder)}"` : ""}
+    aria-label="${escapeHtml(ariaLabel)}"
+    data-bulk-stat-player="${escapeHtml(player.id)}"
+    data-bulk-stat-key="${escapeHtml(field.key)}"
+    value="${escapeHtml(value)}">`;
+}
+
+function renderBulkPitchingStatTable(game) {
+  const players = bulkStatRosterPlayers(game);
+  if (!players.length) return `<p class="stat-edit-empty">No roster players are available for this game.</p>`;
+  return `<div class="bulk-stat-table-wrap">
+    <table class="bulk-stat-table">
+      <thead>
+        <tr>
+          <th scope="col">Player</th>
+          ${bulkPitchingStatFields.map((field) => `<th scope="col">${escapeHtml(field.label)}</th>`).join("")}
+        </tr>
+      </thead>
+      <tbody>
+        ${players.map((player) => {
+          const draft = bulkPitchingStatDraft(player.id, game);
+          return `<tr>
+            ${renderBulkStatPlayerCell(player)}
+            ${bulkPitchingStatFields.map((field) => `<td>${renderBulkPitchingInput(player, field, draft.stats)}</td>`).join("")}
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function collectBulkStatEditRows() {
+  const rows = new Map();
+  els.bulkStatEditBody?.querySelectorAll("[data-bulk-stat-player][data-bulk-stat-key]").forEach((input) => {
+    const playerId = input.dataset.bulkStatPlayer || "";
+    const key = input.dataset.bulkStatKey || "";
+    if (!playerId || !key) return;
+    if (!rows.has(playerId)) rows.set(playerId, {});
+    rows.get(playerId)[key] = input.value;
+  });
+  return rows;
+}
+
+function bulkRowHasInput(raw = {}) {
+  return Object.values(raw).some((value) => String(value ?? "").trim() !== "");
+}
+
+function persistBulkHittingDraftForSpray(game) {
+  if (!game) return;
+  applyBulkHittingStatRows(game, collectBulkStatEditRows());
+  saveStateWithOptions({ liveSyncReason: "bulk-game-stat-spray-draft" });
+}
+
+function openBulkStatSprayEditor(playerId) {
+  if (!requireAdminAccess("Admin sign-in required to edit spray charts.")) return;
+  const game = bulkStatEditGame();
+  const player = state.roster.find((item) => item.id === playerId);
+  if (!game || !player) return;
+  persistBulkHittingDraftForSpray(game);
+  reopenBulkStatEditAfterStatModal = true;
+  bulkStatEditMode = "hitting";
+  closeBulkStatEditModal();
+  openStatEditGameModal(player.id, game.id);
+}
+
+function handleBulkStatEditBodyClick(event) {
+  const sprayButton = event.target.closest("[data-bulk-stat-spray-player]");
+  if (!sprayButton) return;
+  event.preventDefault();
+  openBulkStatSprayEditor(sprayButton.dataset.bulkStatSprayPlayer || "");
+}
+
+function applyBulkHittingStatRows(game, rows) {
+  const edits = hittingStatEditMap(game);
+  const updatedAt = new Date().toISOString();
+  bulkStatRosterPlayers(game).forEach((player) => {
+    const raw = rows.get(player.id) || {};
+    const existing = edits[player.id] ? normalizeHittingStatEdit(edits[player.id], player.id, game) : null;
+    const stats = normalizeManualHittingStats(raw);
+    const hasStats = manualHittingStatLineHasValues(stats);
+    const sprays = existing?.sprays || [];
+    if (!bulkRowHasInput(raw) || !hasStats) {
+      if (existing && sprays.length) {
+        edits[player.id] = normalizeHittingStatEdit({ playerId: player.id, gameId: game.id, stats: {}, sprays, updatedAt }, player.id, game);
+      } else if (existing) {
+        delete edits[player.id];
+      }
+      return;
+    }
+    edits[player.id] = normalizeHittingStatEdit({
+      playerId: player.id,
+      gameId: game.id,
+      stats,
+      sprays,
+      updatedAt
+    }, player.id, game);
+  });
+}
+
+function applyBulkPitchingStatRows(game, rows) {
+  const edits = pitchingStatEditMap(game);
+  const updatedAt = new Date().toISOString();
+  bulkStatRosterPlayers(game).forEach((player) => {
+    const raw = rows.get(player.id) || {};
+    const existing = edits[player.id];
+    const stats = normalizeManualPitchingStats(raw);
+    if (!bulkRowHasInput(raw) || !manualPitchingStatLineHasValues(stats)) {
+      if (existing) delete edits[player.id];
+      return;
+    }
+    edits[player.id] = normalizePitchingStatEdit({
+      playerId: player.id,
+      gameId: game.id,
+      stats,
+      updatedAt
+    }, player.id, game);
+  });
+}
+
+function saveBulkStatEditGameStats(event) {
+  event.preventDefault();
+  if (!requireAdminAccess("Admin sign-in required to enter game stats.")) return;
+  const game = bulkStatEditGame();
+  if (!game) return;
+  const rows = collectBulkStatEditRows();
+  const reason = bulkStatEditMode === "pitching" ? "bulk-pitching-stat-edit" : "bulk-game-stat-edit";
+  if (bulkStatEditMode === "pitching") {
+    applyBulkPitchingStatRows(game, rows);
+  } else {
+    applyBulkHittingStatRows(game, rows);
+  }
+  markSharedGamesDirty(game.id);
+  if (gameIsFinal(game)) {
+    markGameSyncPending(game);
+    queueCompletedGameSync(game.id, { reason });
+  }
+  saveStateWithOptions({ liveSyncReason: reason });
+  closeBulkStatEditModal();
+  render();
+  requestSharedSnapshotSync(reason);
+  requestCompletedGameSyncRetry(reason);
+}
+
 function handleHittingStatsEditClick(event) {
   const button = event.target.closest("[data-edit-hitting-player]");
   if (!button) return;
@@ -17160,6 +17585,14 @@ function openStatEditGameModal(playerId, gameId) {
 
 function closeStatEditGameModal() {
   if (els.statEditGameModal) els.statEditGameModal.hidden = true;
+  if (reopenBulkStatEditAfterStatModal) {
+    reopenBulkStatEditAfterStatModal = false;
+    renderBulkStatEditModal();
+    if (els.bulkStatEditModal) {
+      els.bulkStatEditModal.hidden = false;
+      window.setTimeout(() => els.bulkStatEditBody?.querySelector("[data-bulk-stat-spray-player]")?.focus(), 0);
+    }
+  }
 }
 
 function setStatEditInputs(stats = {}) {
@@ -18225,6 +18658,35 @@ function manualSprayEventsForGame(game, playerId, rawEdit = {}) {
     },
     game
   }));
+}
+
+function manualHittingStatLineHasValues(stats = {}) {
+  return Boolean(
+    stats.ab
+      || stats.h
+      || stats.rispAB
+      || stats.rispH
+      || stats.singles
+      || stats.doubles
+      || stats.triples
+      || stats.hr
+      || stats.bb
+      || stats.hbp
+      || stats.k
+      || stats.roe
+      || stats.errors
+      || stats.fc
+      || stats.sac
+      || stats.dp
+      || stats.go
+      || stats.lo
+      || stats.fo
+      || stats.sb
+      || stats.cs
+      || stats.po
+      || stats.rbi
+      || stats.runs
+  );
 }
 
 function manualPitchingStatLineHasValues(stats = {}) {

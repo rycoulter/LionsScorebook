@@ -6845,6 +6845,10 @@ button:focus-visible {
     justify-content: space-between;
   }
 
+  #statsView .stats-page-actions .secondary-action {
+    width: 100%;
+  }
+
   #statsView .stats-snapshot-card .mini-head {
     padding: 14px 14px 0;
   }
@@ -7602,6 +7606,31 @@ button:focus-visible {
     width: 100%;
   }
 
+  .bulk-stat-edit-modal {
+    width: min(100%, calc(100vw - 18px));
+    max-height: min(92vh, 940px);
+  }
+
+  .bulk-stat-edit-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .bulk-stat-mode-tabs {
+    justify-content: stretch;
+  }
+
+  .bulk-stat-mode-tabs .secondary-action {
+    flex: 1 1 0;
+  }
+
+  .bulk-stat-table-wrap {
+    max-height: 58vh;
+  }
+
+  .bulk-stat-table {
+    min-width: 1720px;
+  }
+
   .stat-edit-spray-mode {
     width: 100%;
     max-width: none;
@@ -8136,6 +8165,178 @@ button:focus-visible {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.bulk-stat-edit-modal {
+  width: min(100%, 1180px);
+  max-height: min(90vh, 900px);
+  display: grid;
+  gap: 14px;
+  overflow: auto;
+}
+
+.bulk-stat-edit-form {
+  display: grid;
+  gap: 14px;
+}
+
+.bulk-stat-edit-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.bulk-stat-game-picker {
+  display: grid;
+  gap: 6px;
+  color: rgba(245, 189, 33, 0.9);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.bulk-stat-game-picker select,
+.bulk-stat-table input,
+.bulk-stat-table select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+  font-weight: 900;
+}
+
+.bulk-stat-game-picker select {
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.bulk-stat-game-picker select option,
+.bulk-stat-table select option {
+  background: #151a2d;
+  color: var(--white);
+}
+
+.bulk-stat-mode-tabs {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.bulk-stat-mode-tabs .secondary-action.is-active {
+  border-color: rgba(245, 189, 33, 0.72);
+  background: rgba(245, 189, 33, 0.16);
+  color: var(--lion-gold);
+}
+
+.bulk-stat-edit-body {
+  min-height: 160px;
+}
+
+.bulk-stat-table-wrap {
+  max-height: min(58vh, 560px);
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.bulk-stat-table {
+  width: 100%;
+  min-width: 1720px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.bulk-stat-table th,
+.bulk-stat-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.bulk-stat-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(12, 18, 32, 0.98);
+  color: rgba(245, 189, 33, 0.92);
+  font-size: 0.7rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.bulk-stat-table th:first-child,
+.bulk-stat-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: rgba(12, 18, 32, 0.98);
+}
+
+.bulk-stat-table thead th:first-child {
+  z-index: 3;
+}
+
+.bulk-stat-player-cell {
+  min-width: 190px;
+  text-align: left !important;
+}
+
+.bulk-stat-player-cell strong,
+.bulk-stat-player-cell span {
+  display: block;
+}
+
+.bulk-stat-player-cell strong {
+  color: var(--white);
+  font-size: 0.88rem;
+}
+
+.bulk-stat-player-cell span {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.bulk-stat-spray-button {
+  width: fit-content;
+  min-height: 28px;
+  margin-top: 7px;
+  padding: 4px 9px;
+  border-color: rgba(245, 189, 33, 0.34);
+  color: var(--lion-gold);
+  font-size: 0.68rem;
+}
+
+.bulk-stat-spray-button:hover,
+.bulk-stat-spray-button:focus-visible {
+  border-color: rgba(245, 189, 33, 0.72);
+  background: rgba(245, 189, 33, 0.15);
+}
+
+.bulk-stat-table input,
+.bulk-stat-table select {
+  min-width: 54px;
+  min-height: 34px;
+  padding: 6px 7px;
+  text-align: center;
+}
+
+.bulk-stat-table select {
+  min-width: 112px;
+  text-align: left;
+}
+
+.bulk-stat-table input:focus,
+.bulk-stat-table select:focus,
+.bulk-stat-game-picker select:focus {
+  border-color: rgba(245, 189, 33, 0.72);
+  outline: none;
 }
 
 .stats-table th button {
