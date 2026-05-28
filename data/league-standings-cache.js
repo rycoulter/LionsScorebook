@@ -3,7 +3,7 @@ window.ScorebookLeagueStandingsCache = {
   "division": "AA",
   "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
   "sourceLabel": "Pittsburgh NABA AA standings",
-  "syncedAt": "2026-05-27T04:46:23.826Z",
+  "syncedAt": "2026-05-28T17:01:34.668Z",
   "rows": [
     {
       "id": "2026-aa-pittsburgh-d2",
@@ -21,11 +21,29 @@ window.ScorebookLeagueStandingsCache = {
       "streak": "Won 1",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
       "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-05-27T04:46:23.826Z"
+      "syncedAt": "2026-05-28T17:01:34.668Z"
+    },
+    {
+      "id": "2026-aa-biscuitvilletownsquare-bandidos",
+      "rank": 2,
+      "teamName": "BiscuitvilleTownSquare Bandidos",
+      "teamCode": "BB",
+      "record": "5-2",
+      "points": 17,
+      "pointsLabel": "17",
+      "winPct": ".714",
+      "gb": "0.5",
+      "rf": 60,
+      "ra": 33,
+      "last10": "5-2",
+      "streak": "Won 2",
+      "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
+      "sourceLabel": "Pittsburgh NABA AA standings",
+      "syncedAt": "2026-05-28T17:01:34.668Z"
     },
     {
       "id": "2026-aa-oakmont-lions",
-      "rank": 2,
+      "rank": 3,
       "teamName": "Oakmont Lions",
       "teamCode": "OL",
       "record": "4-3",
@@ -39,43 +57,25 @@ window.ScorebookLeagueStandingsCache = {
       "streak": "Lost 1",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
       "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-05-27T04:46:23.826Z"
-    },
-    {
-      "id": "2026-aa-biscuitvilletownsquare-bandidos",
-      "rank": 3,
-      "teamName": "BiscuitvilleTownSquare Bandidos",
-      "teamCode": "BB",
-      "record": "4-2",
-      "points": 14,
-      "pointsLabel": "14",
-      "winPct": ".667",
-      "gb": "1",
-      "rf": 54,
-      "ra": 28,
-      "last10": "4-2",
-      "streak": "Won 1",
-      "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
-      "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-05-27T04:46:23.826Z"
+      "syncedAt": "2026-05-28T17:01:34.668Z"
     },
     {
       "id": "2026-aa-south-oakland-ducks",
       "rank": 4,
       "teamName": "South Oakland Ducks",
       "teamCode": "SOD",
-      "record": "3-5",
-      "points": 14,
-      "pointsLabel": "14",
-      "winPct": ".375",
-      "gb": "3",
-      "rf": 38,
-      "ra": 55,
-      "last10": "3-5",
-      "streak": "Won 1",
+      "record": "3-6",
+      "points": 15,
+      "pointsLabel": "15",
+      "winPct": ".333",
+      "gb": "3.5",
+      "rf": 43,
+      "ra": 61,
+      "last10": "3-6",
+      "streak": "Lost 1",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
       "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-05-27T04:46:23.826Z"
+      "syncedAt": "2026-05-28T17:01:34.668Z"
     },
     {
       "id": "2026-aa-south-hills-devils",
@@ -93,7 +93,7 @@ window.ScorebookLeagueStandingsCache = {
       "streak": "Lost 1",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
       "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-05-27T04:46:23.826Z"
+      "syncedAt": "2026-05-28T17:01:34.668Z"
     },
     {
       "id": "2026-aa-south-side-eagles",
@@ -111,7 +111,7 @@ window.ScorebookLeagueStandingsCache = {
       "streak": "Won 2",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
       "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-05-27T04:46:23.826Z"
+      "syncedAt": "2026-05-28T17:01:34.668Z"
     },
     {
       "id": "2026-aa-bauerstown-turtles",
@@ -129,7 +129,7 @@ window.ScorebookLeagueStandingsCache = {
       "streak": "Lost 5",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
       "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-05-27T04:46:23.826Z"
+      "syncedAt": "2026-05-28T17:01:34.668Z"
     }
   ]
 };
