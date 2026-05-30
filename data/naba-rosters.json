@@ -1,7 +1,7 @@
 {
   "season": 2026,
   "sourceLabel": "Pittsburgh NABA rosters",
-  "syncedAt": "2026-05-25T12:51:13.532Z",
+  "syncedAt": "2026-05-30T11:02:08.185Z",
   "teams": [
     {
       "teamName": "Oakmont Lions",
@@ -163,7 +163,7 @@
           "positions": "SS, CF, P, 2B"
         }
       ],
-      "syncedAt": "2026-05-25T12:51:13.532Z"
+      "syncedAt": "2026-05-30T11:02:08.185Z"
     },
     {
       "teamName": "Pittsburgh D2",
@@ -317,7 +317,7 @@
           "positions": "C, P, UTIL."
         }
       ],
-      "syncedAt": "2026-05-25T12:51:13.532Z"
+      "syncedAt": "2026-05-30T11:02:08.185Z"
     },
     {
       "teamName": "BiscuitvilleTownSquare Bandidos",
@@ -477,9 +477,17 @@
           "name": "Jake Stackiewicz",
           "number": "24",
           "positions": "LF"
+        },
+        {
+          "id": "biscuitvilletownsquare-bandidos-matt-westwood",
+          "firstName": "Matt",
+          "lastName": "Westwood",
+          "name": "Matt Westwood",
+          "number": "",
+          "positions": "SS, CF, UTIL."
         }
       ],
-      "syncedAt": "2026-05-25T12:51:13.532Z"
+      "syncedAt": "2026-05-30T11:02:08.185Z"
     },
     {
       "teamName": "South Hills Devils",
@@ -526,7 +534,7 @@
           "lastName": "Burnett",
           "name": "Blake Burnett",
           "number": "24",
-          "positions": "2B, CF"
+          "positions": "IF, CF"
         },
         {
           "id": "south-hills-devils-justin-donnick",
@@ -534,7 +542,7 @@
           "lastName": "Donnick",
           "name": "Justin Donnick",
           "number": "19",
-          "positions": "1B, 3B"
+          "positions": "IF, 3B"
         },
         {
           "id": "south-hills-devils-tre-gizzo",
@@ -542,7 +550,7 @@
           "lastName": "Gizzo",
           "name": "Tre Gizzo",
           "number": "2",
-          "positions": "IF, RF"
+          "positions": "C, RF"
         },
         {
           "id": "south-hills-devils-christian-glass",
@@ -550,7 +558,7 @@
           "lastName": "Glass",
           "name": "Christian Glass",
           "number": "6",
-          "positions": "RF, LF"
+          "positions": "OF, LF"
         },
         {
           "id": "south-hills-devils-nikola-gogic",
@@ -558,7 +566,7 @@
           "lastName": "Gogic",
           "name": "Nikola Gogic",
           "number": "27",
-          "positions": "CF, 1B"
+          "positions": "OF, 1B"
         },
         {
           "id": "south-hills-devils-dylan-hall",
@@ -566,15 +574,7 @@
           "lastName": "Hall",
           "name": "Dylan Hall",
           "number": "21",
-          "positions": "CF, LF"
-        },
-        {
-          "id": "south-hills-devils-connor-hamrick",
-          "firstName": "Connor",
-          "lastName": "Hamrick",
-          "name": "Connor Hamrick",
-          "number": "3",
-          "positions": "LF, CF"
+          "positions": "OF, LF"
         },
         {
           "id": "south-hills-devils-evan-heidlebaugh",
@@ -590,7 +590,7 @@
           "lastName": "Kramer",
           "name": "Ryan Kramer",
           "number": "32",
-          "positions": "RF, P"
+          "positions": "OF, P"
         },
         {
           "id": "south-hills-devils-steve-linkowski",
@@ -598,7 +598,7 @@
           "lastName": "Linkowski",
           "name": "Steve Linkowski",
           "number": "9",
-          "positions": "3B"
+          "positions": "IF"
         },
         {
           "id": "south-hills-devils-alex-miles",
@@ -614,7 +614,7 @@
           "lastName": "Orona",
           "name": "Octavio Orona",
           "number": "8",
-          "positions": "LF, CF"
+          "positions": "OF, CF"
         },
         {
           "id": "south-hills-devils-josh-pittman",
@@ -622,7 +622,7 @@
           "lastName": "Pittman",
           "name": "Josh Pittman",
           "number": "13",
-          "positions": "SS, 2B"
+          "positions": "IF, 2B"
         },
         {
           "id": "south-hills-devils-grant-price",
@@ -646,7 +646,7 @@
           "lastName": "Rush",
           "name": "Scott Rush",
           "number": "5",
-          "positions": "1B"
+          "positions": "DH"
         },
         {
           "id": "south-hills-devils-julian-wiggins",
@@ -662,7 +662,7 @@
           "lastName": "Williams",
           "name": "Jake Williams",
           "number": "14",
-          "positions": "RF"
+          "positions": "OF"
         },
         {
           "id": "south-hills-devils-terry-zalud",
@@ -673,7 +673,7 @@
           "positions": "1B, P"
         }
       ],
-      "syncedAt": "2026-05-25T12:51:13.532Z"
+      "syncedAt": "2026-05-30T11:02:08.185Z"
     },
     {
       "teamName": "South Oakland Ducks",
@@ -867,7 +867,7 @@
           "positions": "RF, LF, OF"
         }
       ],
-      "syncedAt": "2026-05-25T12:51:13.532Z"
+      "syncedAt": "2026-05-30T11:02:08.185Z"
     },
     {
       "teamName": "South Side Eagles",
@@ -1021,7 +1021,7 @@
           "positions": "P"
         }
       ],
-      "syncedAt": "2026-05-25T12:51:13.532Z"
+      "syncedAt": "2026-05-30T11:02:08.185Z"
     },
     {
       "teamName": "Bauerstown Turtles",
@@ -1167,7 +1167,7 @@
           "positions": "SS, P, LF"
         }
       ],
-      "syncedAt": "2026-05-25T12:51:13.532Z"
+      "syncedAt": "2026-05-30T11:02:08.185Z"
     },
     {
       "teamName": "Keystone Oaks",
@@ -1321,7 +1321,7 @@
           "positions": "3B, SS"
         }
       ],
-      "syncedAt": "2026-05-25T12:51:13.532Z"
+      "syncedAt": "2026-05-30T11:02:08.185Z"
     },
     {
       "teamName": "Butler Buccos",
@@ -1531,7 +1531,7 @@
           "positions": "LF, P"
         }
       ],
-      "syncedAt": "2026-05-25T12:51:13.532Z"
+      "syncedAt": "2026-05-30T11:02:08.185Z"
     },
     {
       "teamName": "Ross Raiders",
@@ -1540,7 +1540,7 @@
       "nabaKey": "PITTSBUR-ROSSRAIDERS",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=roster&s=baseball&u=PITTSBUR-ROSSRAIDERS",
       "players": [],
-      "syncedAt": "2026-05-25T12:51:13.532Z"
+      "syncedAt": "2026-05-30T11:02:08.185Z"
     }
   ]
 }
