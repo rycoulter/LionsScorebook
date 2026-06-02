@@ -623,7 +623,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.87";
+const APP_VERSION = "v.1.1.89";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -4404,6 +4404,12 @@ function bindEvents() {
     switchView("news");
   });
   els.homeRecentResultBody?.addEventListener("click", (event) => {
+    const scrollButton = event.target.closest("[data-home-results-scroll]");
+    if (scrollButton) {
+      const direction = scrollButton.dataset.homeResultsScroll === "next" ? 1 : -1;
+      scrollHomeResultsCarousel(direction);
+      return;
+    }
     if (event.target.closest("[data-game-action]")) {
       handleGameActionClick(event);
       return;
@@ -4412,6 +4418,11 @@ function bindEvents() {
     if (!button) return;
     openBoxScore(button.dataset.homeBoxScoreGame);
   });
+  els.homeRecentResultBody?.addEventListener("scroll", (event) => {
+    if (event.target?.classList?.contains("home-results-carousel-track")) {
+      updateHomeResultsCarouselButtons();
+    }
+  }, true);
   els.homeTeamNewsBody?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-home-news-id]");
     if (!button) return;
@@ -8532,10 +8543,11 @@ function renderHome() {
     }
     setHomeMatchupImage(null);
   }
-  const recentFinals = completedGames(5);
+  const recentFinals = completedGames();
   renderHomeLastGameResultHeading(recentFinals[0] || null);
   if (els.homeRecentResultBody) {
-    els.homeRecentResultBody.innerHTML = renderHomeLastGameResultCard(recentFinals[0] || null);
+    els.homeRecentResultBody.innerHTML = renderHomeGameResultsCarousel(recentFinals);
+    window.requestAnimationFrame(updateHomeResultsCarouselButtons);
   }
   if (els.homeTeamNewsBody) {
     els.homeTeamNewsBody.innerHTML = renderHomeTeamNewsCard(teamNewsArticles().slice(0, 4));
@@ -8959,12 +8971,84 @@ function renderHomeLastGameResultHeading(game) {
     els.homeRecentResultOutcome.className = "home-result-heading-status";
     return;
   }
-  const outcome = homeLastGameOutcome(game);
-  els.homeRecentResultOutcome.textContent = `(${outcome.label})`;
-  els.homeRecentResultOutcome.className = `home-result-heading-status home-result-heading-status-${outcome.key}`;
+  els.homeRecentResultOutcome.textContent = "";
+  els.homeRecentResultOutcome.className = "home-result-heading-status";
 }
 
-function renderHomeLastGameResultCard(game) {
+function renderHomeGameResultsCarousel(games = []) {
+  if (!games.length) return renderHomeLastGameResultCard(null);
+  const controls = games.length > 1
+    ? `<div class="home-results-carousel-controls" aria-label="Game result carousel controls">
+        <button class="home-results-carousel-button" type="button" data-home-results-scroll="prev" aria-label="Previous game result">
+          <span aria-hidden="true">&lt;</span>
+        </button>
+        <button class="home-results-carousel-button" type="button" data-home-results-scroll="next" aria-label="Next game result">
+          <span aria-hidden="true">&gt;</span>
+        </button>
+      </div>`
+    : "";
+  const singleClass = games.length === 1 ? " is-single" : "";
+  return `<div class="home-results-carousel${singleClass}">
+    ${controls}
+    <div class="home-results-carousel-track" tabindex="0" aria-label="Completed game results">
+      ${games.map((game, index) => renderHomeLastGameResultCard(game, { carousel: true, index })).join("")}
+    </div>
+  </div>`;
+}
+
+function homeResultsCarouselElements() {
+  const root = els.homeRecentResultBody?.querySelector(".home-results-carousel");
+  const track = root?.querySelector(".home-results-carousel-track");
+  return {
+    root,
+    track,
+    prev: root?.querySelector('[data-home-results-scroll="prev"]'),
+    next: root?.querySelector('[data-home-results-scroll="next"]')
+  };
+}
+
+function updateHomeResultsCarouselButtons() {
+  const { root, track, prev, next } = homeResultsCarouselElements();
+  if (!track || !prev || !next) return;
+  const cards = [...track.querySelectorAll(".home-results-carousel-card")];
+  const activeIndex = homeResultsCarouselActiveIndex(track, cards);
+  const atStart = activeIndex <= 0;
+  const atEnd = activeIndex >= cards.length - 1;
+  prev.disabled = atStart;
+  next.disabled = atEnd;
+  root?.classList.toggle("is-at-start", atStart);
+  root?.classList.toggle("is-at-end", atEnd);
+}
+
+function homeResultsCarouselActiveIndex(track, cards = []) {
+  if (!track || !cards.length) return 0;
+  const trackRect = track.getBoundingClientRect();
+  const viewportCenter = trackRect.left + (trackRect.width / 2);
+  return cards.reduce((closestIndex, card, index) => {
+    const cardRect = card.getBoundingClientRect();
+    const closestCard = cards[closestIndex];
+    const closestRect = closestCard.getBoundingClientRect();
+    const cardCenter = cardRect.left + (cardRect.width / 2);
+    const closestCenter = closestRect.left + (closestRect.width / 2);
+    return Math.abs(cardCenter - viewportCenter) < Math.abs(closestCenter - viewportCenter)
+      ? index
+      : closestIndex;
+  }, 0);
+}
+
+function scrollHomeResultsCarousel(direction = 1) {
+  const { track } = homeResultsCarouselElements();
+  if (!track) return;
+  const cards = [...track.querySelectorAll(".home-results-carousel-card")];
+  if (!cards.length) return;
+  const currentIndex = homeResultsCarouselActiveIndex(track, cards);
+  const targetIndex = Math.min(Math.max(currentIndex + direction, 0), cards.length - 1);
+  cards[targetIndex].scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  window.setTimeout(updateHomeResultsCarouselButtons, 160);
+  window.setTimeout(updateHomeResultsCarouselButtons, 420);
+}
+
+function renderHomeLastGameResultCard(game, options = {}) {
   if (!game) return `<div class="upcoming-empty">No completed games yet.</div>`;
   const opponentName = homeOpponentName(game);
   const lionsScore = Number(game?.score?.lions || 0);
@@ -8972,7 +9056,9 @@ function renderHomeLastGameResultCard(game) {
   const outcome = homeLastGameOutcome(game);
   const dateLabel = formatGameDateDisplay(game.date);
   const locationLabel = gameLocationLabel(game) || "Field location TBD";
-  return `<article class="home-recent-result-card home-recent-result-card-${outcome.key}">
+  const carouselClass = options.carousel ? " home-results-carousel-card" : "";
+  const cardLabel = `${options.index === 0 ? "Latest final" : "Completed game"}: Lions ${lionsScore}, ${opponentName} ${opponentScore}`;
+  return `<article class="home-recent-result-card home-recent-result-card-${outcome.key}${carouselClass}" aria-label="${escapeHtml(cardLabel)}">
     <div class="home-recent-result-scoreline">
       <div class="home-recent-result-team home-recent-result-team-lions">
         <img class="home-recent-result-logo" src="${escapeHtml(window.MatchupImages?.getTeamLogo?.("Lions", "lions") || "assets/team-logos/lions.png")}" alt="" loading="lazy" decoding="async">
