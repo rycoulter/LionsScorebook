@@ -3,7 +3,7 @@
   "division": "AA",
   "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
   "sourceLabel": "Pittsburgh NABA AA standings",
-  "syncedAt": "2026-06-01T21:03:15.342Z",
+  "syncedAt": "2026-06-03T01:45:36.155Z",
   "rows": [
     {
       "id": "2026-aa-pittsburgh-d2",
@@ -21,7 +21,7 @@
       "streak": "Won 2",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
       "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-06-01T21:03:15.342Z"
+      "syncedAt": "2026-06-03T01:45:36.155Z"
     },
     {
       "id": "2026-aa-biscuitvilletownsquare-bandidos",
@@ -39,7 +39,7 @@
       "streak": "Won 4",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
       "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-06-01T21:03:15.342Z"
+      "syncedAt": "2026-06-03T01:45:36.155Z"
     },
     {
       "id": "2026-aa-oakmont-lions",
@@ -57,7 +57,7 @@
       "streak": "Won 2",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
       "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-06-01T21:03:15.342Z"
+      "syncedAt": "2026-06-03T01:45:36.155Z"
     },
     {
       "id": "2026-aa-south-oakland-ducks",
@@ -75,11 +75,29 @@
       "streak": "Lost 1",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
       "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-06-01T21:03:15.342Z"
+      "syncedAt": "2026-06-03T01:45:36.155Z"
+    },
+    {
+      "id": "2026-aa-south-hills-devils",
+      "rank": 5,
+      "teamName": "South Hills Devils",
+      "teamCode": "SHD",
+      "record": "4-6",
+      "points": 18,
+      "pointsLabel": "18",
+      "winPct": ".400",
+      "gb": "3.5",
+      "rf": 37,
+      "ra": 56,
+      "last10": "4-6",
+      "streak": "Won 1",
+      "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
+      "sourceLabel": "Pittsburgh NABA AA standings",
+      "syncedAt": "2026-06-03T01:45:36.155Z"
     },
     {
       "id": "2026-aa-south-side-eagles",
-      "rank": 5,
+      "rank": 6,
       "teamName": "South Side Eagles",
       "teamCode": "SSE",
       "record": "4-3",
@@ -93,43 +111,25 @@
       "streak": "Won 1",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
       "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-06-01T21:03:15.342Z"
-    },
-    {
-      "id": "2026-aa-south-hills-devils",
-      "rank": 6,
-      "teamName": "South Hills Devils",
-      "teamCode": "SHD",
-      "record": "3-6",
-      "points": 15,
-      "pointsLabel": "15",
-      "winPct": ".333",
-      "gb": "4",
-      "rf": 24,
-      "ra": 53,
-      "last10": "3-6",
-      "streak": "Lost 3",
-      "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
-      "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-06-01T21:03:15.342Z"
+      "syncedAt": "2026-06-03T01:45:36.155Z"
     },
     {
       "id": "2026-aa-bauerstown-turtles",
       "rank": 7,
       "teamName": "Bauerstown Turtles",
       "teamCode": "BT",
-      "record": "0-8",
-      "points": 8,
-      "pointsLabel": "8",
+      "record": "0-9",
+      "points": 9,
+      "pointsLabel": "9",
       "winPct": ".000",
-      "gb": "6.5",
-      "rf": 28,
-      "ra": 78,
-      "last10": "0-8",
-      "streak": "Lost 8",
+      "gb": "7",
+      "rf": 31,
+      "ra": 91,
+      "last10": "0-9",
+      "streak": "Lost 9",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=standings&s=baseball&u=PITTSBURGHNABA",
       "sourceLabel": "Pittsburgh NABA AA standings",
-      "syncedAt": "2026-06-01T21:03:15.342Z"
+      "syncedAt": "2026-06-03T01:45:36.155Z"
     }
   ]
 }
