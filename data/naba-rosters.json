@@ -1,7 +1,7 @@
 {
   "season": 2026,
   "sourceLabel": "Pittsburgh NABA rosters",
-  "syncedAt": "2026-06-02T12:58:46.734Z",
+  "syncedAt": "2026-06-03T14:14:23.883Z",
   "teams": [
     {
       "teamName": "Oakmont Lions",
@@ -87,8 +87,8 @@
           "firstName": "Troy",
           "lastName": "Miller",
           "name": "Troy Miller",
-          "number": "",
-          "positions": "LF, CF, UTIL."
+          "number": "40",
+          "positions": "LF, CF, DH"
         },
         {
           "id": "oakmont-lions-zach-morse",
@@ -139,14 +139,6 @@
           "positions": "EH, DH, UT"
         },
         {
-          "id": "oakmont-lions-goat-rodella",
-          "firstName": "Goat",
-          "lastName": "Rodella",
-          "name": "Goat Rodella",
-          "number": "33",
-          "positions": "UT, IF, OF"
-        },
-        {
           "id": "oakmont-lions-dylan-showalter-westwood",
           "firstName": "Dylan",
           "lastName": "Showalter-Westwood",
@@ -179,7 +171,7 @@
           "positions": "SS, CF, P, 2B"
         }
       ],
-      "syncedAt": "2026-06-02T12:58:46.734Z"
+      "syncedAt": "2026-06-03T14:14:23.883Z"
     },
     {
       "teamName": "Pittsburgh D2",
@@ -333,7 +325,7 @@
           "positions": "C, P, UTIL."
         }
       ],
-      "syncedAt": "2026-06-02T12:58:46.734Z"
+      "syncedAt": "2026-06-03T14:14:23.883Z"
     },
     {
       "teamName": "BiscuitvilleTownSquare Bandidos",
@@ -511,7 +503,7 @@
           "positions": "SS, CF, UTIL."
         }
       ],
-      "syncedAt": "2026-06-02T12:58:46.734Z"
+      "syncedAt": "2026-06-03T14:14:23.883Z"
     },
     {
       "teamName": "South Hills Devils",
@@ -559,14 +551,6 @@
           "name": "Blake Burnett",
           "number": "24",
           "positions": "IF, CF"
-        },
-        {
-          "id": "south-hills-devils-christian-cropper",
-          "firstName": "Christian",
-          "lastName": "Cropper",
-          "name": "Christian Cropper",
-          "number": "",
-          "positions": "P, 2B"
         },
         {
           "id": "south-hills-devils-justin-donnick",
@@ -705,7 +689,7 @@
           "positions": "1B, P"
         }
       ],
-      "syncedAt": "2026-06-02T12:58:46.734Z"
+      "syncedAt": "2026-06-03T14:14:23.883Z"
     },
     {
       "teamName": "South Oakland Ducks",
@@ -899,7 +883,7 @@
           "positions": "RF, LF, OF"
         }
       ],
-      "syncedAt": "2026-06-02T12:58:46.734Z"
+      "syncedAt": "2026-06-03T14:14:23.883Z"
     },
     {
       "teamName": "South Side Eagles",
@@ -1053,7 +1037,7 @@
           "positions": "P"
         }
       ],
-      "syncedAt": "2026-06-02T12:58:46.734Z"
+      "syncedAt": "2026-06-03T14:14:23.883Z"
     },
     {
       "teamName": "Bauerstown Turtles",
@@ -1207,7 +1191,7 @@
           "positions": "SS, P, LF"
         }
       ],
-      "syncedAt": "2026-06-02T12:58:46.734Z"
+      "syncedAt": "2026-06-03T14:14:23.883Z"
     },
     {
       "teamName": "Keystone Oaks",
@@ -1385,7 +1369,7 @@
           "positions": "3B, SS"
         }
       ],
-      "syncedAt": "2026-06-02T12:58:46.734Z"
+      "syncedAt": "2026-06-03T14:14:23.883Z"
     },
     {
       "teamName": "Butler Buccos",
@@ -1595,7 +1579,7 @@
           "positions": "LF, P"
         }
       ],
-      "syncedAt": "2026-06-02T12:58:46.734Z"
+      "syncedAt": "2026-06-03T14:14:23.883Z"
     },
     {
       "teamName": "Ross Raiders",
@@ -1604,7 +1588,7 @@
       "nabaKey": "PITTSBUR-ROSSRAIDERS",
       "sourceUrl": "https://www.pittsburghnaba.org/teams/default.asp?p=roster&s=baseball&u=PITTSBUR-ROSSRAIDERS",
       "players": [],
-      "syncedAt": "2026-06-02T12:58:46.734Z"
+      "syncedAt": "2026-06-03T14:14:23.883Z"
     }
   ]
 }
