@@ -623,7 +623,7 @@ const defaultRoster = parseRosterCsv(`
 33,Rodella,Goat,UTL
 `);
 
-const APP_VERSION = "v.1.1.92";
+const APP_VERSION = "v.1.1.93";
 const HOME_NO_GAME_HERO_IMAGE = "assets/backgrounds/lions-no-game-hero.png";
 const NIGHT_GAME_START_MINUTES = 20 * 60;
 const ERA_GAME_INNINGS = 7;
@@ -14041,8 +14041,8 @@ function buildScheduleCalendarCells(monthKey, gamesByDate) {
     const cellDate = new Date(gridStart.getTime());
     cellDate.setUTCDate(gridStart.getUTCDate() + index);
     const dateValue = `${cellDate.getUTCFullYear()}-${String(cellDate.getUTCMonth() + 1).padStart(2, "0")}-${String(cellDate.getUTCDate()).padStart(2, "0")}`;
-    const games = gamesByDate.get(dateValue) || [];
     const outsideMonth = !dateValue.startsWith(monthString);
+    const games = outsideMonth ? [] : (gamesByDate.get(dateValue) || []);
     const isToday = dateValue === today;
     const mobileDateLabel = new Intl.DateTimeFormat("en-US", {
       weekday: "short",
@@ -14050,9 +14050,9 @@ function buildScheduleCalendarCells(monthKey, gamesByDate) {
       day: "numeric",
       timeZone: "UTC"
     }).format(cellDate);
-    return `<article class="schedule-calendar-cell${outsideMonth ? " is-outside-month" : ""}${isToday ? " is-today" : ""}${games.length ? "" : " is-empty"}">
-      <div class="schedule-calendar-date">${escapeHtml(String(cellDate.getUTCDate()))}</div>
-      <div class="schedule-calendar-date-label">${escapeHtml(mobileDateLabel)}</div>
+    return `<article class="schedule-calendar-cell${outsideMonth ? " is-outside-month" : ""}${isToday && !outsideMonth ? " is-today" : ""}${games.length ? "" : " is-empty"}">
+      <div class="schedule-calendar-date">${outsideMonth ? "" : escapeHtml(String(cellDate.getUTCDate()))}</div>
+      <div class="schedule-calendar-date-label">${outsideMonth ? "" : escapeHtml(mobileDateLabel)}</div>
       <div class="schedule-calendar-events">
         ${games.map((game) => renderScheduleCalendarCellEvent(game)).join("")}
       </div>
